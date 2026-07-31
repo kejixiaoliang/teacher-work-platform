@@ -2,11 +2,11 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">🏅 班委学委</h2>
+        <h2 class="page-head-title">班委学委</h2>
         <p class="page-head-desc">选任固定班委（班长、学委、课代表…），同一职务一人担任</p>
       </div>
       <div class="page-head-actions">
-        <el-button :icon="MagicStick" @click="presetLeaders">✨ 一键预设班委</el-button>
+        <el-button :icon="MagicStick" @click="presetLeaders">一键预设班委</el-button>
         <el-button type="primary" :icon="Plus" @click="openLeader()">选任班委</el-button>
       </div>
     </div>

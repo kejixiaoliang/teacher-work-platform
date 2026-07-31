@@ -2,7 +2,7 @@
   <div class="page-card" v-loading="loading">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">📈 数据分析</h2>
+        <h2 class="page-head-title">数据分析</h2>
         <p class="page-head-desc">{{ currentClass?.name }} 班级数据统计与健康分析</p>
       </div>
     </div>
@@ -19,23 +19,23 @@
     <!-- 图表区 -->
     <div class="chart-grid">
       <div class="chart-card">
-        <div class="chart-title">📏 身高分布</div>
+        <div class="chart-title">身高分布</div>
         <EChart :option="heightOption" height="280px" />
       </div>
       <div class="chart-card">
-        <div class="chart-title">👁 视力健康</div>
+        <div class="chart-title">视力健康</div>
         <EChart :option="visionOption" height="280px" />
       </div>
       <div class="chart-card">
-        <div class="chart-title">📚 成绩等级分布</div>
+        <div class="chart-title">成绩等级分布</div>
         <EChart :option="gradeOption" height="280px" />
       </div>
       <div class="chart-card">
-        <div class="chart-title">👥 性别构成</div>
+        <div class="chart-title">性别构成</div>
         <EChart :option="genderOption" height="280px" />
       </div>
       <div class="chart-card">
-        <div class="chart-title">🏠 住宿情况</div>
+        <div class="chart-title">住宿情况</div>
         <EChart :option="boardingOption" height="280px" />
       </div>
     </div>
@@ -192,7 +192,7 @@ async function load() {
 .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 700; }
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
 .chart-card {
-  background: var(--paper-soft); border: 4px solid var(--ink); border-radius: 18px; padding: 14px;
+  background: var(--paper-soft); border: 3px solid var(--ink); border-radius: 18px; padding: 14px;
   box-shadow: var(--shadow-sm);
 }
 .chart-title { font-size: 14px; font-weight: 900; color: var(--ink); margin-bottom: 8px; }

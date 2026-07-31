@@ -18,10 +18,12 @@ router.get('/exams', (req, res) => {
   res.json({ ok: true, data: rows.map(r => ({ ...r, subjects: safeJson(r.subjects, []) })) });
 });
 
-// 新建考试
+// 新建考试（同班同名幂等：已存在则返回已有考试）
 router.post('/exams', (req, res) => {
   const { class_id, name, date, subjects, remark } = req.body || {};
   if (!class_id || !name || !String(name).trim()) return res.json({ ok: false, error: '考试名称不能为空' });
+  const existed = db.prepare('SELECT id FROM exams WHERE class_id = ? AND name = ?').get(Number(class_id), String(name).trim());
+  if (existed) return res.json({ ok: true, data: { id: existed.id, existed: true } });
   const info = db.prepare(`
     INSERT INTO exams (class_id, name, date, subjects, remark)
     VALUES (?, ?, ?, ?, ?)

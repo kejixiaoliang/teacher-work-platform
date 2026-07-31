@@ -2,7 +2,7 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">✅ 考勤管理</h2>
+        <h2 class="page-head-title">考勤管理</h2>
         <p class="page-head-desc">每日出勤登记与月度统计</p>
       </div>
     </div>

@@ -119,7 +119,7 @@ body {
 .toolbar .spacer { margin-left: auto; }
 .text-muted { color: var(--muted); font-size: 13px; }
 
-/* ---------- 页头：贴纸标签式标题 ---------- */
+/* ---------- 页头：芥末贴纸标题（平正不旋转，保证整齐） ---------- */
 .page-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
@@ -132,15 +132,14 @@ body {
   border-radius: 14px;
   padding: 7px 16px;
   box-shadow: var(--shadow-xs);
-  transform: rotate(-1.2deg);
 }
 .page-head-desc { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
-/* ---------- 按钮：贴纸立体感（白底墨边 / 彩底墨边 + 实色投影） ---------- */
+/* ---------- 按钮：贴纸立体感（2px 墨边 + 小实影） ---------- */
 .el-button {
   border-radius: 12px;
-  border-width: 3px;
+  border-width: 2px;
   font-weight: 800;
   letter-spacing: .3px;
 }
@@ -196,11 +195,11 @@ body {
 /* ---------- 主内容区 ---------- */
 .main-area-inner { max-width: 1240px; margin: 0 auto; }
 
-/* ---------- 表格：白纸 + 墨边 + 芥末表头 ---------- */
+/* ---------- 表格：白纸 + 细墨边 + 芥末表头 ---------- */
 .el-table {
   border-radius: 14px;
   overflow: hidden;
-  border: 3px solid var(--ink);
+  border: 2px solid var(--ink);
   background: #fff;
 }
 .el-table th.el-table__cell {
@@ -231,7 +230,7 @@ body {
 .el-dialog {
   border-radius: var(--radius-lg);
   border: var(--line);
-  box-shadow: var(--shadow), 0 0 0 10px rgba(255, 244, 220, .6);
+  box-shadow: var(--shadow-sm);
   background: var(--paper-soft);
 }
 .el-dialog__title { font-weight: 900; }
@@ -239,7 +238,7 @@ body {
 .el-message-box {
   border-radius: 20px;
   border: var(--line);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   background: var(--paper-soft);
 }
 .el-popper.is-light { border-radius: 12px; border: 2px solid var(--ink); }

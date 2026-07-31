@@ -3,10 +3,10 @@
     <!-- 左侧分类树 -->
     <div class="doc-sidebar">
       <div class="side-item" :class="{ active: !filter.category && !filter.tag && !trashed }"
-           @click="selectCategory('')">📁 全部文件</div>
+           @click="selectCategory('')">全部文件</div>
       <div v-for="c in categories" :key="c" class="side-item"
            :class="{ active: filter.category === c && !trashed }" @click="selectCategory(c)">
-        {{ cateIcon(c) }} {{ c }}
+        <el-icon style="vertical-align:-2px;margin-right:4px"><component :is="cateIcon(c)" /></el-icon>{{ c }}
       </div>
       <div class="side-title">标签</div>
       <div v-for="t in tags" :key="t" class="side-item"
@@ -17,12 +17,12 @@
     <div class="page-card doc-main">
       <div class="page-head">
         <div>
-          <h2 class="page-head-title">📁 文档管理</h2>
+          <h2 class="page-head-title">文档管理</h2>
           <p class="page-head-desc">上传、分类、预览班级文件（图片/PDF/Office/文本）</p>
         </div>
         <div class="page-head-actions">
           <el-button v-if="!trashed" type="primary" :icon="Upload" @click="uploadVisible = true">上传文件</el-button>
-          <el-button @click="toggleTrash">{{ trashed ? '返回文件列表' : '🗑 回收站' }}</el-button>
+          <el-button @click="toggleTrash">{{ trashed ? '返回文件列表' : '回收站' }}</el-button>
         </div>
       </div>
       <div class="toolbar">
@@ -44,7 +44,7 @@
       </div>
       <div v-else class="file-grid">
         <div v-for="f in list" :key="f.id" class="file-card" @dblclick="preview(f)">
-          <div class="file-icon">{{ cateIcon(f.category) }}</div>
+          <div class="file-icon"><el-icon :size="30"><component :is="cateIcon(f.category)" /></el-icon></div>
           <div class="file-name" :title="f.original_name">{{ f.original_name }}</div>
           <div class="file-meta">
             {{ formatSize(f.size) }} · {{ (f.uploaded_at || '').slice(0, 10) }}
@@ -151,7 +151,10 @@ let debounceTimer = null;
 function debouncedLoad() { clearTimeout(debounceTimer); debounceTimer = setTimeout(load, 300); }
 
 function cateIcon(c) {
-  return { 图片: '🖼', PDF: '📕', 文档: '📄', 表格: '📊', 演示: '📽', 文本: '📝', 其他: '📦' }[c] || '📦';
+  return {
+    图片: 'Picture', PDF: 'Document', 文档: 'DocumentCopy',
+    表格: 'DataAnalysis', 演示: 'VideoCamera', 文本: 'Memo', 其他: 'Box',
+  }[c] || 'Box';
 }
 function formatSize(n) {
   n = Number(n) || 0;
@@ -282,7 +285,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .doc-layout { display: flex; gap: 14px; }
 .doc-sidebar {
-  width: 170px; background: var(--paper-soft); border: 4px solid var(--ink); border-radius: 16px; padding: 10px 6px;
+  width: 170px; background: var(--paper-soft); border: 3px solid var(--ink); border-radius: 16px; padding: 10px 6px;
   box-shadow: var(--shadow-sm); flex-shrink: 0; height: fit-content;
 }
 .side-item {
@@ -303,12 +306,12 @@ onBeforeUnmount(() => {
 .drop-zone.dragging { border-color: var(--tomato); background: var(--paper); color: var(--tomato); }
 .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .file-card {
-  border: 4px solid var(--ink); border-radius: 14px; padding: 12px; cursor: pointer;
+  border: 3px solid var(--ink); border-radius: 14px; padding: 12px; cursor: pointer;
   transition: box-shadow .15s, transform .15s; background: #fff;
   box-shadow: var(--shadow-sm);
 }
 .file-card:hover { box-shadow: var(--shadow); transform: translateY(-2px) rotate(-.3deg); }
-.file-icon { font-size: 34px; text-align: center; }
+.file-icon { text-align: center; color: var(--tomato); }
 .file-name {
   font-size: 13px; font-weight: 900; margin: 8px 0 4px; text-align: center; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

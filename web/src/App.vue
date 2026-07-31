@@ -2,7 +2,7 @@
   <el-container class="layout">
     <el-aside width="210px" class="sidebar no-print">
       <div class="logo">
-        <span class="logo-emoji">📝</span>
+        <span class="logo-emoji"><el-icon :size="24"><Notebook /></el-icon></span>
         <div class="logo-text">
           <b>教师工作台</b>
           <small>班主任的好帮手</small>
@@ -47,7 +47,7 @@
           <el-icon><Setting /></el-icon><span>班级设置</span>
         </el-menu-item>
       </el-menu>
-      <div class="sidebar-footer">数据仅存本机 🔒</div>
+      <div class="sidebar-footer">数据仅存本机</div>
     </el-aside>
 
     <el-container>
@@ -65,7 +65,7 @@
                          :title="c.name" />
             </el-select>
           </template>
-          <span v-else-if="currentClass" class="class-tag">🏫 {{ currentClass.name }}</span>
+          <span v-else-if="currentClass" class="class-tag">{{ currentClass.name }}</span>
         </div>
       </el-header>
 
@@ -81,7 +81,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Search } from '@element-plus/icons-vue';
+import { Search, Notebook } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { store, currentClass, loadClasses } from './store.js';
 
@@ -125,7 +125,7 @@ async function onClassChange(id) {
   background: var(--paper-soft);
   display: flex;
   flex-direction: column;
-  border-right: 4px solid var(--ink);
+  border-right: 3px solid var(--ink);
 }
 .logo {
   position: relative;
@@ -136,7 +136,6 @@ async function onClassChange(id) {
   border: 4px solid var(--ink);
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
-  transform: rotate(-1deg);
 }
 .logo-emoji {
   font-size: 26px; line-height: 1;
@@ -158,7 +157,6 @@ async function onClassChange(id) {
   padding: 2px 10px;
   font-size: 11px; font-weight: 900;
   box-shadow: 2px 2px 0 var(--ink);
-  transform: rotate(3deg);
   letter-spacing: .5px;
 }
 
@@ -211,7 +209,7 @@ async function onClassChange(id) {
   flex-wrap: wrap; row-gap: 8px;
   min-height: 60px; height: auto !important;
   padding: 8px 18px;
-  border-bottom: 4px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
   z-index: 5;
 }
 .page-title {

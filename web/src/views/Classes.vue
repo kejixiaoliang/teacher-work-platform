@@ -2,7 +2,7 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">⚙️ 班级设置</h2>
+        <h2 class="page-head-title">班级设置</h2>
         <p class="page-head-desc">管理班级信息、座位网格尺寸与教室布局</p>
       </div>
       <div class="page-head-actions">

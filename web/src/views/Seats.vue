@@ -3,8 +3,8 @@
     <!-- 顶部：模式切换 + 状态 -->
     <div class="ws-top no-print">
       <el-radio-group v-model="mode" size="large">
-        <el-radio-button value="manual">🖐 手动调整</el-radio-button>
-        <el-radio-button value="auto">🤖 自动排座</el-radio-button>
+        <el-radio-button value="manual">手动调整</el-radio-button>
+        <el-radio-button value="auto">自动排座</el-radio-button>
       </el-radio-group>
       <div class="ws-status">
         <span class="text-muted">已入座 <b class="stat-num">{{ seatedCount }}</b> / {{ rows * cols }} 人 · 空座 {{ emptyCount }}</span>
@@ -18,23 +18,27 @@
       <aside class="ws-panel no-print">
         <!-- 教室布局 -->
         <section class="panel-sec">
-          <div class="panel-sec-title">🏫 教室布局</div>
+          <div class="panel-sec-title">教室布局</div>
           <el-radio-group v-model="layoutMode" size="small" @change="saveLayoutMode">
             <el-radio-button :value="0">均分</el-radio-button>
             <el-radio-button :value="1">中间走道</el-radio-button>
             <el-radio-button :value="2">双走道</el-radio-button>
           </el-radio-group>
-          <div class="panel-row">
-            <span class="text-muted">行</span>
-            <el-input-number v-model="layoutRows" :min="1" :max="15" size="small" @change="saveLayoutSize" />
-            <span class="text-muted">列</span>
-            <el-input-number v-model="layoutCols" :min="1" :max="15" size="small" @change="saveLayoutSize" />
+          <div class="panel-row col">
+            <div class="size-field">
+              <span class="size-label">行数</span>
+              <el-input-number v-model="layoutRows" :min="1" :max="15" size="small" @change="saveLayoutSize" />
+            </div>
+            <div class="size-field">
+              <span class="size-label">列数</span>
+              <el-input-number v-model="layoutCols" :min="1" :max="15" size="small" @change="saveLayoutSize" />
+            </div>
           </div>
         </section>
 
         <!-- 自动排座规则 -->
         <section v-if="mode === 'auto'" class="panel-sec">
-          <div class="panel-sec-title">🤖 排座规则</div>
+          <div class="panel-sec-title">排座规则</div>
           <div class="panel-row col">
             <el-switch v-model="autoOpts.myopiaCenter" active-text="近视坐中间" />
             <el-switch v-model="autoOpts.mixedGender" active-text="男女搭配" />
@@ -47,12 +51,12 @@
 
         <!-- 手动操作 -->
         <section v-else class="panel-sec">
-          <div class="panel-sec-title">🖐 手动操作</div>
+          <div class="panel-sec-title">手动操作</div>
           <p class="text-muted" style="margin:0 0 8px">点击座位可安排学生 · 拖拽换座/移动 · 右键快捷操作</p>
           <template v-if="curSeat() && curSeat().studentId">
             <div class="panel-row">
               <el-tag type="info" round>已选：{{ curSeat().name }}</el-tag>
-              <el-button size="small" @click="toggleLock">{{ curSeat().locked ? '🔓 解锁' : '🔒 锁定' }}</el-button>
+              <el-button size="small" :icon="curSeat().locked ? Unlock : Lock" @click="toggleLock">{{ curSeat().locked ? '解锁' : '锁定' }}</el-button>
             </div>
             <el-button size="small" type="danger" plain class="panel-main-btn" @click="clearSeat">设为空座</el-button>
           </template>
@@ -61,7 +65,7 @@
 
         <!-- 常用操作 -->
         <section class="panel-sec">
-          <div class="panel-sec-title">📦 常用操作</div>
+          <div class="panel-sec-title">常用操作</div>
           <div class="panel-ops">
             <el-button :icon="Refresh" @click="shiftDialog = true">平移轮换</el-button>
             <el-button :icon="Clock" @click="openHistory">历史布局</el-button>
@@ -84,7 +88,7 @@
         <el-alert v-if="unplaced.length" type="error" :closable="false" class="no-print canvas-alert"
                   :title="`${unplaced.length} 人未入座（座位不足）：${unplaced.join('、')}`" />
 
-        <div class="podium">🎓 讲 台</div>
+        <div class="podium">讲 台</div>
         <div class="seat-grid">
           <div v-for="r in rows" :key="r" class="row">
             <div v-for="c in cols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
@@ -105,7 +109,7 @@
                     <span v-if="seat(r, c).height_cm" class="chip">{{ seat(r, c).height_cm }}cm</span>
                     <span v-if="seat(r, c).vision_left" class="chip">视 {{ fmtV(seat(r, c).vision_left) }}</span>
                     <span v-if="seat(r, c).is_myopia" class="chip chip-warn">近视</span>
-                    <span v-if="seat(r, c).locked" class="chip chip-lock">🔒 锁定</span>
+                    <span v-if="seat(r, c).locked" class="chip chip-lock">锁定</span>
                   </div>
                 </template>
                 <div v-else class="s-name empty-text">空</div>
@@ -126,8 +130,8 @@
           </el-tag>
           <el-tag v-else type="info" size="large" round style="margin-left:10px">空座</el-tag>
           <div class="spacer"></div>
-          <el-button v-if="grid[seatDlg.key].studentId" size="small" @click="toggleLockDlg">
-            {{ grid[seatDlg.key].locked ? '🔓 解锁' : '🔒 锁定' }}
+          <el-button v-if="grid[seatDlg.key].studentId" size="small" :icon="grid[seatDlg.key].locked ? Unlock : Lock" @click="toggleLockDlg">
+            {{ grid[seatDlg.key].locked ? '解锁' : '锁定' }}
           </el-button>
           <el-button v-if="grid[seatDlg.key].studentId" size="small" type="danger" plain @click="removeFromSeat">移出座位</el-button>
         </div>
@@ -147,9 +151,9 @@
     <!-- 右键/选中菜单 -->
     <div v-if="menuVisible" class="ctx-menu no-print" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
       <div v-if="curSeat() && curSeat().studentId" class="ctx-title">{{ curSeat().name }}</div>
-      <div class="ctx-item" @click="toggleLock">🔒 {{ curSeat() && curSeat().locked ? '解锁' : '锁定座位' }}</div>
-      <div v-if="curSeat() && curSeat().studentId" class="ctx-item" @click="confirmClearSeat">🗑 设为空座</div>
-      <div class="ctx-item" @click="menuVisible = false">✕ 关闭</div>
+      <div class="ctx-item" @click="toggleLock"><el-icon style="vertical-align:-2px;margin-right:6px"><Lock /></el-icon>{{ curSeat() && curSeat().locked ? '解锁座位' : '锁定座位' }}</div>
+      <div v-if="curSeat() && curSeat().studentId" class="ctx-item" @click="confirmClearSeat"><el-icon style="vertical-align:-2px;margin-right:6px"><Delete /></el-icon>设为空座</div>
+      <div class="ctx-item" @click="menuVisible = false">关闭</div>
     </div>
 
     <!-- 平移轮换 -->
@@ -183,7 +187,7 @@
     <!-- 历史布局详情 -->
     <el-dialog v-model="historyDetailVisible" :title="'历史布局：' + (histDetail.remark || '')" width="720px">
       <div class="seat-area" style="padding:10px">
-        <div class="podium" style="margin-bottom:8px">🎓 讲 台</div>
+        <div class="podium" style="margin-bottom:8px">讲 台</div>
         <div class="seat-grid">
           <div v-for="r in histRows" :key="r" class="row">
             <div v-for="c in histCols" :key="c" class="seat-wrap hist-wrap" :class="{ aisle: isAisle(c) }">
@@ -206,7 +210,7 @@
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { MagicStick, Refresh, Printer, Clock, Check } from '@element-plus/icons-vue';
+import { MagicStick, Refresh, Printer, Clock, Check, Lock, Unlock, Delete } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 
@@ -635,10 +639,13 @@ onBeforeRouteLeave(async () => {
   position: sticky; top: 0;
 }
 .panel-sec {
-  background: #fff; border: 4px solid var(--ink); border-radius: 14px; padding: 12px;
+  background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 12px;
   box-shadow: var(--shadow-xs);
 }
 .panel-sec-title { font-size: 13px; font-weight: 900; color: var(--tomato); margin-bottom: 10px; }
+.size-field { display: flex; align-items: center; gap: 10px; width: 100%; }
+.size-label { width: 34px; font-size: 13px; color: var(--muted); font-weight: 700; flex-shrink: 0; }
+.size-field .el-input-number { width: 130px; }
 .panel-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
 .panel-row.col { flex-direction: column; align-items: flex-start; gap: 10px; }
 .panel-main-btn { width: 100%; margin-top: 12px; }
@@ -656,7 +663,7 @@ onBeforeRouteLeave(async () => {
 .podium {
   width: 250px; margin: 4px auto 18px; text-align: center;
   background: var(--mustard);
-  border: 4px solid var(--ink);
+  border: 3px solid var(--ink);
   color: var(--ink); font-weight: 900; font-size: 15px; letter-spacing: 6px;
   border-radius: 999px; padding: 6px 0;
   box-shadow: var(--shadow-sm);
@@ -670,7 +677,7 @@ onBeforeRouteLeave(async () => {
 .hist-wrap.aisle { margin-left: 18px; }
 
 .seat {
-  border: 3px solid var(--ink); border-radius: 12px; padding: 8px 4px 7px;
+  border: 2px solid var(--ink); border-radius: 12px; padding: 8px 4px 7px;
   text-align: center; cursor: pointer; background: #fff;
   transition: transform .12s, box-shadow .12s, border-color .12s;
   user-select: none; min-height: 64px;
@@ -720,7 +727,7 @@ onBeforeRouteLeave(async () => {
 .ctx-menu {
   position: fixed; z-index: 3000; background: #fff; border-radius: 14px;
   box-shadow: var(--shadow-sm); padding: 4px 0; min-width: 150px;
-  border: 4px solid var(--ink);
+  border: 3px solid var(--ink);
 }
 .ctx-title { padding: 8px 16px; font-weight: 900; font-size: 13px; border-bottom: 3px dashed #d9cbb0; color: var(--tomato); }
 .ctx-item { padding: 9px 16px; font-size: 13px; cursor: pointer; font-weight: 700; }

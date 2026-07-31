@@ -2,7 +2,7 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">🧹 值日管理</h2>
+        <h2 class="page-head-title">值日管理</h2>
         <p class="page-head-desc">把学生分成若干组，按周轮换值日，可打印值日表</p>
       </div>
     </div>
@@ -12,7 +12,7 @@
         <div class="toolbar">
           <span class="text-muted">把学生分成 N 组，每周轮换一组；<b>每人只在一个组</b>，保证周期内每周人员不重复</span>
           <div class="spacer"></div>
-          <el-button type="primary" @click="openAutoGroup">⚡ 一键自动分组</el-button>
+          <el-button type="primary" :icon="MagicStick" @click="openAutoGroup">一键自动分组</el-button>
           <el-button :icon="Plus" @click="addGroup">新增组</el-button>
           <el-button :icon="User" @click="openAddMembers()">往某组加人</el-button>
         </div>
@@ -86,7 +86,7 @@
     </el-dialog>
 
     <!-- 自动分组弹窗 -->
-    <el-dialog v-model="autoGroupVisible" title="⚡ 一键自动分组" width="440px">
+    <el-dialog v-model="autoGroupVisible" title="一键自动分组" width="440px">
       <el-alert type="info" :closable="false" style="margin-bottom:12px"
                 title="按名单顺序把全班在读学生平均分成 N 组；每个学生只在一个组，组间不重复。将重置现有值日分组。" />
       <el-form label-width="80px">
@@ -106,7 +106,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, User, Printer } from '@element-plus/icons-vue';
+import { Plus, User, Printer, MagicStick } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -258,7 +258,7 @@ function printRoster() {
 <style scoped>
 .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .group-card {
-  border: 4px solid var(--ink); border-radius: 16px; padding: 14px;
+  border: 3px solid var(--ink); border-radius: 16px; padding: 14px;
   background: #fff; transition: box-shadow .15s, transform .15s;
   box-shadow: var(--shadow-sm);
 }
@@ -271,7 +271,7 @@ function printRoster() {
 }
 .group-members { display: flex; flex-wrap: wrap; gap: 6px; }
 .current-group {
-  padding: 14px; background: var(--paper); border-radius: 16px; border: 4px solid var(--ink);
+  padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);
   box-shadow: var(--shadow-sm);
 }
 .name-chip {

@@ -11,17 +11,17 @@
         <p v-else class="hero-sub">请先到「班级设置」创建班级</p>
       </div>
       <div class="hero-actions">
-        <el-button type="primary" size="large" @click="go('/seats')">💺 排座位</el-button>
-        <el-button size="large" @click="go('/documents')">📁 上传文档</el-button>
-        <el-button size="large" @click="go('/duties')">🧹 值日安排</el-button>
-        <el-button size="large" @click="go('/leaders')">🏅 班委学委</el-button>
+        <el-button type="primary" size="large" :icon="Grid" @click="go('/seats')">排座位</el-button>
+        <el-button size="large" :icon="Upload" @click="go('/documents')">上传文档</el-button>
+        <el-button size="large" :icon="Calendar" @click="go('/duties')">值日安排</el-button>
+        <el-button size="large" :icon="UserFilled" @click="go('/leaders')">班委学委</el-button>
       </div>
     </div>
 
     <div class="cards">
       <!-- 今日值日 -->
       <div class="card">
-        <div class="card-title">🧹 今日值日</div>
+        <div class="card-title">今日值日</div>
         <template v-if="currentGroup">
           <div class="duty-badge">第 {{ currentGroupNo }} 组 ｜ 开学第 {{ week }} 周</div>
           <div class="chips">
@@ -41,7 +41,7 @@
 
       <!-- 座位缩略图 -->
       <div class="card">
-        <div class="card-title">💺 当前座位表 <el-button link @click="go('/seats')">管理</el-button></div>
+        <div class="card-title">当前座位表 <el-button link @click="go('/seats')">管理</el-button></div>
         <div v-if="seatRows" class="mini-grid" :style="{ gridTemplateColumns: `repeat(${seatCols}, 1fr)` }">
           <div v-for="r in seatRows" :key="r" class="mini-row">
             <div v-for="c in seatCols" :key="c" class="mini-seat"
@@ -55,10 +55,10 @@
 
       <!-- 最近文档 -->
       <div class="card">
-        <div class="card-title">📁 最近文档 <el-button link @click="go('/documents')">全部</el-button></div>
+        <div class="card-title">最近文档 <el-button link @click="go('/documents')">全部</el-button></div>
         <div v-if="recentDocs.length" class="doc-list">
           <div v-for="d in recentDocs" :key="d.id" class="doc-item" @click="go('/documents')">
-            <span class="doc-icon">{{ iconOf(d.category) }}</span>
+            <el-icon class="doc-icon" :size="16"><component :is="iconOf(d.category)" /></el-icon>
             <span class="doc-name" :title="d.original_name">{{ d.original_name }}</span>
             <span class="text-muted">{{ (d.uploaded_at || '').slice(5, 10) }}</span>
           </div>
@@ -71,10 +71,10 @@
 
     <!-- 数据管理区 -->
     <div class="card" style="margin-top:16px">
-      <div class="card-title">💾 数据管理</div>
+      <div class="card-title">数据管理</div>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
-        <el-button type="primary" plain @click="archiveMetrics">📸 学期存档</el-button>
-        <el-button plain @click="exportAll">💾 导出全部数据</el-button>
+        <el-button type="primary" plain :icon="Camera" @click="archiveMetrics">学期存档</el-button>
+        <el-button plain :icon="Download" @click="exportAll">导出全部数据</el-button>
       </div>
       <p class="text-muted" style="margin:10px 0 0">
         学期存档：把全班当前身高/视力/成绩快照存入历史，供对比与回填。
@@ -88,6 +88,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Grid, Upload, Calendar, UserFilled, Camera, Download } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 
@@ -144,7 +145,10 @@ async function load() {
 
 function miniName(r, c) { return seatMap.value[`${r - 1},${c - 1}`] || ''; }
 function iconOf(c) {
-  return { 图片: '🖼', PDF: '📕', 文档: '📄', 表格: '📊', 演示: '📽', 文本: '📝', 其他: '📦' }[c] || '📦';
+  return {
+    图片: 'Picture', PDF: 'Document', 文档: 'DocumentCopy',
+    表格: 'DataAnalysis', 演示: 'VideoCamera', 文本: 'Memo', 其他: 'Box',
+  }[c] || 'Box';
 }
 function go(p) { router.push(p); }
 
@@ -207,7 +211,7 @@ async function exportAll() {
   position: relative;
 }
 .hero::after {
-  content: "✏️ 班级实验本";
+  content: "班级实验本";
   position: absolute; top: -18px; right: 22px;
   background: var(--tomato-deep);
   color: #fff;
@@ -216,7 +220,6 @@ async function exportAll() {
   padding: 3px 14px;
   font-size: 12px; font-weight: 900;
   box-shadow: var(--shadow-xs);
-  transform: rotate(2.5deg);
   letter-spacing: .5px;
 }
 .hero h2 { margin: 0 0 8px; font-size: 24px; font-weight: 900; }
@@ -228,16 +231,15 @@ async function exportAll() {
   border-radius: 999px;
   padding: 4px 14px;
   box-shadow: var(--shadow-xs);
-  transform: rotate(-.6deg);
 }
 .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .hero-actions .el-button--primary {
-  background: var(--tomato); border-color: var(--ink); color: #fff; font-weight: 900;
+  background: var(--tomato-deep); border-color: var(--ink); color: #fff; font-weight: 900;
   box-shadow: var(--shadow-xs);
 }
-.hero-actions .el-button--primary:hover { background: #e0482c; color: #fff; }
+.hero-actions .el-button--primary:hover { background: #b53a36; color: #fff; }
 .hero-actions .el-button {
-  background: #fff; border: 3px solid var(--ink); color: var(--ink); font-weight: 800;
+  background: #fff; border: 2px solid var(--ink); color: var(--ink); font-weight: 800;
   box-shadow: var(--shadow-xs);
 }
 .hero-actions .el-button:hover { background: var(--mustard); transform: translateY(-2px); color: var(--ink); }
@@ -249,11 +251,7 @@ async function exportAll() {
   padding: 16px;
   box-shadow: var(--shadow-sm);
 }
-.card:nth-child(1) { transform: rotate(-.6deg); }
-.card:nth-child(2) { transform: rotate(.5deg); }
-.card:nth-child(3) { transform: rotate(-.4deg); }
-.card:nth-child(4) { transform: rotate(.5deg); }
-.card:hover { transform: rotate(0) translateY(-3px); transition: transform .15s; }
+.card:hover { transform: translateY(-3px); transition: transform .15s; }
 .card-title { font-size: 15px; font-weight: 900; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
 .duty-badge {
   background: var(--mustard); color: var(--ink); border: 3px solid var(--ink);
@@ -272,6 +270,7 @@ async function exportAll() {
 }
 .mini-seat.mini-empty { background: #f3ead6; color: #b0a48d; border-style: dashed; }
 .doc-list { display: flex; flex-direction: column; }
+.doc-icon { color: var(--tomato); }
 .doc-item {
   display: flex; align-items: center; gap: 8px; padding: 7px 4px; border-radius: 8px; cursor: pointer;
 }

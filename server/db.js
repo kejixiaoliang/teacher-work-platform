@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS exams (
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_class_name ON exams(class_id, name);
 
 CREATE TABLE IF NOT EXISTS exam_scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

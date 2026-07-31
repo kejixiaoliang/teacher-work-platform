@@ -3,7 +3,7 @@
     <!-- 页头 -->
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">📋 学生管理</h2>
+        <h2 class="page-head-title">学生管理</h2>
         <p class="page-head-desc">维护全班学生档案，支持 Excel 批量导入导出与回收站恢复</p>
       </div>
       <div class="page-head-actions">
@@ -36,7 +36,7 @@
       <el-button v-if="trashed" :icon="RefreshLeft" @click="batchRestore" :disabled="!selected.length">恢复</el-button>
       <el-button v-if="trashed" :icon="DeleteFilled" type="danger" plain @click="batchPurge"
                  :disabled="!selected.length">彻底删除</el-button>
-      <el-button @click="toggleTrash">{{ trashed ? '返回列表' : '🗑 回收站' }}</el-button>
+      <el-button @click="toggleTrash">{{ trashed ? '返回列表' : '回收站' }}</el-button>
       <input ref="fileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onFileChange" />
     </div>
 
@@ -65,7 +65,7 @@
         </template>
       </el-table-column>
       <el-table-column label="住宿" width="60">
-        <template #default="{ row }"><span v-if="row.is_boarding">🏠</span></template>
+        <template #default="{ row }"><el-tag v-if="row.is_boarding" size="small" round>住宿</el-tag></template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="70">
         <template #default="{ row }">

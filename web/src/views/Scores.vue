@@ -2,10 +2,11 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">📝 成绩管理</h2>
+        <h2 class="page-head-title">成绩管理</h2>
         <p class="page-head-desc">创建考试、录入成绩、查看排名统计与学生进步趋势</p>
       </div>
       <div class="page-head-actions">
+        <el-button @click="loadDemoScores" :loading="demoLoading">载入示例成绩</el-button>
         <el-button type="primary" :icon="Plus" @click="openExamDialog()">新建考试</el-button>
       </div>
     </div>
@@ -113,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import { api } from '../api.js';
@@ -139,6 +140,62 @@ const trendPoints = ref([]);
 
 const examDialogVisible = ref(false);
 const examForm = ref({ id: null, name: '', date: '', subjects: [] });
+const demoLoading = ref(false);
+
+/* ---------- 载入示例成绩：一键生成预设考试+全班成绩，方便查看效果 ---------- */
+const DEMO_EXAM_NAME = '示例·期中考试';
+const DEMO_SUBJECTS = ['语文', '数学', '英语', '物理', '化学'];
+
+async function loadDemoScores() {
+  if (!store.currentClassId) return ElMessage.warning('请先创建班级');
+  // 切班级时 exams 可能还是旧班数据（loadExams 异步未完成），按 class_id 过滤当前班的示例考试
+  const demo = exams.value.find(e => e.name === DEMO_EXAM_NAME && e.class_id === store.currentClassId);
+  if (demo) {
+    const ok = await selectExam(demo);
+    if (!ok) return;
+    tab.value = 'analysis';
+    return ElMessage.info('示例考试已存在，已为你切换到「排名与统计」');
+  }
+  if (!allStudents.value.length) await loadStudents();
+  const students = allStudents.value;
+  if (!students.length) return ElMessage.warning('班级里还没有学生，请先到「学生管理」添加或导入');
+  demoLoading.value = true;
+  try {
+    // 1) 创建示例考试（本地日期，避免 UTC 差一天）
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const r = await api.scores.createExam({
+      class_id: store.currentClassId,
+      name: DEMO_EXAM_NAME,
+      date: localDate,
+      subjects: DEMO_SUBJECTS,
+    });
+    // 2) 每个学生一个固定“能力值”，各科成绩 = 能力分 + 科目偏移 + 小波动
+    const rows = [];
+    const base = 100; // 满分
+    for (const s of students) {
+      const ability = 0.5 + ((s.id * 37) % 45) / 100; // 0.50 ~ 0.94，伪随机但稳定
+      for (const sub of DEMO_SUBJECTS) {
+        const offset = sub === '数学' ? 0 : sub === '英语' ? -3 : sub === '物理' ? 2 : 5;
+        const noise = ((s.id * 13 + DEMO_SUBJECTS.indexOf(sub) * 7) % 11) - 5; // -5 ~ 5
+        const score = Math.round(Math.min(base, Math.max(30, ability * base + offset + noise)));
+        rows.push({ studentId: s.id, subject: sub, score });
+      }
+    }
+    await api.scores.save({ examId: r.id, rows });
+    ElMessage.success(`已生成示例考试「${DEMO_EXAM_NAME}」：${students.length} 名学生 × ${DEMO_SUBJECTS.length} 科`);
+    await loadExams();
+    const exam = exams.value.find(e => e.name === DEMO_EXAM_NAME && e.class_id === store.currentClassId);
+    if (exam) {
+      await selectExam(exam);
+      tab.value = 'analysis';
+    }
+  } catch (e) {
+    ElMessage.error('示例成绩生成失败：' + e.message);
+  } finally {
+    demoLoading.value = false;
+  }
+}
 
 watch(() => store.currentClassId, () => {
   // 切班级：重置所有状态 + 重载考试与学生（P0-1）
@@ -179,7 +236,7 @@ async function selectExam(e) {
   // 未保存成绩切换确认（P1-7）
   if (scoreDirty.value) {
     const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，切换将丢失。确定切换吗？', '未保存提示', { type: 'warning' }).catch(() => false);
-    if (!ok) return;
+    if (!ok) return false;
   }
   currentExam.value = e;
   tab.value = 'entry';
@@ -203,6 +260,7 @@ async function selectExam(e) {
   } catch (err) {
     ElMessage.error(err.message);
   }
+  return true;
 }
 
 async function saveScores() {
@@ -286,7 +344,7 @@ const trendOption = computed(() => ({
 .scores-workspace { display: flex; gap: 14px; align-items: flex-start; }
 .exam-list {
   width: 230px; flex-shrink: 0;
-  background: var(--paper-soft); border: 4px solid var(--ink); border-radius: 16px; padding: 10px;
+  background: var(--paper-soft); border: 3px solid var(--ink); border-radius: 16px; padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
   box-shadow: var(--shadow-sm);
 }
