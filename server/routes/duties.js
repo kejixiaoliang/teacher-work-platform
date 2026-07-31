@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 
 const router = Router();
+const PRESET_ROLES = ['班长', '副班长', '学习委员', '卫生委员', '体育委员', '文艺委员', '纪律委员', '生活委员', '宣传委员'];
 
 // 列表（JOIN 学生姓名）
 router.get('/', (req, res) => {
@@ -19,7 +20,15 @@ router.get('/', (req, res) => {
   res.json({ ok: true, data: rows });
 });
 
-// 添加一条（班干部角色检查唯一）
+/** 值日生全局查重：返回该生已所在组号（无则 null） */
+function dutyGroupOf(classId, studentId) {
+  const r = db.prepare(`
+    SELECT group_no FROM duties WHERE class_id = ? AND student_id = ? AND role = '值日生'
+  `).get(Number(classId), Number(studentId));
+  return r ? r.group_no : null;
+}
+
+// 添加一条（班干部角色唯一；值日生一人一组全局查重）
 router.post('/', (req, res) => {
   const { class_id, student_id, role, group_no, week_days, remark } = req.body || {};
   if (!class_id || !student_id || !role) return res.json({ ok: false, error: '班级/学生/角色不能为空' });
@@ -31,6 +40,12 @@ router.post('/', (req, res) => {
       const holder = db.prepare('SELECT name FROM students WHERE id = ?').get(dup.student_id);
       return res.json({ ok: false, error: `「${role}」已由 ${holder?.name || '其他学生'} 担任，请先调整` });
     }
+  } else {
+    // 值日生：一个学生只能在一个组
+    const g = dutyGroupOf(class_id, student_id);
+    if (g != null) {
+      return res.json({ ok: false, error: `${stu.name} 已在第 ${g} 组，同一学生不能重复值日` });
+    }
   }
   const info = db.prepare(`
     INSERT INTO duties (class_id, student_id, role, group_no, week_days, remark)
@@ -39,21 +54,119 @@ router.post('/', (req, res) => {
   res.json({ ok: true, data: { id: info.lastInsertRowid } });
 });
 
-// 批量添加（如：往值日组加人）
+// 批量添加（值日生全局查重：已在任何组的学生跳过并报告）
 router.post('/batch', (req, res) => {
   const { class_id, role, group_no, student_ids, week_days, remark } = req.body || {};
   if (!class_id || !Array.isArray(student_ids) || !student_ids.length || !role) {
     return res.json({ ok: false, error: '参数不完整' });
   }
+  const isDuty = role === '值日生';
+  // 已入任何值日组的学生
+  const inAnyGroup = new Set(db.prepare(`
+    SELECT student_id FROM duties WHERE class_id = ? AND role = '值日生'
+  `).all(Number(class_id)).map(r => r.student_id));
+  const nameOf = new Map(db.prepare('SELECT id, name FROM students').all().map(s => [s.id, s.name]));
+
   const ins = db.prepare(`
     INSERT INTO duties (class_id, student_id, role, group_no, week_days, remark)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
+  const added = [];
+  const skipped = [];
+  const seen = new Set();
   const tx = db.transaction((ids) => {
-    for (const sid of ids) ins.run(Number(class_id), Number(sid), role, group_no != null ? Number(group_no) : null, week_days || '', remark || '');
+    for (const sid of ids) {
+      const id = Number(sid);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (isDuty && inAnyGroup.has(id)) {
+        skipped.push({ name: nameOf.get(id) || '', reason: '已在其他值日组' });
+        continue;
+      }
+      ins.run(Number(class_id), id, role, group_no != null ? Number(group_no) : null, week_days || '', remark || '');
+      if (isDuty) inAnyGroup.add(id);
+      added.push(id);
+    }
   });
   tx(student_ids);
-  res.json({ ok: true, data: { count: student_ids.length } });
+  res.json({ ok: true, data: { count: added.length, skipped } });
+});
+
+// 一键自动分组：把全班在读学生按名单顺序均分为 N 个值日组（每人一组，组间不重复）
+router.post('/auto-group', (req, res) => {
+  const { class_id, groupCount } = req.body || {};
+  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  const n = Math.max(1, Math.min(15, parseInt(groupCount) || 4));
+  const students = db.prepare(`
+    SELECT id, name FROM students
+    WHERE class_id = ? AND deleted_at IS NULL AND status = '在读'
+    ORDER BY CAST(school_no AS INTEGER), school_no, id
+  `).all(Number(class_id));
+  if (!students.length) return res.json({ ok: false, error: '班级没有在读学生' });
+  if (students.length < n) return res.json({ ok: false, error: `只有 ${students.length} 人，不能分成 ${n} 组` });
+
+  const del = db.prepare(`DELETE FROM duties WHERE class_id = ? AND role = '值日生'`);
+  const ins = db.prepare(`
+    INSERT INTO duties (class_id, student_id, role, group_no) VALUES (?, ?, '值日生', ?)
+  `);
+  const tx = db.transaction(() => {
+    del.run(Number(class_id));
+    students.forEach((s, i) => {
+      ins.run(Number(class_id), s.id, (i % n) + 1);
+    });
+  });
+  tx();
+  const perGroup = Math.ceil(students.length / n);
+  res.json({
+    ok: true,
+    data: { count: students.length, groupCount: n, perGroup,
+      groups: Array.from({ length: n }, (_, gi) => ({
+        no: gi + 1,
+        members: students.filter((_, i) => i % n === gi).map(s => s.name),
+      })) },
+  });
+});
+
+// 一键预设班委：补齐常见职务空缺（每人最多一个职务）
+router.post('/preset-leaders', (req, res) => {
+  const { class_id } = req.body || {};
+  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  const existingRoles = new Set(db.prepare(`
+    SELECT role FROM duties WHERE class_id = ? AND role <> '值日生'
+  `).all(Number(class_id)).map(r => r.role));
+  const heldStudents = new Set(db.prepare(`
+    SELECT student_id FROM duties WHERE class_id = ? AND role <> '值日生'
+  `).all(Number(class_id)).map(r => r.student_id));
+  const candidates = db.prepare(`
+    SELECT id, name FROM students
+    WHERE class_id = ? AND deleted_at IS NULL AND status = '在读'
+    ORDER BY CAST(school_no AS INTEGER), school_no, id
+  `).all(Number(class_id));
+
+  const ins = db.prepare(`
+    INSERT INTO duties (class_id, student_id, role) VALUES (?, ?, ?)
+  `);
+  const added = [];
+  let skipped = 0;
+  const tx = db.transaction(() => {
+    let ci = 0;
+    for (const role of PRESET_ROLES) {
+      if (existingRoles.has(role)) { skipped++; continue; }
+      // 找下一个未任职的学生
+      let stu = null;
+      while (ci < candidates.length) {
+        const c = candidates[ci++];
+        if (!heldStudents.has(c.id)) { stu = c; break; }
+      }
+      if (!stu) break; // 学生不够了
+      ins.run(Number(class_id), stu.id, role);
+      heldStudents.add(stu.id);
+      existingRoles.add(role);
+      added.push({ role, name: stu.name });
+    }
+  });
+  tx();
+  res.json({ ok: true, data: { added, skipped, totalRoles: PRESET_ROLES.length } });
 });
 
 // 更新

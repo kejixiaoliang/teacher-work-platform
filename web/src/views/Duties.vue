@@ -10,10 +10,11 @@
       <!-- ============ 值日分组 ============ -->
       <el-tab-pane label="值日分组" name="groups">
         <div class="toolbar">
-          <span class="text-muted">把学生分成 N 组，每周轮换一组值日</span>
+          <span class="text-muted">把学生分成 N 组，每周轮换一组；<b>每人只在一个组</b>，保证周期内每周人员不重复</span>
           <div class="spacer"></div>
+          <el-button type="primary" :icon="MagicStick" @click="openAutoGroup">⚡ 一键自动分组</el-button>
           <el-button :icon="Plus" @click="addGroup">新增组</el-button>
-          <el-button type="primary" :icon="User" @click="openAddMembers()">往某组加人</el-button>
+          <el-button :icon="User" @click="openAddMembers()">往某组加人</el-button>
         </div>
         <el-alert v-if="!groupCount" type="info" :closable="false" title="还没有值日分组，点「新增组」开始（会打开加人弹窗，输入组号即可创建）" />
         <div v-else class="group-grid">
@@ -59,7 +60,8 @@
             <el-table-column prop="groupNo" label="值日组" width="90" />
             <el-table-column prop="members" label="值日学生" />
           </el-table>
-          <div class="text-muted" style="margin-top:8px">轮换规则：按周轮换，第 N 周 = 第 ((N-1) mod 组数 + 1) 组</div>
+          <div class="text-muted" style="margin-top:8px">共 {{ groupCount }} 组轮换：一个完整周期 {{ groupCount }} 周内<b>每周人员不重复</b>，第 {{ groupCount + 1 }} 周起按周期循环</div>
+          <div class="text-muted" style="margin-top:4px">如需更长不重复周期，可增加组数或用「一键自动分组」重新分配</div>
         </template>
       </el-tab-pane>
     </el-tabs>
@@ -72,7 +74,7 @@
           <span class="text-muted" style="margin-left:8px">输入新组号即可创建新组</span>
         </el-form-item>
         <el-form-item label="学生">
-          <el-select v-model="memberForm.student_ids" multiple filterable style="width:100%" placeholder="多选（已选中的会跳过）">
+          <el-select v-model="memberForm.student_ids" multiple filterable style="width:100%" placeholder="多选（已在其他组的会自动跳过）">
             <el-option v-for="s in students" :key="s.id" :value="s.id" :label="`${s.name}（${s.school_no}）`" />
           </el-select>
         </el-form-item>
@@ -82,13 +84,29 @@
         <el-button type="primary" @click="saveMembers">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 自动分组弹窗 -->
+    <el-dialog v-model="autoGroupVisible" title="⚡ 一键自动分组" width="440px">
+      <el-alert type="info" :closable="false" style="margin-bottom:12px"
+                title="按名单顺序把全班在读学生平均分成 N 组；每个学生只在一个组，组间不重复。将重置现有值日分组。" />
+      <el-form label-width="80px">
+        <el-form-item label="组数">
+          <el-input-number v-model="autoGroupCount" :min="2" :max="10" />
+          <span class="text-muted" style="margin-left:8px">组数越多，不重复周期越长</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="autoGroupVisible = false">取消</el-button>
+        <el-button type="primary" :loading="autoGroupLoading" @click="runAutoGroup">生成分组</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, User, Printer } from '@element-plus/icons-vue';
+import { Plus, User, Printer, MagicStick } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -99,6 +117,10 @@ const week = ref(Number(localStorage.getItem('duty-week') || 1));
 
 const memberVisible = ref(false);
 const memberForm = ref({ group_no: null, student_ids: [] });
+
+const autoGroupVisible = ref(false);
+const autoGroupCount = ref(4);
+const autoGroupLoading = ref(false);
 
 const dutyList = computed(() => duties.value.filter(d => d.role === '值日生'));
 const groups = computed(() => {
@@ -115,11 +137,11 @@ const currentGroupNo = computed(() => groupCount.value ? ((week.value - 1) % gro
 const currentGroup = computed(() => groups.value.find(g => g.no === currentGroupNo.value));
 const rosterRows = computed(() => {
   if (!groupCount.value) return [];
-  return Array.from({ length: 20 }, (_, i) => {
+  // 完整周期：第 w 周 = 第 w 组（一个周期内每周人员不重复）
+  return Array.from({ length: groupCount.value }, (_, i) => {
     const w = i + 1;
-    const no = ((w - 1) % groupCount.value) + 1;
-    const g = groups.value.find(x => x.no === no);
-    return { week: w, groupNo: no, members: g ? g.members.map(m => m.student_name).join('、') : '' };
+    const g = groups.value.find(x => x.no === w);
+    return { week: w, groupNo: w, members: g ? g.members.map(m => m.student_name).join('、') : '' };
   });
 });
 
@@ -156,10 +178,44 @@ async function saveMembers() {
   const existing = new Set(dutyList.value.filter(d => d.group_no === memberForm.value.group_no).map(d => d.student_id));
   const fresh = ids.filter(id => !existing.has(id));
   if (!fresh.length) return ElMessage.info('所选学生都在该组了');
-  await api.duties.batch({ class_id: store.currentClassId, role: '值日生', group_no: memberForm.value.group_no, student_ids: fresh });
-  ElMessage.success(`已添加 ${fresh.length} 人`);
-  memberVisible.value = false;
-  load();
+  try {
+    const r = await api.duties.batch({ class_id: store.currentClassId, role: '值日生', group_no: memberForm.value.group_no, student_ids: fresh });
+    if (r.skipped?.length) {
+      ElMessage.warning(`已添加 ${r.count} 人；${r.skipped.length} 人已在其他组被跳过（${r.skipped.map(s => s.name).join('、')}）`);
+    } else {
+      ElMessage.success(`已添加 ${r.count} 人`);
+    }
+    memberVisible.value = false;
+    load();
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
+}
+
+/* ---------- 自动分组 ---------- */
+function openAutoGroup() {
+  autoGroupCount.value = Math.max(4, Math.ceil(students.value.length / 6));
+  autoGroupVisible.value = true;
+}
+async function runAutoGroup() {
+  if (!store.currentClassId) return;
+  const ok = await ElMessageBox.confirm(
+    `将按名单顺序平均分成 ${autoGroupCount.value} 组（每组约 ${Math.ceil(students.value.length / autoGroupCount.value)} 人），并重置现有值日分组。继续？`,
+    '一键自动分组', { type: 'warning', confirmButtonText: '生成' }
+  ).catch(() => false);
+  if (!ok) return;
+  autoGroupLoading.value = true;
+  try {
+    const r = await api.duties.autoGroup({ class_id: store.currentClassId, groupCount: autoGroupCount.value });
+    autoGroupVisible.value = false;
+    load();
+    const brief = r.groups.map(g => `第${g.no}组${g.members.length}人`).join('，');
+    ElMessage.success(`已生成 ${r.groupCount} 组，共 ${r.count} 人（${brief}）`);
+  } catch (e) {
+    ElMessage.error(e.message);
+  } finally {
+    autoGroupLoading.value = false;
+  }
 }
 async function removeMember(m) {
   const ok = await ElMessageBox.confirm(`把「${m.student_name}」移出第 ${m.group_no} 组？`, '确认', { type: 'warning' }).catch(() => false);

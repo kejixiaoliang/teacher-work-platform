@@ -61,6 +61,8 @@ export const api = {
     list: q => request('GET', '/api/duties' + toQuery(q)),
     create: d => request('POST', '/api/duties', d),
     batch: d => request('POST', '/api/duties/batch', d),
+    autoGroup: d => request('POST', '/api/duties/auto-group', d),
+    presetLeaders: d => request('POST', '/api/duties/preset-leaders', d),
     update: (id, d) => request('PUT', `/api/duties/${id}`, d),
     remove: id => request('DELETE', `/api/duties/${id}`),
   },

@@ -6,6 +6,7 @@
         <p class="page-head-desc">选任固定班委（班长、学委、课代表…），同一职务一人担任</p>
       </div>
       <div class="page-head-actions">
+        <el-button :icon="MagicStick" @click="presetLeaders">✨ 一键预设班委</el-button>
         <el-button type="primary" :icon="Plus" @click="openLeader()">选任班委</el-button>
       </div>
     </div>
@@ -57,7 +58,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, MagicStick } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -102,5 +103,26 @@ async function removeDuty(row) {
   if (!ok) return;
   await api.duties.remove(row.id);
   load();
+}
+
+/** 一键预设班委：按名单顺序补齐常见职务空缺（每人最多一个职务） */
+async function presetLeaders() {
+  if (!store.currentClassId) return;
+  const ok = await ElMessageBox.confirm(
+    '将按学生名单顺序自动选任常见职务（班长/副班长/学习委员/卫生委员/体育委员/文艺委员/纪律委员/生活委员/宣传委员）。已有人担任的职务跳过，每人最多一个职务。继续？',
+    '一键预设班委', { type: 'warning', confirmButtonText: '生成' }
+  ).catch(() => false);
+  if (!ok) return;
+  try {
+    const r = await api.duties.presetLeaders({ class_id: store.currentClassId });
+    load();
+    if (r.added.length) {
+      ElMessage.success(`已选任 ${r.added.length} 个职务：${r.added.map(a => `${a.role}→${a.name}`).join('、')}`);
+    } else {
+      ElMessage.info('常见职务都已有合适人选，无需补充');
+    }
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
 }
 </script>
