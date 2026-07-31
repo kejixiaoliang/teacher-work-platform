@@ -45,6 +45,12 @@
           <el-menu-item index="/subject-leaders">
             <el-icon><Reading /></el-icon><span>课代表选择</span>
           </el-menu-item>
+          <el-menu-item index="/leaves">
+            <el-icon><Clock /></el-icon><span>请假管理</span>
+          </el-menu-item>
+          <el-menu-item index="/contacts">
+            <el-icon><ChatDotRound /></el-icon><span>家校沟通</span>
+          </el-menu-item>
         </el-menu-item-group>
         <el-menu-item index="/classes" class="menu-bottom">
           <el-icon><Setting /></el-icon><span>班级设置</span>
@@ -84,7 +90,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Search, Notebook, Reading } from '@element-plus/icons-vue';
+import { Search, Notebook, Reading, Clock, ChatDotRound } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { store, currentClass, loadClasses } from './store.js';
 

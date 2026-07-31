@@ -29,6 +29,36 @@
     </div>
 
     <div class="cards">
+      <!-- 今日概览：请假 + 家校沟通 -->
+      <div class="card">
+        <div class="card-title">今日概览</div>
+        <div class="ov-block">
+          <div class="ov-head">
+            <span class="ov-label">今日请假</span>
+            <el-button link size="small" @click="go('/leaves')">管理</el-button>
+          </div>
+          <div v-if="todayLeaves.length" class="ov-chips">
+            <el-tag v-for="l in todayLeaves" :key="l.id" :type="l.type === '病假' ? 'danger' : 'warning'" round>
+              {{ l.student_name }}（{{ l.type }}）
+            </el-tag>
+          </div>
+          <div v-else class="text-muted">今日无人请假 🎉</div>
+        </div>
+        <div class="ov-block" style="margin-top:12px">
+          <div class="ov-head">
+            <span class="ov-label">最近家校沟通</span>
+            <el-button link size="small" @click="go('/contacts')">管理</el-button>
+          </div>
+          <div v-if="recentContacts.length" class="ov-list">
+            <div v-for="c in recentContacts.slice(0, 4)" :key="c.id" class="ov-item">
+              <b>{{ c.student_name }}</b>
+              <span class="text-muted">{{ c.method }} · {{ (c.date || '').slice(5) }}</span>
+            </div>
+          </div>
+          <div v-else class="text-muted">暂无沟通记录</div>
+        </div>
+      </div>
+
       <!-- 班委一览：只看不编辑 -->
       <div class="card" v-if="leaderList.length">
         <div class="card-title">班委 <el-button link @click="go('/leaders')">管理</el-button></div>
@@ -130,6 +160,8 @@ const seats = ref([]);
 const recentDocs = ref([]);
 const duties = ref([]);
 const students = ref([]);
+const todayLeaves = ref([]);
+const recentContacts = ref([]);
 const week = ref(Number(localStorage.getItem('duty-week') || 1));
 
 /* 班级概况统计 */
@@ -171,19 +203,27 @@ watch(week, v => localStorage.setItem('duty-week', String(v)));
 onMounted(load);
 
 async function load() {
-  if (!store.currentClassId) { seats.value = []; recentDocs.value = []; duties.value = []; students.value = []; return; }
+  if (!store.currentClassId) {
+    seats.value = []; recentDocs.value = []; duties.value = []; students.value = [];
+    todayLeaves.value = []; recentContacts.value = [];
+    return;
+  }
   loading.value = true;
   try {
-    const [s, d, dy, st] = await Promise.all([
+    const [s, d, dy, st, lv, ct] = await Promise.all([
       api.seats.get(store.currentClassId),
       api.documents.list({ class_id: store.currentClassId }),
       api.duties.list({ class_id: store.currentClassId }),
       api.students.list({ class_id: store.currentClassId, status: '在读' }),
+      api.leaves.today(store.currentClassId),
+      api.contacts.list({ class_id: store.currentClassId }),
     ]);
     seats.value = s;
     recentDocs.value = d.slice(0, 6);
     duties.value = dy;
     students.value = st;
+    todayLeaves.value = lv;
+    recentContacts.value = ct;
   } catch (e) {
     ElMessage.error('首页数据加载失败：' + e.message);
   } finally {
@@ -316,6 +356,17 @@ async function exportAll() {
 
 /* ---------- 班委/课代表一览 ---------- */
 .leader-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+
+/* ---------- 今日概览 ---------- */
+.ov-block { padding: 8px; background: var(--paper); border: 2px solid var(--ink); border-radius: 10px; }
+.ov-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.ov-label { font-size: 12px; color: var(--muted); font-weight: 800; letter-spacing: .5px; }
+.ov-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ov-list { display: flex; flex-direction: column; gap: 4px; }
+.ov-item {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; padding: 2px 0;
+}
 .leader-item {
   display: flex; flex-direction: column; gap: 2px;
   background: var(--paper);

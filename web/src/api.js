@@ -82,6 +82,20 @@ export const api = {
     save: d => request('PUT', '/api/attendance', d),
     stats: (classId, month) => request('GET', `/api/attendance/stats?class_id=${classId}&month=${month}`),
   },
+  leaves: {
+    list: q => request('GET', '/api/leaves' + toQuery(q)),
+    create: d => request('POST', '/api/leaves', d),
+    update: (id, d) => request('PUT', `/api/leaves/${id}`, d),
+    remove: id => request('DELETE', `/api/leaves/${id}`),
+    today: classId => request('GET', `/api/leaves/today?class_id=${classId}`),
+  },
+  contacts: {
+    list: q => request('GET', '/api/contacts' + toQuery(q)),
+    stats: q => request('GET', '/api/contacts/stats' + toQuery(q)),
+    create: d => request('POST', '/api/contacts', d),
+    update: (id, d) => request('PUT', `/api/contacts/${id}`, d),
+    remove: id => request('DELETE', `/api/contacts/${id}`),
+  },
   records: {
     list: id => request('GET', `/api/students/${id}/records`),
     create: (id, d) => request('POST', `/api/students/${id}/records`, d),

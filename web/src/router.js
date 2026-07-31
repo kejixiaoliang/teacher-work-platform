@@ -9,6 +9,8 @@ import Documents from './views/Documents.vue';
 import Duties from './views/Duties.vue';
 import Leaders from './views/Leaders.vue';
 import SubjectLeaders from './views/SubjectLeaders.vue';
+import Leaves from './views/Leaves.vue';
+import Contacts from './views/Contacts.vue';
 import Classes from './views/Classes.vue';
 
 export default createRouter({
@@ -25,6 +27,8 @@ export default createRouter({
     { path: '/duties', component: Duties, meta: { title: '值日管理' } },
     { path: '/leaders', component: Leaders, meta: { title: '班委学委' } },
     { path: '/subject-leaders', component: SubjectLeaders, meta: { title: '课代表选择' } },
+    { path: '/leaves', component: Leaves, meta: { title: '请假管理' } },
+    { path: '/contacts', component: Contacts, meta: { title: '家校沟通' } },
     { path: '/classes', component: Classes, meta: { title: '班级设置' } },
   ],
 });
