@@ -9,6 +9,9 @@ import studentsRouter from './routes/students.js';
 import seatsRouter from './routes/seats.js';
 import documentsRouter from './routes/documents.js';
 import dutiesRouter from './routes/duties.js';
+import scoresRouter from './routes/scores.js';
+import attendanceRouter from './routes/attendance.js';
+import recordsRouter from './routes/records.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3210;
@@ -23,6 +26,9 @@ app.use('/api/students', studentsRouter);
 app.use('/api/seats', seatsRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/duties', dutiesRouter);
+app.use('/api/scores', scoresRouter);
+app.use('/api/attendance', attendanceRouter);
+app.use('/api/students', recordsRouter);
 
 // API 统一错误处理（multer 拒绝文件类型等 → 返回 JSON）
 app.use('/api', (err, req, res, next) => {

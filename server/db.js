@@ -114,6 +114,56 @@ CREATE TABLE IF NOT EXISTS duties (
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
+
+CREATE TABLE IF NOT EXISTS exams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  date TEXT DEFAULT '',
+  subjects TEXT DEFAULT '[]',
+  remark TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS exam_scores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  exam_id INTEGER REFERENCES exams(id) ON DELETE CASCADE,
+  student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+  subject TEXT NOT NULL,
+  score REAL,
+  UNIQUE(exam_id, student_id, subject)
+);
+
+CREATE TABLE IF NOT EXISTS attendance (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT '出勤',
+  remark TEXT DEFAULT '',
+  UNIQUE(class_id, student_id, date)
+);
+
+CREATE TABLE IF NOT EXISTS student_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT '表现',
+  content TEXT NOT NULL,
+  date TEXT DEFAULT '',
+  remark TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+  date TEXT DEFAULT '',
+  method TEXT DEFAULT '',
+  topic TEXT DEFAULT '',
+  result TEXT DEFAULT '',
+  remark TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
 `);
 
 /** 首次启动时写入示例班级 + 示例学生，方便演示排座。表非空则跳过。 */

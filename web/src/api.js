@@ -64,4 +64,27 @@ export const api = {
     update: (id, d) => request('PUT', `/api/duties/${id}`, d),
     remove: id => request('DELETE', `/api/duties/${id}`),
   },
+  scores: {
+    exams: classId => request('GET', `/api/scores/exams?class_id=${classId}`),
+    createExam: d => request('POST', '/api/scores/exams', d),
+    updateExam: (id, d) => request('PUT', `/api/scores/exams/${id}`, d),
+    removeExam: id => request('DELETE', `/api/scores/exams/${id}`),
+    list: examId => request('GET', `/api/scores?exam_id=${examId}`),
+    save: d => request('PUT', '/api/scores', d),
+    analysis: examId => request('GET', `/api/scores/analysis?exam_id=${examId}`),
+    trend: (classId, studentId) => request('GET', `/api/scores/trend?class_id=${classId}&student_id=${studentId}`),
+  },
+  attendance: {
+    get: (classId, date) => request('GET', `/api/attendance?class_id=${classId}&date=${date}`),
+    save: d => request('PUT', '/api/attendance', d),
+    stats: (classId, month) => request('GET', `/api/attendance/stats?class_id=${classId}&month=${month}`),
+  },
+  records: {
+    list: id => request('GET', `/api/students/${id}/records`),
+    create: (id, d) => request('POST', `/api/students/${id}/records`, d),
+    remove: (id, rid) => request('DELETE', `/api/students/${id}/records/${rid}`),
+    contacts: id => request('GET', `/api/students/${id}/contacts`),
+    addContact: (id, d) => request('POST', `/api/students/${id}/contacts`, d),
+    removeContact: (id, cid) => request('DELETE', `/api/students/${id}/contacts/${cid}`),
+  },
 };

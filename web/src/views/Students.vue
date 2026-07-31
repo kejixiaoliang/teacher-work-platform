@@ -134,38 +134,117 @@
     </el-dialog>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" :title="detail.name" size="420px">
+    <el-drawer v-model="detailVisible" :title="detail.name" size="540px">
       <template v-if="detail.id">
-        <el-descriptions :column="2" border size="small">
-          <el-descriptions-item label="学号">{{ detail.school_no || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="性别">{{ detail.gender }}</el-descriptions-item>
-          <el-descriptions-item label="身高">{{ detail.height_cm ?? '—' }} cm</el-descriptions-item>
-          <el-descriptions-item label="视力">{{ fmtVision(detail.vision_left) }} / {{ fmtVision(detail.vision_right) }}</el-descriptions-item>
-          <el-descriptions-item label="成绩">{{ detail.grade_level || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
-          <el-descriptions-item label="住宿">{{ detail.is_boarding ? '是' : '否' }}</el-descriptions-item>
-          <el-descriptions-item label="近视">{{ detail.is_myopia ? '是' : '否' }}</el-descriptions-item>
-          <el-descriptions-item label="出生日期">{{ detail.birth_date || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="联系电话">{{ detail.phone || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="家长电话">{{ detail.parent_phone || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="职务/特长">{{ detail.interest_duty || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="健康状况" :span="2">{{ detail.health_note || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="座位需求" :span="2">{{ detail.seat_note || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="备注" :span="2">{{ detail.remark || '—' }}</el-descriptions-item>
-        </el-descriptions>
+        <el-tabs v-model="detailTab">
+          <el-tab-pane label="基本信息" name="info">
+            <el-descriptions :column="2" border size="small">
+              <el-descriptions-item label="学号">{{ detail.school_no || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="性别">{{ detail.gender }}</el-descriptions-item>
+              <el-descriptions-item label="身高">{{ detail.height_cm ?? '—' }} cm</el-descriptions-item>
+              <el-descriptions-item label="视力">{{ fmtVision(detail.vision_left) }} / {{ fmtVision(detail.vision_right) }}</el-descriptions-item>
+              <el-descriptions-item label="成绩">{{ detail.grade_level || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
+              <el-descriptions-item label="住宿">{{ detail.is_boarding ? '是' : '否' }}</el-descriptions-item>
+              <el-descriptions-item label="近视">{{ detail.is_myopia ? '是' : '否' }}</el-descriptions-item>
+              <el-descriptions-item label="出生日期">{{ detail.birth_date || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="联系电话">{{ detail.phone || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="家长电话">{{ detail.parent_phone || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="职务/特长">{{ detail.interest_duty || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="健康状况" :span="2">{{ detail.health_note || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="座位需求" :span="2">{{ detail.seat_note || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="备注" :span="2">{{ detail.remark || '—' }}</el-descriptions-item>
+            </el-descriptions>
+          </el-tab-pane>
 
-        <h4 style="margin:16px 0 8px">身高/视力历史</h4>
-        <el-table :data="metrics" size="small" border>
-          <el-table-column prop="term" label="学期" />
-          <el-table-column prop="height_cm" label="身高" />
-          <el-table-column label="视力">
-            <template #default="{ row }">{{ fmtVision(row.vision_left) }}/{{ fmtVision(row.vision_right) }}</template>
-          </el-table-column>
-          <el-table-column prop="grade_level" label="成绩" />
-          <el-table-column prop="recorded_at" label="记录时间" width="120" />
-        </el-table>
+          <el-tab-pane label="身高视力历史" name="metrics">
+            <el-table :data="metrics" size="small" border>
+              <el-table-column prop="term" label="学期" />
+              <el-table-column prop="height_cm" label="身高" />
+              <el-table-column label="视力">
+                <template #default="{ row }">{{ fmtVision(row.vision_left) }}/{{ fmtVision(row.vision_right) }}</template>
+              </el-table-column>
+              <el-table-column prop="grade_level" label="成绩" />
+              <el-table-column prop="recorded_at" label="记录时间" width="120" />
+            </el-table>
+          </el-tab-pane>
+
+          <el-tab-pane label="成长档案" name="records">
+            <div class="toolbar" style="margin-bottom:8px">
+              <span class="text-muted">奖励 / 批评 / 评语 / 表现记录</span>
+              <div class="spacer"></div>
+              <el-button size="small" type="primary" @click="openRecord()">添加记录</el-button>
+            </div>
+            <div v-if="records.length" class="record-list">
+              <div v-for="r in records" :key="r.id" class="record-item">
+                <el-tag size="small" :type="recType(r.type)" round>{{ r.type }}</el-tag>
+                <div class="rec-content">{{ r.content }}</div>
+                <div class="rec-meta">{{ r.date || '—' }}</div>
+                <el-button link type="danger" size="small" @click="removeRecord(r)">删</el-button>
+              </div>
+            </div>
+            <el-empty v-else description="暂无成长记录" :image-size="50" />
+          </el-tab-pane>
+
+          <el-tab-pane label="家校沟通" name="contacts">
+            <div class="toolbar" style="margin-bottom:8px">
+              <span class="text-muted">家访 / 电话 / 微信沟通台账</span>
+              <div class="spacer"></div>
+              <el-button size="small" type="primary" @click="openContact()">添加沟通</el-button>
+            </div>
+            <div v-if="contacts.length" class="record-list">
+              <div v-for="c in contacts" :key="c.id" class="record-item">
+                <el-tag size="small" type="info" round>{{ c.method || '—' }}</el-tag>
+                <div class="rec-content">
+                  <div><b>{{ c.topic || '（未填事由）' }}</b></div>
+                  <div class="text-muted" v-if="c.result">{{ c.result }}</div>
+                </div>
+                <div class="rec-meta">{{ c.date || '—' }}</div>
+                <el-button link type="danger" size="small" @click="removeContact(c)">删</el-button>
+              </div>
+            </div>
+            <el-empty v-else description="暂无沟通记录" :image-size="50" />
+          </el-tab-pane>
+        </el-tabs>
       </template>
     </el-drawer>
+
+    <!-- 成长记录弹窗 -->
+    <el-dialog v-model="recordDialogVisible" title="添加成长记录" width="440px">
+      <el-form label-width="60px">
+        <el-form-item label="类型">
+          <el-select v-model="recordForm.type" style="width:150px">
+            <el-option label="奖励" value="奖励" /><el-option label="批评" value="批评" />
+            <el-option label="评语" value="评语" /><el-option label="表现" value="表现" />
+            <el-option label="其他" value="其他" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="内容" required><el-input v-model="recordForm.content" type="textarea" :rows="3" placeholder="记录内容" /></el-form-item>
+        <el-form-item label="日期"><el-date-picker v-model="recordForm.date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="recordDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveRecord">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 家校沟通弹窗 -->
+    <el-dialog v-model="contactDialogVisible" title="添加家校沟通" width="440px">
+      <el-form label-width="60px">
+        <el-form-item label="方式">
+          <el-select v-model="contactForm.method" style="width:150px">
+            <el-option v-for="m in ['家访','电话','微信','到校面谈','其他']" :key="m" :value="m" :label="m" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="日期"><el-date-picker v-model="contactForm.date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
+        <el-form-item label="事由"><el-input v-model="contactForm.topic" placeholder="如：反馈期中成绩" /></el-form-item>
+        <el-form-item label="结果"><el-input v-model="contactForm.result" type="textarea" :rows="2" placeholder="沟通结果/家长反馈" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="contactDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveContact">保存</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 导入预览 -->
     <el-dialog v-model="importVisible" title="导入预览" width="620px">
@@ -229,6 +308,13 @@ const form = ref(emptyForm());
 const detailVisible = ref(false);
 const detail = ref({});
 const metrics = ref([]);
+const detailTab = ref('info');
+const records = ref([]);
+const contacts = ref([]);
+const recordDialogVisible = ref(false);
+const recordForm = ref({ type: '表现', content: '', date: '', remark: '' });
+const contactDialogVisible = ref(false);
+const contactForm = ref({ date: '', method: '电话', topic: '', result: '', remark: '' });
 
 const importVisible = ref(false);
 const parsed = ref([]);
@@ -265,8 +351,49 @@ onMounted(() => {
 function onSelection(rows) { selected.value = rows.map(r => r.id); }
 function openDetail(row) {
   detail.value = row;
+  detailTab.value = 'info';
   detailVisible.value = true;
   api.students.metrics(row.id).then(m => (metrics.value = m));
+  api.records.list(row.id).then(r => (records.value = r)).catch(() => {});
+  api.records.contacts(row.id).then(c => (contacts.value = c)).catch(() => {});
+}
+function recType(t) {
+  return { 奖励: 'success', 批评: 'danger', 评语: 'primary', 表现: 'warning', 其他: 'info' }[t] || 'info';
+}
+/* 成长记录 */
+function openRecord() {
+  recordForm.value = { type: '表现', content: '', date: '', remark: '' };
+  recordDialogVisible.value = true;
+}
+async function saveRecord() {
+  if (!recordForm.value.content.trim()) return ElMessage.warning('请填写记录内容');
+  await api.records.create(detail.value.id, recordForm.value);
+  ElMessage.success('已添加');
+  recordDialogVisible.value = false;
+  records.value = await api.records.list(detail.value.id);
+}
+async function removeRecord(r) {
+  const ok = await ElMessageBox.confirm('删除这条记录？', '确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
+  await api.records.remove(detail.value.id, r.id);
+  records.value = await api.records.list(detail.value.id);
+}
+/* 家校沟通 */
+function openContact() {
+  contactForm.value = { date: '', method: '电话', topic: '', result: '', remark: '' };
+  contactDialogVisible.value = true;
+}
+async function saveContact() {
+  await api.records.addContact(detail.value.id, contactForm.value);
+  ElMessage.success('已添加');
+  contactDialogVisible.value = false;
+  contacts.value = await api.records.contacts(detail.value.id);
+}
+async function removeContact(c) {
+  const ok = await ElMessageBox.confirm('删除这条沟通记录？', '确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
+  await api.records.removeContact(detail.value.id, c.id);
+  contacts.value = await api.records.contacts(detail.value.id);
 }
 function toggleTrash() { trashed.value = !trashed.value; selected.value = []; load(); }
 

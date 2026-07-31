@@ -9,24 +9,39 @@
         </div>
       </div>
       <el-menu ref="menuRef" :default-active="$route.path" router class="nav-menu">
-        <el-menu-item index="/overview">
-          <el-icon><HomeFilled /></el-icon><span>概览首页</span>
-        </el-menu-item>
-        <el-menu-item index="/students">
-          <el-icon><User /></el-icon><span>学生管理</span>
-        </el-menu-item>
-        <el-menu-item index="/seats">
-          <el-icon><Grid /></el-icon><span>座位管理</span>
-        </el-menu-item>
-        <el-menu-item index="/documents">
-          <el-icon><FolderOpened /></el-icon><span>文档管理</span>
-        </el-menu-item>
-        <el-menu-item index="/duties">
-          <el-icon><Calendar /></el-icon><span>值日管理</span>
-        </el-menu-item>
-        <el-menu-item index="/leaders">
-          <el-icon><UserFilled /></el-icon><span>班委学委</span>
-        </el-menu-item>
+        <el-menu-item-group title="常用">
+          <el-menu-item index="/overview">
+            <el-icon><HomeFilled /></el-icon><span>概览首页</span>
+          </el-menu-item>
+          <el-menu-item index="/students">
+            <el-icon><User /></el-icon><span>学生管理</span>
+          </el-menu-item>
+          <el-menu-item index="/seats">
+            <el-icon><Grid /></el-icon><span>座位管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+        <el-menu-item-group title="学习分析">
+          <el-menu-item index="/analytics">
+            <el-icon><TrendCharts /></el-icon><span>数据分析</span>
+          </el-menu-item>
+          <el-menu-item index="/scores">
+            <el-icon><DocumentChecked /></el-icon><span>成绩管理</span>
+          </el-menu-item>
+          <el-menu-item index="/attendance">
+            <el-icon><Finished /></el-icon><span>考勤管理</span>
+          </el-menu-item>
+        </el-menu-item-group>
+        <el-menu-item-group title="班级事务">
+          <el-menu-item index="/documents">
+            <el-icon><FolderOpened /></el-icon><span>文档管理</span>
+          </el-menu-item>
+          <el-menu-item index="/duties">
+            <el-icon><Calendar /></el-icon><span>值日管理</span>
+          </el-menu-item>
+          <el-menu-item index="/leaders">
+            <el-icon><UserFilled /></el-icon><span>班委学委</span>
+          </el-menu-item>
+        </el-menu-item-group>
         <el-menu-item index="/classes" class="menu-bottom">
           <el-icon><Setting /></el-icon><span>班级设置</span>
         </el-menu-item>
@@ -129,6 +144,10 @@ function goSearch() {
   margin-top: 8px;
   border-top: 1px dashed #e0f0e9;
   border-radius: 0 0 10px 10px;
+}
+.nav-menu :deep(.el-menu-item-group__title) {
+  font-size: 11px; color: #a8c3b9;
+  padding: 14px 12px 4px;
 }
 
 .sidebar-footer {
