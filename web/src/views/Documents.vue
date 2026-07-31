@@ -24,7 +24,7 @@
           <p class="page-head-desc">上传、分类、预览班级文件（图片/PDF/Office/文本）</p>
         </div>
         <div class="page-head-actions">
-          <el-button v-if="!trashed" type="primary" :icon="Upload" @click="uploadVisible = true">上传文件</el-button>
+          <el-button v-if="!trashed" type="primary" :icon="Upload" @click="openUpload">上传文件</el-button>
           <el-button @click="toggleTrash">{{ trashed ? '返回文件列表' : '回收站' }}</el-button>
         </div>
       </div>
@@ -35,7 +35,7 @@
 
       <!-- 拖拽上传提示区（回收站视图隐藏） -->
       <div v-if="!trashed" class="drop-zone" :class="{ dragging: dragging }"
-           @click="uploadVisible = true"
+           @click="openUpload"
            @dragover.prevent="dragging = true" @dragleave="dragging = false">
         <el-icon :size="28"><UploadFilled /></el-icon>
         <span>点击或拖拽文件到此处上传（图片 / PDF / Office / 文本，单个 ≤200MB）</span>
@@ -51,18 +51,20 @@
           <div class="file-name" :title="f.original_name">{{ f.original_name }}</div>
           <div class="file-meta">
             {{ formatSize(f.size) }} · {{ (f.uploaded_at || '').slice(0, 10) }}
-            <el-tag v-if="f.tag" size="small" type="info">{{ f.tag }}</el-tag>
+          </div>
+          <div class="file-tags" v-if="f.tag">
+            <el-tag v-for="t in String(f.tag).split(/[,，]/).filter(Boolean)" :key="t" size="small" type="info" round>{{ t }}</el-tag>
           </div>
           <div class="file-ops">
             <template v-if="!trashed">
-              <el-button link size="small" type="primary" @click.stop="preview(f)">预览</el-button>
-              <el-button link size="small" @click.stop="download(f)">下载</el-button>
-              <el-button link size="small" @click.stop="openRename(f)">重命名</el-button>
-              <el-button link size="small" type="danger" @click.stop="remove(f)">删除</el-button>
+              <el-tooltip content="预览" placement="top"><el-button circle size="small" :icon="View" @click.stop="preview(f)" /></el-tooltip>
+              <el-tooltip content="下载" placement="top"><el-button circle size="small" :icon="Download" @click.stop="download(f)" /></el-tooltip>
+              <el-tooltip content="重命名" placement="top"><el-button circle size="small" :icon="EditPen" @click.stop="openRename(f)" /></el-tooltip>
+              <el-tooltip content="删除" placement="top"><el-button circle size="small" class="op-del" :icon="Delete" @click.stop="remove(f)" /></el-tooltip>
             </template>
             <template v-else>
-              <el-button link size="small" type="primary" @click.stop="restore([f.id])">恢复</el-button>
-              <el-button link size="small" type="danger" @click.stop="purge([f.id])">彻底删除</el-button>
+              <el-tooltip content="恢复" placement="top"><el-button circle size="small" :icon="RefreshLeft" @click.stop="restore([f.id])" /></el-tooltip>
+              <el-tooltip content="彻底删除" placement="top"><el-button circle size="small" class="op-del" :icon="DeleteFilled" @click.stop="purge([f.id])" /></el-tooltip>
             </template>
           </div>
         </div>
@@ -80,7 +82,12 @@
       </div>
       <el-form label-width="70px" style="margin-top:14px">
         <el-form-item label="标签">
-          <el-input v-model="uploadTag" placeholder="可选，多个标签用逗号分隔，如：家长会,通知" />
+          <el-select v-model="uploadTagList" multiple filterable allow-create default-first-option
+                     collapse-tags collapse-tags-tooltip :max-collapse-tags="3"
+                     placeholder="点击选择预设标签，或输入自定义标签" style="width:100%">
+            <el-option v-for="t in PRESET_TAGS" :key="t" :value="t" :label="t" />
+          </el-select>
+          <div class="text-muted" style="line-height:1.5;margin-top:4px">可选：教案 / 试卷 / 课件 / 通知 / 家长信 / 表格模板…</div>
         </el-form-item>
       </el-form>
       <div v-if="uploadQueue.length" class="upload-list">
@@ -115,7 +122,13 @@
     <el-dialog v-model="renameVisible" title="重命名 / 编辑标签" width="420px">
       <el-form label-width="60px">
         <el-form-item label="文件名"><el-input v-model="renameForm.name" /></el-form-item>
-        <el-form-item label="标签"><el-input v-model="renameForm.tag" placeholder="逗号分隔多个标签" /></el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="renameForm.tagList" multiple filterable allow-create default-first-option
+                     collapse-tags collapse-tags-tooltip :max-collapse-tags="3"
+                     placeholder="点击选择预设标签，或输入自定义标签" style="width:100%">
+            <el-option v-for="t in PRESET_TAGS" :key="t" :value="t" :label="t" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="renameVisible = false">取消</el-button>
@@ -128,7 +141,7 @@
 <script setup>
 import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search, Upload, UploadFilled } from '@element-plus/icons-vue';
+import { Search, Upload, UploadFilled, View, Download, EditPen, Delete, RefreshLeft, DeleteFilled } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -142,15 +155,21 @@ const tags = ref([]);
 const dragging = ref(false);
 
 const uploadVisible = ref(false);
-const uploadTag = ref('');
+const uploadTagList = ref([]);
 const uploadQueue = ref([]);
+
+function openUpload() {
+  uploadTagList.value = [];
+  uploadQueue.value = [];
+  uploadVisible.value = true;
+}
 const fileInput = ref(null);
 
 const previewVisible = ref(false);
 const current = ref(null);
 const textContent = ref('');
 const renameVisible = ref(false);
-const renameForm = ref({ id: null, name: '', tag: '' });
+const renameForm = ref({ id: null, name: '', tagList: [] });
 
 let debounceTimer = null;
 function debouncedLoad() { clearTimeout(debounceTimer); debounceTimer = setTimeout(load, 300); }
@@ -198,7 +217,7 @@ async function doUpload(files) {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('class_id', store.currentClassId);
-    if (uploadTag.value) fd.append('tag', uploadTag.value);
+    if (uploadTagList.value.length) fd.append('tag', uploadTagList.value.join(','));
     const item = { name: file.name, ok: null, error: '' };
     uploadQueue.value.push(item);
     try {
@@ -237,12 +256,19 @@ function download(f) {
 
 /* ---------- 重命名 / 删除 ---------- */
 function openRename(f) {
-  renameForm.value = { id: f.id, name: f.original_name, tag: f.tag || '' };
+  renameForm.value = {
+    id: f.id,
+    name: f.original_name,
+    tagList: String(f.tag || '').split(/[,，]/).map(t => t.trim()).filter(Boolean),
+  };
   renameVisible.value = true;
 }
 async function saveRename() {
   if (!renameForm.value.name.trim()) return ElMessage.warning('文件名不能为空');
-  await api.documents.update(renameForm.value.id, { name: renameForm.value.name.trim(), tag: renameForm.value.tag });
+  await api.documents.update(renameForm.value.id, {
+    name: renameForm.value.name.trim(),
+    tag: renameForm.value.tagList.join(','),
+  });
   renameVisible.value = false;
   ElMessage.success('已保存');
   load();
@@ -323,7 +349,27 @@ onBeforeUnmount(() => {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .file-meta { font-size: 11px; color: var(--muted); text-align: center; display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap; }
-.file-ops { display: flex; justify-content: center; gap: 2px; margin-top: 6px; flex-wrap: wrap; }
+.file-tags { display: flex; justify-content: center; gap: 3px; margin-top: 4px; flex-wrap: wrap; }
+.file-ops {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 2px dashed var(--paper);
+  opacity: .85;
+  transition: opacity .15s;
+}
+.file-card:hover .file-ops { opacity: 1; }
+.file-ops :deep(.el-button) {
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+}
+.file-ops :deep(.el-button:hover) { background: var(--mustard); color: var(--ink); }
+.file-ops :deep(.op-del) { border-color: var(--tomato); color: var(--tomato); }
+.file-ops :deep(.op-del:hover) { background: var(--tomato); color: #fff; }
 .empty { padding: 30px 0; }
 .upload-list { margin-top: 10px; max-height: 180px; overflow: auto; }
 .upload-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
