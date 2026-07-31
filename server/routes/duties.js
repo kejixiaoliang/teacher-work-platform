@@ -128,8 +128,7 @@ router.post('/auto-group', (req, res) => {
 });
 
 // 一键预设班委：补齐常见职务空缺（每人最多一个职务）
-router.post('/preset-leaders', (req, res) => {
-  const { class_id } = req.body || {};
+router.post('/preset-leaders', (req, res) => {  const { class_id } = req.body || {};
   if (!class_id) return res.json({ ok: false, error: '缺少班级' });
   const existingRoles = new Set(db.prepare(`
     SELECT role FROM duties WHERE class_id = ? AND role <> '值日生'
@@ -167,6 +166,42 @@ router.post('/preset-leaders', (req, res) => {
   });
   tx();
   res.json({ ok: true, data: { added, skipped, totalRoles: PRESET_ROLES.length } });
+});
+
+// 一键预设课代表：为各科补齐课代表（同一人可兼任班委/多科，但每科仅一人）
+const SUBJECT_LEADER_ROLES = ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
+
+router.post('/preset-subject-leaders', (req, res) => {
+  const { class_id } = req.body || {};
+  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  const existingRoles = new Set(db.prepare(`
+    SELECT role FROM duties WHERE class_id = ? AND role LIKE '%课代表'
+  `).all(Number(class_id)).map(r => r.role));
+  const candidates = db.prepare(`
+    SELECT id, name FROM students
+    WHERE class_id = ? AND deleted_at IS NULL AND status = '在读'
+    ORDER BY CAST(school_no AS INTEGER), school_no, id
+  `).all(Number(class_id));
+  if (!candidates.length) return res.json({ ok: false, error: '班级没有在读学生' });
+
+  const ins = db.prepare(`
+    INSERT INTO duties (class_id, student_id, role) VALUES (?, ?, ?)
+  `);
+  const added = [];
+  let skipped = 0;
+  const tx = db.transaction(() => {
+    let ci = 0;
+    for (const role of SUBJECT_LEADER_ROLES) {
+      if (existingRoles.has(role)) { skipped++; continue; }
+      // 每个科目从名单顺序取一位（可身兼数科，所以不排除已任职者）
+      const stu = candidates[ci++ % candidates.length];
+      ins.run(Number(class_id), stu.id, role);
+      existingRoles.add(role);
+      added.push({ role, name: stu.name });
+    }
+  });
+  tx();
+  res.json({ ok: true, data: { added, skipped, totalRoles: SUBJECT_LEADER_ROLES.length } });
 });
 
 // 更新（同样做班干部职务唯一 + 值日生一人一组校验，排除自身）

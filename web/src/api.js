@@ -63,6 +63,7 @@ export const api = {
     batch: d => request('POST', '/api/duties/batch', d),
     autoGroup: d => request('POST', '/api/duties/auto-group', d),
     presetLeaders: d => request('POST', '/api/duties/preset-leaders', d),
+    presetSubjectLeaders: d => request('POST', '/api/duties/preset-subject-leaders', d),
     update: (id, d) => request('PUT', `/api/duties/${id}`, d),
     remove: id => request('DELETE', `/api/duties/${id}`),
   },

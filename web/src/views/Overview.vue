@@ -29,28 +29,26 @@
     </div>
 
     <div class="cards">
-      <!-- 班委 & 课代表一览：只看不编辑 -->
-      <div class="card" v-if="leaderList.length || subjectLeaderList.length">
-        <div class="card-title">班委 · 课代表 <el-button link @click="go('/leaders')">管理</el-button></div>
-        <template v-if="leaderList.length">
-          <div class="sub-title">班委</div>
-          <div class="leader-grid">
-            <div v-for="l in leaderList" :key="l.id" class="leader-item">
-              <span class="leader-role">{{ l.role }}</span>
-              <b class="leader-name">{{ l.student_name }}</b>
-            </div>
+      <!-- 班委一览：只看不编辑 -->
+      <div class="card" v-if="leaderList.length">
+        <div class="card-title">班委 <el-button link @click="go('/leaders')">管理</el-button></div>
+        <div class="leader-grid">
+          <div v-for="l in leaderList" :key="l.id" class="leader-item">
+            <span class="leader-role">{{ l.role }}</span>
+            <b class="leader-name">{{ l.student_name }}</b>
           </div>
-        </template>
-        <template v-if="subjectLeaderList.length">
-          <div class="sub-title" style="margin-top:12px">课代表</div>
-          <div class="leader-grid">
-            <div v-for="l in subjectLeaderList" :key="l.id" class="leader-item">
-              <span class="leader-role">{{ l.role.replace('课代表', '') }}</span>
-              <b class="leader-name">{{ l.student_name }}</b>
-            </div>
+        </div>
+      </div>
+
+      <!-- 课代表一览：只看不编辑 -->
+      <div class="card" v-if="subjectLeaderList.length">
+        <div class="card-title">课代表 <el-button link @click="go('/subject-leaders')">管理</el-button></div>
+        <div class="leader-grid">
+          <div v-for="l in subjectLeaderList" :key="l.id" class="leader-item">
+            <span class="leader-role">{{ l.role.replace('课代表', '') }}</span>
+            <b class="leader-name">{{ l.student_name }}</b>
           </div>
-        </template>
-        <div v-if="!leaderList.length && !subjectLeaderList.length" class="text-muted">尚未设置班委/课代表</div>
+        </div>
       </div>
 
       <!-- 今日值日 -->
@@ -316,8 +314,7 @@ async function exportAll() {
 .stat-num { font-size: 20px; font-weight: 900; color: var(--tomato-deep); }
 .stat-lbl { font-size: 12px; color: var(--muted); font-weight: 800; }
 
-/* ---------- 班委一览 ---------- */
-.sub-title { font-size: 12px; color: var(--muted); font-weight: 800; margin-bottom: 8px; letter-spacing: .5px; }
+/* ---------- 班委/课代表一览 ---------- */
 .leader-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 .leader-item {
   display: flex; flex-direction: column; gap: 2px;

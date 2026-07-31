@@ -137,6 +137,10 @@ CREATE TABLE IF NOT EXISTS exams (
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
+-- 迁移：清理同班同名重复考试（保留每组最新一条，成绩随级联删除），随后建唯一索引
+DELETE FROM exams WHERE id NOT IN (
+  SELECT MAX(id) FROM exams GROUP BY class_id, name
+);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_class_name ON exams(class_id, name);
 
 CREATE TABLE IF NOT EXISTS exam_scores (

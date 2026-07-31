@@ -42,7 +42,7 @@
           <el-menu-item index="/leaders">
             <el-icon><UserFilled /></el-icon><span>班委学委</span>
           </el-menu-item>
-          <el-menu-item :index="'/leaders?tab=subjects'">
+          <el-menu-item index="/subject-leaders">
             <el-icon><Reading /></el-icon><span>课代表选择</span>
           </el-menu-item>
         </el-menu-item-group>
@@ -96,11 +96,8 @@ const globalKw = ref('');
 onMounted(loadClasses);
 
 // 非菜单导航（如首页快捷入口）后，菜单高亮跟随路由
-watch(() => route.fullPath, fp => {
-  if (menuRef.value) {
-    // 课代表选择：/leaders?tab=subjects 高亮对应菜单项
-    menuRef.value.activeIndex = fp.startsWith('/leaders?tab=subjects') ? '/leaders?tab=subjects' : route.path;
-  }
+watch(() => route.path, p => {
+  if (menuRef.value) menuRef.value.activeIndex = p;
 });
 
 // 全局搜索学生：跳转学生页并带关键词
