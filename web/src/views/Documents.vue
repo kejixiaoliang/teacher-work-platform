@@ -46,7 +46,7 @@
         <el-empty :description="trashed ? '回收站为空' : '暂无文件，拖拽或点击上传'" />
       </div>
       <div v-else class="file-grid">
-        <div v-for="f in list" :key="f.id" class="file-card" @dblclick="preview(f)">
+        <div v-for="f in list" :key="f.id" class="file-card" @click="preview(f)">
           <div class="file-icon"><el-icon :size="30"><component :is="cateIcon(f.category)" /></el-icon></div>
           <div class="file-name" :title="f.original_name">{{ f.original_name }}</div>
           <div class="file-meta">
@@ -55,21 +55,21 @@
           <div class="file-tags" v-if="f.tag">
             <el-tag v-for="t in String(f.tag).split(/[,，]/).filter(Boolean)" :key="t" size="small" type="info" round>{{ t }}</el-tag>
           </div>
-          <div class="file-ops">
+          <div class="file-ops" @click.stop>
             <template v-if="!trashed">
-              <el-tooltip content="预览" placement="top"><el-button circle size="small" :icon="View" @click.stop="preview(f)" /></el-tooltip>
-              <el-tooltip content="下载" placement="top"><el-button circle size="small" :icon="Download" @click.stop="download(f)" /></el-tooltip>
-              <el-tooltip content="重命名" placement="top"><el-button circle size="small" :icon="EditPen" @click.stop="openRename(f)" /></el-tooltip>
-              <el-tooltip content="删除" placement="top"><el-button circle size="small" class="op-del" :icon="Delete" @click.stop="remove(f)" /></el-tooltip>
+              <el-button class="op-btn" size="small" @click="preview(f)">预览</el-button>
+              <el-button class="op-btn" size="small" @click="download(f)">下载</el-button>
+              <el-button class="op-btn" size="small" @click="openRename(f)">编辑</el-button>
+              <el-button class="op-btn op-del" size="small" @click="remove(f)">删除</el-button>
             </template>
             <template v-else>
-              <el-tooltip content="恢复" placement="top"><el-button circle size="small" :icon="RefreshLeft" @click.stop="restore([f.id])" /></el-tooltip>
-              <el-tooltip content="彻底删除" placement="top"><el-button circle size="small" class="op-del" :icon="DeleteFilled" @click.stop="purge([f.id])" /></el-tooltip>
+              <el-button class="op-btn" size="small" @click="restore([f.id])">恢复</el-button>
+              <el-button class="op-btn op-del" size="small" @click="purge([f.id])">彻底删除</el-button>
             </template>
           </div>
         </div>
       </div>
-      <div class="text-muted" style="margin-top:10px">共 {{ list.length }} 个文件</div>
+      <div class="text-muted" style="margin-top:10px">共 {{ list.length }} 个文件 · 单击卡片可预览</div>
     </div>
 
     <!-- 上传弹窗 -->
@@ -110,11 +110,7 @@
              style="max-width:100%; max-height:72vh" />
         <iframe v-else-if="current.category === 'PDF'" :src="api.documents.fileUrl(current.id)"
                 style="width:100%; height:72vh; border:none" />
-        <pre v-else-if="current.category === '文本'" class="text-preview">{{ textContent }}</pre>
-        <div v-else class="no-preview">
-          <p>该类型暂不支持在线预览</p>
-          <el-button type="primary" @click="download(current)">下载查看</el-button>
-        </div>
+        <pre v-else class="text-preview">{{ textContent }}</pre>
       </div>
     </el-dialog>
 
@@ -141,7 +137,7 @@
 <script setup>
 import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search, Upload, UploadFilled, View, Download, EditPen, Delete, RefreshLeft, DeleteFilled } from '@element-plus/icons-vue';
+import { Search, Upload, UploadFilled } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -237,6 +233,11 @@ function onFilesSelected(e) {
 
 /* ---------- 预览 / 下载 ---------- */
 async function preview(f) {
+  // 图片 / PDF / 文本支持内嵌预览；其余类型直接下载（避免弹出无内容的空预览窗）
+  if (!['图片', 'PDF', '文本'].includes(f.category)) {
+    download(f);
+    return;
+  }
   current.value = f;
   previewVisible.value = true;
   textContent.value = '';
@@ -336,13 +337,13 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 .drop-zone.dragging { border-color: var(--tomato); background: var(--paper); color: var(--tomato); }
-.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 .file-card {
   border: 3px solid var(--ink); border-radius: 14px; padding: 12px; cursor: pointer;
   transition: box-shadow .15s, transform .15s; background: #fff;
   box-shadow: var(--shadow-sm);
 }
-.file-card:hover { box-shadow: var(--shadow); transform: translateY(-2px) rotate(-.3deg); }
+.file-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
 .file-icon { text-align: center; color: var(--tomato); }
 .file-name {
   font-size: 13px; font-weight: 900; margin: 8px 0 4px; text-align: center; color: var(--ink);
@@ -353,23 +354,27 @@ onBeforeUnmount(() => {
 .file-ops {
   display: flex;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   margin-top: 8px;
-  padding-top: 6px;
-  border-top: 2px dashed var(--paper);
-  opacity: .85;
-  transition: opacity .15s;
+  padding-top: 8px;
+  border-top: 2px dashed var(--ink);
+  flex-wrap: wrap;
 }
-.file-card:hover .file-ops { opacity: 1; }
-.file-ops :deep(.el-button) {
+/* 操作按钮：文字胶囊（与全站风格一致） */
+.op-btn {
+  margin: 0 !important;
+  border-radius: 999px;
   border: 2px solid var(--ink);
   background: #fff;
   color: var(--ink);
   font-weight: 800;
+  padding: 2px 10px;
+  height: auto;
+  font-size: 12px;
 }
-.file-ops :deep(.el-button:hover) { background: var(--mustard); color: var(--ink); }
-.file-ops :deep(.op-del) { border-color: var(--tomato); color: var(--tomato); }
-.file-ops :deep(.op-del:hover) { background: var(--tomato); color: #fff; }
+.op-btn:hover { background: var(--mustard); color: var(--ink); }
+.op-del { border-color: var(--tomato); color: var(--tomato); }
+.op-del:hover { background: var(--tomato); color: #fff; }
 .empty { padding: 30px 0; }
 .upload-list { margin-top: 10px; max-height: 180px; overflow: auto; }
 .upload-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
@@ -378,5 +383,4 @@ onBeforeUnmount(() => {
   text-align: left; background: var(--paper); border-radius: 6px; padding: 14px;
   max-height: 72vh; overflow: auto; white-space: pre-wrap; font-size: 13px;
 }
-.no-preview { padding: 60px 0; color: var(--el-text-color-secondary); }
 </style>
