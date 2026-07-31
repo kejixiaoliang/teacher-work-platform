@@ -22,6 +22,9 @@ router.get('/exams', (req, res) => {
 router.post('/exams', (req, res) => {
   const { class_id, name, date, subjects, remark } = req.body || {};
   if (!class_id || !name || !String(name).trim()) return res.json({ ok: false, error: '考试名称不能为空' });
+  if (!db.prepare('SELECT id FROM classes WHERE id = ?').get(Number(class_id))) {
+    return res.json({ ok: false, error: '班级不存在' });
+  }
   const existed = db.prepare('SELECT id FROM exams WHERE class_id = ? AND name = ?').get(Number(class_id), String(name).trim());
   if (existed) return res.json({ ok: true, data: { id: existed.id, existed: true } });
   const info = db.prepare(`
@@ -83,8 +86,9 @@ router.put('/', (req, res) => {
     for (const r of list) {
       if (r.studentId == null || !r.subject) continue;
       if (!validIds.has(Number(r.studentId))) continue;
+      if (String(r.subject).length > 30) continue; // 科目名过长跳过
       const v = r.score === null || r.score === '' || r.score === undefined ? null : Number(r.score);
-      if (v != null && !Number.isFinite(v)) continue; // 非法分数跳过
+      if (v != null && (!Number.isFinite(v) || v < 0 || v > 200)) continue; // 非法/越界分数跳过
       upsert.run(Number(examId), Number(r.studentId), String(r.subject), v);
       saved++;
     }

@@ -185,6 +185,7 @@ CREATE TABLE IF NOT EXISTS leaves (
 );
 CREATE INDEX IF NOT EXISTS idx_leaves_class ON leaves(class_id);
 CREATE INDEX IF NOT EXISTS idx_leaves_student ON leaves(student_id);
+CREATE INDEX IF NOT EXISTS idx_leaves_class_dates ON leaves(class_id, start_date, end_date);
 
 -- 常用查询索引（P2-16）：必须在所有建表之后，否则全新库会报 no such table
 CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);

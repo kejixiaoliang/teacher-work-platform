@@ -31,13 +31,19 @@ router.post('/', (req, res) => {
   if (!start_date) return res.json({ ok: false, error: '请选择开始日期' });
   const stu = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(Number(student_id));
   if (!stu) return res.json({ ok: false, error: '学生不存在' });
+  // 归属校验：学生必须属于该班级，避免跨班脏数据
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(Number(student_id), Number(class_id));
+  if (!owner) return res.json({ ok: false, error: '学生不属于当前班级' });
+  const d = days != null ? Number(days) : 1;
+  if (!Number.isFinite(d) || d <= 0 || d > 365) return res.json({ ok: false, error: '天数无效' });
+  if (end_date && end_date < start_date) return res.json({ ok: false, error: '结束日期不能早于开始日期' });
   const info = db.prepare(`
     INSERT INTO leaves (class_id, student_id, type, start_date, end_date, days, reason, status, remark)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     Number(class_id), Number(student_id), type || '事假',
     start_date, end_date || start_date,
-    days != null ? Number(days) : 1,
+    d,
     reason || '', status || '已批准', remark || ''
   );
   res.json({ ok: true, data: { id: info.lastInsertRowid } });
@@ -49,17 +55,28 @@ router.put('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(id);
   if (!row) return res.json({ ok: false, error: '请假记录不存在' });
   const b = req.body || {};
+  const newStudentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
+  const newClassId = b.class_id !== undefined ? Number(b.class_id) : row.class_id;
+  // 归属校验：学生必须属于记录所属班级
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(newStudentId, newClassId);
+  if (!owner) return res.json({ ok: false, error: '学生不属于该班级' });
+  const days = b.days !== undefined ? Number(b.days) : row.days;
+  if (!Number.isFinite(days) || days <= 0 || days > 365) return res.json({ ok: false, error: '天数无效' });
+  const sDate = b.start_date !== undefined ? b.start_date : row.start_date;
+  const eDate = b.end_date !== undefined ? b.end_date : row.end_date;
+  if (eDate && sDate && eDate < sDate) return res.json({ ok: false, error: '结束日期不能早于开始日期' });
   db.prepare(`
-    UPDATE leaves SET type=?, start_date=?, end_date=?, days=?, reason=?, status=?, remark=?, student_id=? WHERE id=?
+    UPDATE leaves SET type=?, start_date=?, end_date=?, days=?, reason=?, status=?, remark=?, student_id=?, class_id=? WHERE id=?
   `).run(
     b.type !== undefined ? b.type : row.type,
-    b.start_date !== undefined ? b.start_date : row.start_date,
-    b.end_date !== undefined ? b.end_date : row.end_date,
-    b.days !== undefined ? Number(b.days) : row.days,
+    sDate,
+    eDate,
+    days,
     b.reason !== undefined ? b.reason : row.reason,
     b.status !== undefined ? b.status : row.status,
     b.remark !== undefined ? b.remark : row.remark,
-    b.student_id !== undefined ? Number(b.student_id) : row.student_id,
+    newStudentId,
+    newClassId,
     id
   );
   res.json({ ok: true });

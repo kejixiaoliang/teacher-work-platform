@@ -64,19 +64,30 @@ router.post('/', upload.single('file'), (req, res) => {
   const { class_id, tag, name } = req.body || {};
   const original = decodeName(name || req.file.originalname);
   const ext = path.extname(original).toLowerCase();
-  const info = db.prepare(`
-    INSERT INTO documents (class_id, original_name, stored_name, category, size, mime, tag)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    class_id ? Number(class_id) : null,
-    original,
-    req.file.filename,
-    categoryOf(ext),
-    req.file.size,
-    req.file.mimetype || 'application/octet-stream',
-    tag || ''
-  );
-  res.json({ ok: true, data: { id: info.lastInsertRowid, name: original } });
+  try {
+    // 校验班级存在，避免写入孤立文件/脏数据
+    if (!class_id || !db.prepare('SELECT id FROM classes WHERE id = ?').get(Number(class_id))) {
+      fs.unlinkSync(path.join(filesDir, req.file.filename));
+      return res.json({ ok: false, error: '班级不存在或未指定' });
+    }
+    const info = db.prepare(`
+      INSERT INTO documents (class_id, original_name, stored_name, category, size, mime, tag)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      Number(class_id),
+      original,
+      req.file.filename,
+      categoryOf(ext),
+      req.file.size,
+      req.file.mimetype || 'application/octet-stream',
+      tag || ''
+    );
+    res.json({ ok: true, data: { id: info.lastInsertRowid, name: original } });
+  } catch (e) {
+    // 写入失败：清理已落盘文件，避免孤儿文件
+    try { fs.unlinkSync(path.join(filesDir, req.file.filename)); } catch { /* 忽略 */ }
+    res.json({ ok: false, error: '保存失败：' + e.message });
+  }
 });
 
 // 列表
@@ -154,11 +165,28 @@ router.get('/:id/file', (req, res) => {
   const filePath = path.join(filesDir, row.stored_name);
   if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: '物理文件缺失' });
   const dl = req.query.dl === '1';
-  res.setHeader('Content-Type', row.mime || 'application/octet-stream');
+  // 安全：不信任客户端伪造的 mime；按扩展名映射 Content-Type，并禁用 MIME 嗅探
+  const SAFE_MIME = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif',
+    '.bmp': 'image/bmp', '.webp': 'image/webp', '.pdf': 'application/pdf',
+    '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8',
+    '.csv': 'text/plain; charset=utf-8',
+  };
+  const ext = path.extname(row.stored_name || '').toLowerCase();
+  const mime = SAFE_MIME[ext] || 'application/octet-stream';
+  res.setHeader('Content-Type', mime);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   const encoded = encodeURIComponent(row.original_name).replace(/['()]/g, escape);
+  // 可执行风险类型一律强制下载，不 inline 渲染（防存储型 XSS）
+  const inlineSafe = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.pdf'].includes(ext);
   res.setHeader('Content-Disposition',
-    `${dl ? 'attachment' : 'inline'}; filename*=UTF-8''${encoded}`);
-  fs.createReadStream(filePath).pipe(res);
+    `${dl || !inlineSafe ? 'attachment' : 'inline'}; filename*=UTF-8''${encoded}`);
+  const stream = fs.createReadStream(filePath);
+  stream.on('error', () => {
+    if (!res.headersSent) res.status(500).json({ ok: false, error: '文件读取失败' });
+    else res.destroy();
+  });
+  stream.pipe(res);
 });
 
 export default router;

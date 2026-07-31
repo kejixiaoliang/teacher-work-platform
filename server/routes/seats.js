@@ -43,12 +43,16 @@ router.put('/', (req, res) => {
       row, col, locked: s.locked ? 1 : 0,
     });
   }
-  // 同一学生只保留一个位置
+  // 同一学生只保留一个位置；同一坐标只保留一个学生（避免 UNIQUE 冲突 500）
   const seen = new Set();
+  const seenPos = new Set();
   const dedup = [];
   for (const s of clean) {
     if (s.student_id != null && seen.has(s.student_id)) continue;
+    const posKey = `${s.row},${s.col}`;
+    if (seenPos.has(posKey)) continue;
     if (s.student_id != null) seen.add(s.student_id);
+    seenPos.add(posKey);
     dedup.push(s);
   }
 
@@ -67,6 +71,13 @@ router.put('/', (req, res) => {
       VALUES (?, ?, ?, ?)
     `).run(classId, JSON.stringify({ manual: true }), JSON.stringify(snapshot),
       remark || `保存布局（${new Date().toLocaleString('zh-CN')}）`);
+    // 快照限流：每班只保留最近 50 条历史，防止无限膨胀
+    db.prepare(`
+      DELETE FROM seat_layouts WHERE id IN (
+        SELECT id FROM seat_layouts WHERE class_id = ?
+        ORDER BY id DESC LIMIT -1 OFFSET 50
+      )
+    `).run(classId);
   });
   tx();
   res.json({ ok: true, data: { count: dedup.length } });

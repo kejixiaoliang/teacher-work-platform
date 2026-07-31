@@ -34,6 +34,9 @@ router.post('/', (req, res) => {
   if (!class_id || !student_id || !role) return res.json({ ok: false, error: '班级/学生/角色不能为空' });
   const stu = db.prepare('SELECT id, name FROM students WHERE id = ? AND deleted_at IS NULL').get(Number(student_id));
   if (!stu) return res.json({ ok: false, error: '学生不存在' });
+  // 归属校验：学生必须属于该班级，避免跨班分配职务
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(Number(student_id), Number(class_id));
+  if (!owner) return res.json({ ok: false, error: '学生不属于当前班级' });
   if (role !== '值日生') {
     const dup = db.prepare('SELECT student_id FROM duties WHERE class_id = ? AND role = ?').get(Number(class_id), role);
     if (dup) {
@@ -61,6 +64,10 @@ router.post('/batch', (req, res) => {
     return res.json({ ok: false, error: '参数不完整' });
   }
   const isDuty = role === '值日生';
+  // 本班在读学生白名单（归属校验，防跨班/已删除学生写入）
+  const validIds = new Set(db.prepare(`
+    SELECT id FROM students WHERE class_id = ? AND deleted_at IS NULL
+  `).all(Number(class_id)).map(r => r.id));
   // 已入任何值日组的学生
   const inAnyGroup = new Set(db.prepare(`
     SELECT student_id FROM duties WHERE class_id = ? AND role = '值日生'
@@ -79,6 +86,10 @@ router.post('/batch', (req, res) => {
       const id = Number(sid);
       if (seen.has(id)) continue;
       seen.add(id);
+      if (!validIds.has(id)) {
+        skipped.push({ name: nameOf.get(id) || '', reason: '不属于当前班级' });
+        continue;
+      }
       if (isDuty && inAnyGroup.has(id)) {
         skipped.push({ name: nameOf.get(id) || '', reason: '已在其他值日组' });
         continue;
@@ -212,6 +223,9 @@ router.put('/:id', (req, res) => {
   const b = req.body || {};
   const role = b.role || row.role;
   const studentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
+  // 归属校验：学生必须属于记录所属班级
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(studentId, row.class_id);
+  if (!owner) return res.json({ ok: false, error: '学生不属于该班级' });
   if (role !== '值日生') {
     const dup = db.prepare('SELECT student_id FROM duties WHERE class_id = ? AND role = ? AND id <> ?')
       .get(row.class_id, role, id);
