@@ -1,5 +1,12 @@
 <template>
   <div class="page-card seats-workspace">
+    <!-- 页头：与其他页面一致 -->
+    <div class="page-head no-print">
+      <div>
+        <h2 class="page-head-title">座位管理</h2>
+        <p class="page-head-desc">拖拽换座 · 自动排座（身高/视力/男女/互助）· 平移轮换 · 历史回看</p>
+      </div>
+    </div>
     <!-- 顶部：模式切换 + 状态 -->
     <div class="ws-top no-print">
       <el-radio-group v-model="mode" size="large">
@@ -183,10 +190,10 @@
         <el-table-column prop="remark" label="说明" />
         <el-table-column prop="student_count" label="人数" width="60" />
         <el-table-column prop="created_at" label="保存时间" width="130" />
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="viewLayout(row)">查看/恢复</el-button>
-            <el-button link type="danger" size="small" @click="deleteLayout(row)">删除</el-button>
+            <el-button class="mini-btn" size="small" @click="viewLayout(row)">查看/恢复</el-button>
+            <el-button class="mini-btn mini-btn-del" size="small" @click="deleteLayout(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -759,4 +766,19 @@ onBeforeRouteLeave(async () => {
 .ctx-title { padding: 8px 16px; font-weight: 900; font-size: 13px; border-bottom: 3px dashed #d9cbb0; color: var(--tomato); }
 .ctx-item { padding: 9px 16px; font-size: 13px; cursor: pointer; font-weight: 700; }
 .ctx-item:hover { background: var(--mustard); color: var(--ink); }
+
+/* ---------- 响应式：窄屏面板置顶横排 ---------- */
+@media (max-width: 900px) {
+  .ws-body { flex-direction: column; }
+  .ws-panel {
+    width: 100%; flex-shrink: 1;
+    border-right: none; border-bottom: 3px dashed #d9cbb0;
+    max-height: none; position: static;
+    flex-direction: row; flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .panel-sec { flex: 1 1 200px; }
+  .seat-wrap { flex-basis: clamp(64px, 12vw, 90px); }
+  .seat-wrap.aisle { margin-left: 12px; }
+}
 </style>

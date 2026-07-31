@@ -244,6 +244,64 @@ body {
 .el-popper.is-light { border-radius: 12px; border: 2px solid var(--ink); }
 .el-select__popper.el-popper.is-light { border: 2px solid var(--ink); }
 
+/* ---------- 行内操作胶囊按钮（全站统一，替代各页重复定义） ---------- */
+.row-btn {
+  margin: 0 4px 0 0 !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 12px;
+  height: auto;
+}
+.row-btn:hover { background: var(--mustard); color: var(--ink); }
+.row-btn-edit { border-color: var(--mint); color: #2e6b55; }
+.row-btn-edit:hover { background: var(--mint); color: var(--ink); }
+.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.row-btn-del:hover { background: var(--tomato); color: #fff; }
+.mini-btn {
+  margin: 0 0 0 4px !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 2px 8px;
+  height: auto;
+  font-size: 12px;
+}
+.mini-btn:hover { background: var(--mustard); color: var(--ink); }
+.mini-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.mini-btn-del:hover { background: var(--tomato); color: #fff; }
+.grp-btn {
+  margin-left: 6px !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 12px;
+  height: auto;
+}
+.grp-btn:hover { background: var(--mustard); color: var(--ink); }
+.grp-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.grp-btn-del:hover { background: var(--tomato); color: #fff; }
+.op-btn {
+  margin: 0 !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 2px 10px;
+  height: auto;
+  font-size: 12px;
+}
+.op-btn:hover { background: var(--mustard); color: var(--ink); }
+.op-del { border-color: var(--tomato); color: var(--tomato); }
+.op-del:hover { background: var(--tomato); color: #fff; }
+
 /* ---------- 菜单（Element 默认风格兜底） ---------- */
 .el-menu { border-right: none; }
 

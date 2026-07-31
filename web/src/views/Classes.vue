@@ -27,11 +27,11 @@
         <template #default="{ row }">{{ row.student_count }}</template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" show-overflow-tooltip />
-      <el-table-column label="操作" width="160">
+      <el-table-column label="操作" width="180">
         <template #default="{ row }">
-          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-button v-if="row.id !== store.currentClassId" link @click="switchClass(row)">切换</el-button>
-          <el-button link type="danger" @click="remove(row)">删除</el-button>
+          <el-button class="row-btn" size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button v-if="row.id !== store.currentClassId" class="row-btn" size="small" @click="switchClass(row)">切换</el-button>
+          <el-button class="row-btn row-btn-del" size="small" @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -123,8 +123,12 @@ async function remove(row) {
     '删除班级', { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
   ).catch(() => false);
   if (!ok) return;
-  await api.classes.remove(row.id);
-  ElMessage.success('已删除');
-  await loadClasses();
+  try {
+    await api.classes.remove(row.id);
+    ElMessage.success('已删除');
+    await loadClasses();
+  } catch (e) {
+    ElMessage.error('删除失败：' + e.message);
+  }
 }
 </script>
