@@ -71,13 +71,24 @@ if (fs.existsSync(distDir)) {
   app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(distDir, 'index.html')));
 }
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\n✅ 教师工作台已启动：http://localhost:${PORT}`);
   console.log('   关闭本窗口即停止服务；数据保存在 data/ 文件夹。\n');
   // 自动打开浏览器（Windows，可用环境变量 NO_OPEN=1 关闭）
   if (process.env.NO_OPEN !== '1' && process.platform === 'win32') {
     spawn('cmd', ['/c', 'start', '', `http://localhost:${PORT}`], { detached: true, stdio: 'ignore' }).unref();
   }
+});
+
+// 端口占用等启动错误：友好提示，而不是抛堆栈让窗口一闪而过
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n[错误] 端口 ${PORT} 已被占用，无法启动服务。`);
+    console.error('可能已有「教师工作台」在运行，或存在残留的 node 进程。');
+    console.error('请关闭旧的启动窗口，或结束残留的 node 进程后重试。\n');
+    process.exit(1);
+  }
+  throw err;
 });
 
 process.on('SIGINT', () => { db.close(); process.exit(0); });
