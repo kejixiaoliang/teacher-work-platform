@@ -18,7 +18,7 @@
              @click="selectExam(e)">
           <div class="exam-head">
             <span class="exam-name">{{ e.name }}</span>
-            <el-button link type="danger" size="small" @click.stop="removeExam(e)">删</el-button>
+            <el-button class="mini-btn mini-btn-del" size="small" @click.stop="removeExam(e)">删</el-button>
           </div>
           <div class="exam-meta">{{ e.date || '未定日期' }} · {{ e.subjects.length }} 科 · 已录 {{ e.scored_count }} 人</div>
         </div>
@@ -133,13 +133,19 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Upload } from '@element-plus/icons-vue';
 import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import EChart from '../components/EChart.vue';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+// 每个数据域独立计数器，避免并发 load 相互作废
+const examsSeq = useSeqLoad();
+const studentsSeq = useSeqLoad();
 
 const COMMON_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '政治', '历史', '地理'];
 
@@ -299,8 +305,21 @@ async function loadDemoScores() {
   }
 }
 
-watch(() => store.currentClassId, () => {
-  // 切班级：重置所有状态 + 重载考试与学生（P0-1）
+// 回滚标志：取消切班回滚时抑制二次确认
+let restoringClass = false;
+
+watch(() => store.currentClassId, async (newId, oldId) => {
+  if (restoringClass) { restoringClass = false; return; }
+  // 切班级：未保存成绩先确认（P0-1），确认后重置状态 + 重载
+  if (scoreDirty.value && oldId != null) {
+    const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，切换班级将丢失。确定切换吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+    if (!ok) {
+      // 取消：回滚班级选择（不重复弹确认）
+      restoringClass = true;
+      store.currentClassId = oldId;
+      return;
+    }
+  }
   currentExam.value = null;
   tab.value = 'entry';
   scoreMatrix.value = {};
@@ -309,26 +328,47 @@ watch(() => store.currentClassId, () => {
   ranking.value = [];
   trendStudentId.value = null;
   trendPoints.value = [];
+  allStudents.value = [];
+  scoreDirty.value = false;
   loadExams();
   loadStudents();
 });
 
+// 离开页面（路由切换）前拦截未保存成绩
+onBeforeRouteLeave(async () => {
+  if (!scoreDirty.value) return true;
+  const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，离开将丢失。确定离开吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+  return ok;
+});
+// 刷新/关闭浏览器前兜底
+function beforeUnloadGuard(e) {
+  if (scoreDirty.value) { e.preventDefault(); e.returnValue = ''; }
+}
+window.addEventListener('beforeunload', beforeUnloadGuard);
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+
 async function loadExams() {
   if (!store.currentClassId) { exams.value = []; currentExam.value = null; return; }
+  const mySeq = examsSeq.seq();
   loading.value = true;
   try {
-    exams.value = await api.scores.exams(store.currentClassId);
+    const data = await api.scores.exams(store.currentClassId);
+    if (examsSeq.isStale(mySeq)) return;
+    exams.value = data;
     if (exams.value.length && !currentExam.value) selectExam(exams.value[0]);
   } catch (e) {
     ElMessage.error('考试列表加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!examsSeq.isStale(mySeq)) loading.value = false;
   }
 }
 async function loadStudents() {
   if (!store.currentClassId) { allStudents.value = []; return; }
+  const mySeq = studentsSeq.seq();
   try {
-    allStudents.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (studentsSeq.isStale(mySeq)) return;
+    allStudents.value = data;
   } catch (e) {
     ElMessage.error('学生列表加载失败：' + e.message);
   }
@@ -352,11 +392,14 @@ async function selectExam(e) {
   }
   try {
     const rows = await api.scores.list(e.id);
+    // 竞态防护：等待期间用户可能已切到其他考试，丢弃过期响应
+    if (currentExam.value?.id !== e.id) return false;
     for (const r of rows) {
       if (scoreMatrix.value[r.student_id]) scoreMatrix.value[r.student_id][r.subject] = r.score;
     }
     // 分析数据
     const an = await api.scores.analysis(e.id);
+    if (currentExam.value?.id !== e.id) return false;
     subjectStats.value = an.subjectStats;
     ranking.value = an.ranking;
   } catch (err) {
@@ -409,9 +452,13 @@ async function saveExam() {
 async function removeExam(e) {
   const ok = await ElMessageBox.confirm(`删除「${e.name}」及其全部成绩？`, '删除考试', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.scores.removeExam(e.id);
-  if (currentExam.value?.id === e.id) currentExam.value = null;
-  loadExams();
+  try {
+    await api.scores.removeExam(e.id);
+    if (currentExam.value?.id === e.id) currentExam.value = null;
+    loadExams();
+  } catch (err) {
+    ElMessage.error('删除失败：' + err.message);
+  }
 }
 
 /* ---------- 趋势 ---------- */
@@ -468,4 +515,15 @@ const trendOption = computed(() => ({
 }
 .sc-subject { font-weight: 900; color: var(--tomato); margin-bottom: 4px; }
 .sc-row { font-size: 12px; color: var(--muted); }
+
+/* ---------- 响应式：窄屏考试列表置顶 ---------- */
+@media (max-width: 900px) {
+  .scores-workspace { flex-direction: column; }
+  .exam-list {
+    width: 100%; flex-shrink: 1;
+    flex-direction: row; flex-wrap: wrap;
+    align-items: center;
+  }
+  .exam-item { flex: 1 1 200px; }
+}
 </style>

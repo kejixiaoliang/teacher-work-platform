@@ -88,7 +88,7 @@
           <div class="duty-badge">第 {{ currentGroupNo }} 组 ｜ 开学第 {{ week }} 周</div>
           <div class="chips">
             <el-tag v-for="m in currentGroup.members" :key="m.id" size="large"
-                    :type="m.gender === '女' ? 'danger' : 'primary'" effect="plain">
+                    :type="m.gender === '女' ? 'danger' : 'warning'">
               {{ m.student_name }}
             </el-tag>
           </div>
@@ -150,9 +150,12 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Grid, Upload, Calendar, UserFilled, Camera, Download } from '@element-plus/icons-vue';
+import { Grid, Upload, Calendar, UserFilled, Camera, Download, Picture, Document, DocumentCopy, DataAnalysis, VideoCamera, Memo, Box } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+const { seq, isStale } = useSeqLoad();
 
 const router = useRouter();
 const loading = ref(false);
@@ -208,9 +211,11 @@ async function load() {
     todayLeaves.value = []; recentContacts.value = [];
     return;
   }
+  const mySeq = seq();
   loading.value = true;
   try {
-    const [s, d, dy, st, lv, ct] = await Promise.all([
+    // 竞态防护：6 请求任一失败不整体丢弃（allSettled 逐项落值）
+    const [s, d, dy, st, lv, ct] = await Promise.allSettled([
       api.seats.get(store.currentClassId),
       api.documents.list({ class_id: store.currentClassId }),
       api.duties.list({ class_id: store.currentClassId }),
@@ -218,12 +223,13 @@ async function load() {
       api.leaves.today(store.currentClassId),
       api.contacts.list({ class_id: store.currentClassId }),
     ]);
-    seats.value = s;
-    recentDocs.value = d.slice(0, 6);
-    duties.value = dy;
-    students.value = st;
-    todayLeaves.value = lv;
-    recentContacts.value = ct;
+    if (isStale(mySeq)) return;
+    if (s.status === 'fulfilled') seats.value = s.value;
+    if (d.status === 'fulfilled') recentDocs.value = d.value.slice(0, 6);
+    if (dy.status === 'fulfilled') duties.value = dy.value;
+    if (st.status === 'fulfilled') students.value = st.value;
+    if (lv.status === 'fulfilled') todayLeaves.value = lv.value;
+    if (ct.status === 'fulfilled') recentContacts.value = ct.value;
   } catch (e) {
     ElMessage.error('首页数据加载失败：' + e.message);
   } finally {
@@ -234,9 +240,9 @@ async function load() {
 function miniName(r, c) { return seatMap.value[`${r - 1},${c - 1}`] || ''; }
 function iconOf(c) {
   return {
-    图片: 'Picture', PDF: 'Document', 文档: 'DocumentCopy',
-    表格: 'DataAnalysis', 演示: 'VideoCamera', 文本: 'Memo', 其他: 'Box',
-  }[c] || 'Box';
+    图片: Picture, PDF: Document, 文档: DocumentCopy,
+    表格: DataAnalysis, 演示: VideoCamera, 文本: Memo, 其他: Box,
+  }[c] || Box;
 }
 function go(p) { router.push(p); }
 

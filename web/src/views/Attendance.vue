@@ -12,7 +12,7 @@
       <el-tab-pane label="每日登记" name="daily">
         <div class="toolbar">
           <el-date-picker v-model="date" type="date" value-format="YYYY-MM-DD" :clearable="false"
-                          style="width:160px" @change="loadDaily" />
+                          style="width:160px" @change="onDateChange" />
           <span class="text-muted">共 {{ rows.length }} 人 · 已登记 {{ savedCount }} 人</span>
           <div class="spacer"></div>
           <el-button type="success" :disabled="!dirty" @click="saveDaily">保存今日考勤</el-button>
@@ -66,10 +66,16 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+// 每个数据域独立计数器，避免并发 load 相互作废
+const dailySeq = useSeqLoad();
+const statsSeq = useSeqLoad();
 
 const tab = ref('daily');
 const date = ref(new Date().toISOString().slice(0, 10));
@@ -81,26 +87,58 @@ const savedCount = ref(0);
 const stats = ref([]);
 const statsLoading = ref(false);
 
-watch(() => store.currentClassId, () => { loadDaily(); loadStats(); });
+// 回滚标志：取消切班/切日期时抑制二次确认
+let restoring = false;
+
+watch(() => store.currentClassId, async (newId, oldId) => {
+  if (restoring) { restoring = false; return; }
+  if (dirty.value && oldId != null) {
+    const ok = await ElMessageBox.confirm('当前日期考勤有未保存的修改，切换班级将丢失。确定继续吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+    if (!ok) { restoring = true; store.currentClassId = oldId; return; }
+  }
+  loadDaily();
+  loadStats();
+});
+
+// 切日期：取消时回滚日期，避免「新日期 + 旧数据」错配
+async function onDateChange(newDate) {
+  if (!dirty.value) { date.value = newDate; loadDaily(); return; }
+  const prevDate = date.value;
+  const ok = await ElMessageBox.confirm('当前日期考勤有未保存的修改，切换将丢失。确定继续吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+  if (!ok) { date.value = prevDate; return; }
+  date.value = newDate;
+  loadDaily();
+}
+
+// 离开页面（路由切换）前拦截
+onBeforeRouteLeave(async () => {
+  if (!dirty.value) return true;
+  const ok = await ElMessageBox.confirm('当前日期考勤有未保存的修改，离开将丢失。确定离开吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+  return ok;
+});
+// 刷新/关闭浏览器前兜底
+function beforeUnloadGuard(e) {
+  if (dirty.value) { e.preventDefault(); e.returnValue = ''; }
+}
+window.addEventListener('beforeunload', beforeUnloadGuard);
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+
 onMounted(() => { loadDaily(); loadStats(); });
 
 async function loadDaily() {
-  // 未保存考勤切换确认（P1-7）
-  if (dirty.value) {
-    const ok = await ElMessageBox.confirm('当前日期考勤有未保存的修改，切换将丢失。确定继续吗？', '未保存提示', { type: 'warning' }).catch(() => false);
-    if (!ok) return;
-  }
   if (!store.currentClassId) { rows.value = []; return; }
+  const mySeq = dailySeq.seq();
   loading.value = true;
   try {
     const d = await api.attendance.get(store.currentClassId, date.value);
+    if (dailySeq.isStale(mySeq)) return;
     rows.value = d.rows;
     savedCount.value = d.registeredCount || 0;
     dirty.value = false;
   } catch (e) {
     ElMessage.error('考勤加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!dailySeq.isStale(mySeq)) loading.value = false;
   }
 }
 
@@ -121,13 +159,16 @@ async function saveDaily() {
 
 async function loadStats() {
   if (!store.currentClassId) { stats.value = []; return; }
+  const mySeq = statsSeq.seq();
   statsLoading.value = true;
   try {
-    stats.value = await api.attendance.stats(store.currentClassId, month.value);
+    const data = await api.attendance.stats(store.currentClassId, month.value);
+    if (statsSeq.isStale(mySeq)) return;
+    stats.value = data;
   } catch (e) {
     ElMessage.error('统计加载失败：' + e.message);
   } finally {
-    statsLoading.value = false;
+    if (!statsSeq.isStale(mySeq)) statsLoading.value = false;
   }
 }
 </script>

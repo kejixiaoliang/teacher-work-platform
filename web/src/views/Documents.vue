@@ -17,7 +17,7 @@
     </div>
 
     <!-- 右侧主区 -->
-    <div class="page-card doc-main">
+    <div class="page-card doc-main" v-loading="loading">
       <div class="page-head">
         <div>
           <h2 class="page-head-title">文档管理</h2>
@@ -137,9 +137,12 @@
 <script setup>
 import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search, Upload, UploadFilled } from '@element-plus/icons-vue';
+import { Search, Upload, UploadFilled, Picture, Document, DocumentCopy, DataAnalysis, VideoCamera, Memo, Box } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+const { seq, isStale } = useSeqLoad();
 
 const categories = ['图片', 'PDF', '文档', '表格', '演示', '文本', '其他'];
 /* 标签预设模板：上传/筛选时快速选用 */
@@ -148,6 +151,7 @@ const filter = reactive({ category: '', tag: '', keyword: '' });
 const trashed = ref(false);
 const list = ref([]);
 const tags = ref([]);
+const loading = ref(false);
 const dragging = ref(false);
 
 const uploadVisible = ref(false);
@@ -172,9 +176,9 @@ function debouncedLoad() { clearTimeout(debounceTimer); debounceTimer = setTimeo
 
 function cateIcon(c) {
   return {
-    图片: 'Picture', PDF: 'Document', 文档: 'DocumentCopy',
-    表格: 'DataAnalysis', 演示: 'VideoCamera', 文本: 'Memo', 其他: 'Box',
-  }[c] || 'Box';
+    图片: Picture, PDF: Document, 文档: DocumentCopy,
+    表格: DataAnalysis, 演示: VideoCamera, 文本: Memo, 其他: Box,
+  }[c] || Box;
 }
 function formatSize(n) {
   n = Number(n) || 0;
@@ -185,11 +189,21 @@ function formatSize(n) {
 
 async function load() {
   if (!store.currentClassId) { list.value = []; return; }
+  const mySeq = seq();
+  loading.value = true;
   try {
     const q = { class_id: store.currentClassId, trashed: trashed.value ? '1' : '0', ...filter };
-    list.value = await api.documents.list(q);
-    // 收集标签（并行，P2-14）
-    const [all] = await Promise.all([api.documents.list({ class_id: store.currentClassId })]);
+    const data = await api.documents.list(q);
+    if (isStale(mySeq)) return;
+    list.value = data;
+    // 收集标签：无筛选时复用当前列表；有筛选时补发全量请求，避免标签不完整
+    let all = list.value;
+    const isFiltered = filter.category || filter.tag || filter.keyword;
+    if (isFiltered) {
+      const r = await api.documents.list({ class_id: store.currentClassId, trashed: trashed.value ? '1' : '0' });
+      if (isStale(mySeq)) return;
+      all = r;
+    }
     const tagSet = new Set();
     for (const f of all) {
       for (const t of String(f.tag || '').split(/[,，]/)) if (t.trim()) tagSet.add(t.trim());
@@ -197,6 +211,8 @@ async function load() {
     tags.value = [...tagSet];
   } catch (e) {
     ElMessage.error('文档列表加载失败：' + e.message);
+  } finally {
+    loading.value = false;
   }
 }
 watch(() => store.currentClassId, load);
@@ -266,31 +282,48 @@ function openRename(f) {
 }
 async function saveRename() {
   if (!renameForm.value.name.trim()) return ElMessage.warning('文件名不能为空');
-  await api.documents.update(renameForm.value.id, {
-    name: renameForm.value.name.trim(),
-    tag: renameForm.value.tagList.join(','),
-  });
-  renameVisible.value = false;
-  ElMessage.success('已保存');
-  load();
+  try {
+    await api.documents.update(renameForm.value.id, {
+      name: renameForm.value.name.trim(),
+      tag: renameForm.value.tagList.join(','),
+    });
+    renameVisible.value = false;
+    ElMessage.success('已保存');
+    load();
+  } catch (e) {
+    ElMessage.error('保存失败：' + e.message);
+  }
 }
 async function remove(f) {
   const ok = await ElMessageBox.confirm(`把「${f.original_name}」移入回收站？`, '删除', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.documents.remove(f.id);
-  load();
+  try {
+    await api.documents.remove(f.id);
+    ElMessage.success('已移入回收站');
+    load();
+  } catch (e) {
+    ElMessage.error('删除失败：' + e.message);
+  }
 }
 async function restore(ids) {
-  await api.documents.restore(ids);
-  ElMessage.success('已恢复');
-  load();
+  try {
+    await api.documents.restore(ids);
+    ElMessage.success('已恢复');
+    load();
+  } catch (e) {
+    ElMessage.error('恢复失败：' + e.message);
+  }
 }
 async function purge(ids) {
   const ok = await ElMessageBox.confirm(`彻底删除 ${ids.length} 个文件？物理文件将一并删除，不可恢复！`, '彻底删除', { type: 'error' }).catch(() => false);
   if (!ok) return;
-  await api.documents.purge(ids);
-  ElMessage.success('已彻底删除');
-  load();
+  try {
+    await api.documents.purge(ids);
+    ElMessage.success('已彻底删除');
+    load();
+  } catch (e) {
+    ElMessage.error('删除失败：' + e.message);
+  }
 }
 
 // 页面级拖拽上传：任何位置拖入文件都触发上传（回收站视图禁用）
@@ -360,21 +393,6 @@ onBeforeUnmount(() => {
   border-top: 2px dashed var(--ink);
   flex-wrap: wrap;
 }
-/* 操作按钮：文字胶囊（与全站风格一致） */
-.op-btn {
-  margin: 0 !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 2px 10px;
-  height: auto;
-  font-size: 12px;
-}
-.op-btn:hover { background: var(--mustard); color: var(--ink); }
-.op-del { border-color: var(--tomato); color: var(--tomato); }
-.op-del:hover { background: var(--tomato); color: #fff; }
 .empty { padding: 30px 0; }
 .upload-list { margin-top: 10px; max-height: 180px; overflow: auto; }
 .upload-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
@@ -382,5 +400,17 @@ onBeforeUnmount(() => {
 .text-preview {
   text-align: left; background: var(--paper); border-radius: 6px; padding: 14px;
   max-height: 72vh; overflow: auto; white-space: pre-wrap; font-size: 13px;
+}
+
+/* ---------- 响应式：窄屏侧边栏置顶横排 ---------- */
+@media (max-width: 900px) {
+  .doc-layout { flex-direction: column; }
+  .doc-sidebar {
+    width: 100%; flex-shrink: 1;
+    display: flex; flex-wrap: wrap; gap: 4px;
+    padding: 8px;
+  }
+  .doc-sidebar .side-item { flex: 1 1 auto; text-align: center; }
+  .doc-sidebar .side-title { width: 100%; }
 }
 </style>

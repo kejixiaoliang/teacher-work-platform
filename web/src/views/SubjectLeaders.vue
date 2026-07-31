@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <el-table :data="subjectLeaders" stripe>
+    <el-table :data="subjectLeaders" stripe v-loading="loading">
       <el-table-column label="科目" width="160">
         <template #default="{ row }">
           <el-tag size="large" type="warning" effect="light" round>{{ row.role.replace('课代表', '') }}</el-tag>
@@ -60,11 +60,15 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, MagicStick } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+const { seq, isStale } = useSeqLoad();
 
 const SUBJECT_ROLES = ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
 
 const duties = ref([]);
 const students = ref([]);
+const loading = ref(false);
 const leaderVisible = ref(false);
 const leaderForm = ref({ id: null, role: '', student_id: null, remark: '' });
 
@@ -75,11 +79,18 @@ onMounted(load);
 
 async function load() {
   if (!store.currentClassId) { duties.value = []; return; }
+  const mySeq = seq();
+  loading.value = true;
   try {
-    duties.value = await api.duties.list({ class_id: store.currentClassId });
-    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const d = await api.duties.list({ class_id: store.currentClassId });
+    const st = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (isStale(mySeq)) return;
+    duties.value = d;
+    students.value = st;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -110,8 +121,12 @@ async function saveSubject() {
 async function removeDuty(row) {
   const ok = await ElMessageBox.confirm(`解除「${row.student_name}」的「${row.role}」职务？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.duties.remove(row.id);
-  load();
+  try {
+    await api.duties.remove(row.id);
+    load();
+  } catch (e) {
+    ElMessage.error('解除失败：' + e.message);
+  }
 }
 
 /** 一键预设课代表：按名单顺序为各科补齐课代表（可兼任班委） */
@@ -135,20 +150,3 @@ async function presetSubjectLeaders() {
   }
 }
 </script>
-
-<style scoped>
-/* 行内操作按钮：横向小胶囊（与学生管理一致） */
-.row-btn {
-  margin: 0 4px 0 0 !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 4px 12px;
-  height: auto;
-}
-.row-btn:hover { background: var(--mustard); color: var(--ink); }
-.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
-.row-btn-del:hover { background: var(--tomato); color: #fff; }
-</style>

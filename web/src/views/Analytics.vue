@@ -52,6 +52,9 @@ import { ElMessage } from 'element-plus';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 import EChart from '../components/EChart.vue';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+const { seq, isStale } = useSeqLoad();
 
 const students = ref([]);
 const loading = ref(false);
@@ -109,7 +112,7 @@ const gradeOption = computed(() => {
     if (g && g in map) map[g]++;
     else map['未录入']++;
   }
-  const colors = { 优: '#8bd6af', 良: '#8bd6af', 中: '#f2c84b', 待提高: '#d64541', 未录入: '#d9cbb0' };
+  const colors = { 优: '#8bd6af', 良: '#a9d66f', 中: '#f2c84b', 待提高: '#d64541', 未录入: '#d9cbb0' };
   return {
     tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
     legend: { bottom: 0 },
@@ -170,9 +173,12 @@ onMounted(load);
 
 async function load() {
   if (!store.currentClassId) { students.value = []; return; }
+  const mySeq = seq();
   loading.value = true;
   try {
-    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (isStale(mySeq)) return;
+    students.value = data;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
   } finally {

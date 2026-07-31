@@ -40,8 +40,9 @@
       <input ref="fileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onFileChange" />
     </div>
 
-    <el-table :data="list" stripe @selection-change="onSelection"
+    <el-table :data="pagedList" stripe @selection-change="onSelection"
               @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
+      <template #empty><el-empty description="暂无学生，点右上角「新增学生」或导入 Excel" :image-size="60" /></template>
       <el-table-column type="selection" width="40" />
       <el-table-column prop="school_no" label="学号" min-width="90" show-overflow-tooltip />
       <el-table-column prop="name" label="姓名" min-width="90" show-overflow-tooltip>
@@ -93,7 +94,11 @@
         </template>
       </el-table-column>
     </el-table>
-    <div class="text-muted" style="margin-top:8px">共 {{ list.length }} 人 · 点击行或「详情」查看档案</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:8px">
+      <div class="text-muted">共 {{ list.length }} 人 · 点击行或「详情」查看档案</div>
+      <el-pagination v-if="list.length > PAGE_SIZE" background layout="prev, pager, next" :total="list.length"
+                     :page-size="PAGE_SIZE" :current-page="page" @current-change="p => page = p" />
+    </div>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="editVisible" :title="form.id ? '编辑学生' : '新增学生'" width="640px" destroy-on-close>
@@ -302,13 +307,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Plus, Download, Upload, Files, Delete, DeleteFilled, RefreshLeft } from '@element-plus/icons-vue';
 import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+// 每个数据域独立计数器，避免并发 load 相互作废
+const listSeq = useSeqLoad();
+const detailSeq = useSeqLoad();
 
 const route = useRoute();
 
@@ -337,6 +347,14 @@ const trashed = ref(false);
 const fileInput = ref(null);
 const query = reactive({ keyword: '', gender: '', status: '', myopia: '', boarding: '' });
 
+/* 前端分页：大列表不一次性渲染全部行 */
+const PAGE_SIZE = 50;
+const page = ref(1);
+const pagedList = computed(() => {
+  const start = (page.value - 1) * PAGE_SIZE;
+  return list.value.slice(start, start + PAGE_SIZE);
+});
+
 const editVisible = ref(false);
 const form = ref(emptyForm());
 const detailVisible = ref(false);
@@ -357,6 +375,7 @@ const importing = ref(false);
 
 let debounceTimer = null;
 function debouncedLoad() { clearTimeout(debounceTimer); debounceTimer = setTimeout(load, 300); }
+onBeforeUnmount(() => clearTimeout(debounceTimer));
 
 function emptyForm() {
   return {
@@ -368,9 +387,13 @@ function emptyForm() {
 
 async function load() {
   if (!store.currentClassId) { list.value = []; return; }
+  const mySeq = listSeq.seq();
   try {
     const q = { class_id: store.currentClassId, ...query, trashed: trashed.value ? '1' : '0' };
-    list.value = await api.students.list(q);
+    const data = await api.students.list(q);
+    if (listSeq.isStale(mySeq)) return;
+    list.value = data;
+    page.value = 1; // 筛选/搜索/切班后回到第 1 页
   } catch (e) {
     ElMessage.error('学生列表加载失败：' + e.message);
   }
@@ -391,9 +414,10 @@ function openDetail(row) {
   detail.value = row;
   detailTab.value = 'info';
   detailVisible.value = true;
-  api.students.metrics(row.id).then(m => (metrics.value = m)).catch(() => {});
-  api.records.list(row.id).then(r => (records.value = r)).catch(() => {});
-  api.records.contacts(row.id).then(c => (contacts.value = c)).catch(() => {});
+  const mySeq = detailSeq.seq();
+  api.students.metrics(row.id).then(m => { if (!detailSeq.isStale(mySeq)) metrics.value = m; }).catch(() => {});
+  api.records.list(row.id).then(r => { if (!detailSeq.isStale(mySeq)) records.value = r; }).catch(() => {});
+  api.records.contacts(row.id).then(c => { if (!detailSeq.isStale(mySeq)) contacts.value = c; }).catch(() => {});
 }
 function recType(t) {
   return { 奖励: 'success', 批评: 'danger', 评语: 'primary', 表现: 'warning', 其他: 'info' }[t] || 'info';
@@ -407,20 +431,24 @@ function openRecord(r) {
 }
 async function saveRecord() {
   if (!recordForm.value.content.trim()) return ElMessage.warning('请填写记录内容');
-  if (recordForm.value.id) {
-    await api.records.update(detail.value.id, recordForm.value.id, recordForm.value);
-  } else {
-    await api.records.create(detail.value.id, recordForm.value);
-  }
-  ElMessage.success('已保存');
-  recordDialogVisible.value = false;
-  records.value = await api.records.list(detail.value.id);
+  try {
+    if (recordForm.value.id) {
+      await api.records.update(detail.value.id, recordForm.value.id, recordForm.value);
+    } else {
+      await api.records.create(detail.value.id, recordForm.value);
+    }
+    ElMessage.success('已保存');
+    recordDialogVisible.value = false;
+    records.value = await api.records.list(detail.value.id);
+  } catch (e) { ElMessage.error('保存失败：' + e.message); }
 }
 async function removeRecord(r) {
   const ok = await ElMessageBox.confirm('删除这条记录？', '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.records.remove(detail.value.id, r.id);
-  records.value = await api.records.list(detail.value.id);
+  try {
+    await api.records.remove(detail.value.id, r.id);
+    records.value = await api.records.list(detail.value.id);
+  } catch (e) { ElMessage.error('删除失败：' + e.message); }
 }
 /* 家校沟通：新增 / 编辑（传入记录则预填） */
 function openContact(c) {
@@ -430,20 +458,24 @@ function openContact(c) {
   contactDialogVisible.value = true;
 }
 async function saveContact() {
-  if (contactForm.value.id) {
-    await api.records.updateContact(detail.value.id, contactForm.value.id, contactForm.value);
-  } else {
-    await api.records.addContact(detail.value.id, contactForm.value);
-  }
-  ElMessage.success('已保存');
-  contactDialogVisible.value = false;
-  contacts.value = await api.records.contacts(detail.value.id);
+  try {
+    if (contactForm.value.id) {
+      await api.records.updateContact(detail.value.id, contactForm.value.id, contactForm.value);
+    } else {
+      await api.records.addContact(detail.value.id, contactForm.value);
+    }
+    ElMessage.success('已保存');
+    contactDialogVisible.value = false;
+    contacts.value = await api.records.contacts(detail.value.id);
+  } catch (e) { ElMessage.error('保存失败：' + e.message); }
 }
 async function removeContact(c) {
   const ok = await ElMessageBox.confirm('删除这条沟通记录？', '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.records.removeContact(detail.value.id, c.id);
-  contacts.value = await api.records.contacts(detail.value.id);
+  try {
+    await api.records.removeContact(detail.value.id, c.id);
+    contacts.value = await api.records.contacts(detail.value.id);
+  } catch (e) { ElMessage.error('删除失败：' + e.message); }
 }
 function toggleTrash() { trashed.value = !trashed.value; selected.value = []; load(); }
 
@@ -467,31 +499,39 @@ async function saveEdit() {
 async function removeOne(row) {
   const ok = await ElMessageBox.confirm(`确定把「${row.name}」移入回收站？`, '删除确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.students.remove(row.id);
-  ElMessage.success('已移入回收站');
-  load();
+  try {
+    await api.students.remove(row.id);
+    ElMessage.success('已移入回收站');
+    load();
+  } catch (e) { ElMessage.error('删除失败：' + e.message); }
 }
 
 async function batchDelete() {
   const ok = await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 名学生？`, '批量删除', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await Promise.all(selected.value.map(id => api.students.remove(id))); // 并行（P2-15）
-  ElMessage.success('已删除');
-  load();
+  try {
+    await Promise.all(selected.value.map(id => api.students.remove(id))); // 并行（P2-15）
+    ElMessage.success('已删除');
+    load();
+  } catch (e) { ElMessage.error('批量删除失败：' + e.message); }
 }
 async function batchRestore(ids) {
   const idList = ids || selected.value;
-  await api.students.restore(idList);
-  ElMessage.success('已恢复');
-  load();
+  try {
+    await api.students.restore(idList);
+    ElMessage.success('已恢复');
+    load();
+  } catch (e) { ElMessage.error('恢复失败：' + e.message); }
 }
 async function batchPurge(ids) {
   const idList = ids || selected.value;
   const ok = await ElMessageBox.confirm(`彻底删除 ${idList.length} 名学生？此操作不可恢复！`, '彻底删除', { type: 'error' }).catch(() => false);
   if (!ok) return;
-  await api.students.purge(idList);
-  ElMessage.success('已彻底删除');
-  load();
+  try {
+    await api.students.purge(idList);
+    ElMessage.success('已彻底删除');
+    load();
+  } catch (e) { ElMessage.error('删除失败：' + e.message); }
 }
 
 function fmtVision(v) { return v == null || v === '' ? '—' : Number(v).toFixed(1); }
@@ -619,23 +659,6 @@ function saveBlob(blob, name) {
 .vision-bad { color: var(--el-color-danger); font-weight: 600; }
 :deep(.el-table__row) { cursor: pointer; }
 
-/* 行内操作按钮：横向小胶囊，清晰不重叠 */
-.row-btn {
-  margin: 0 4px 0 0 !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 4px 12px;
-  height: auto;
-}
-.row-btn:hover { background: var(--mustard); color: var(--ink); }
-.row-btn-edit { border-color: var(--mint); color: #2e6b55; }
-.row-btn-edit:hover { background: var(--mint); color: var(--ink); }
-.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
-.row-btn-del:hover { background: var(--tomato); color: #fff; }
-
 /* 详情抽屉：信息分组排版 */
 :deep(.el-drawer__body) { padding-top: 8px; }
 :deep(.el-descriptions) { margin-bottom: 8px; }
@@ -660,20 +683,4 @@ function saveBlob(blob, name) {
 .hs-value { font-size: 16px; font-weight: 900; color: var(--ink); }
 .hs-value small { font-size: 10px; font-weight: 700; margin-left: 1px; }
 .hs-bad { color: var(--tomato-deep); }
-
-/* 抽屉内记录项小按钮 */
-.mini-btn {
-  margin: 0 0 0 4px !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 2px 8px;
-  height: auto;
-  font-size: 12px;
-}
-.mini-btn:hover { background: var(--mustard); color: var(--ink); }
-.mini-btn-del { border-color: var(--tomato); color: var(--tomato); }
-.mini-btn-del:hover { background: var(--tomato); color: #fff; }
 </style>

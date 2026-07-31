@@ -29,6 +29,7 @@
     </div>
 
     <el-table :data="list" stripe v-loading="loading">
+      <template #empty><el-empty description="暂无沟通记录，点右上角「记录沟通」" :image-size="60" /></template>
       <el-table-column prop="student_name" label="学生" min-width="110">
         <template #default="{ row }"><b>{{ row.student_name }}</b><span class="text-muted" v-if="row.school_no">（{{ row.school_no }}）</span></template>
       </el-table-column>
@@ -82,6 +83,11 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+// 每个数据域独立计数器，避免并发 load 相互作废
+const mainSeq = useSeqLoad();
+const studentsSeq = useSeqLoad();
 
 const list = ref([]);
 const stats = ref(null);
@@ -101,20 +107,27 @@ onMounted(() => { load(); loadStudents(); });
 
 async function loadStudents() {
   if (!store.currentClassId) { students.value = []; return; }
+  const mySeq = studentsSeq.seq();
   try {
-    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (studentsSeq.isStale(mySeq)) return;
+    students.value = data;
   } catch (e) { ElMessage.error('学生列表加载失败：' + e.message); }
 }
 
 async function load() {
   if (!store.currentClassId) { list.value = []; stats.value = null; return; }
+  const mySeq = mainSeq.seq();
   loading.value = true;
   try {
     const q = { class_id: store.currentClassId };
     if (query.month) q.month = query.month;
     if (query.student_id) q.student_id = query.student_id;
-    list.value = await api.contacts.list(q);
-    stats.value = await api.contacts.stats({ class_id: store.currentClassId, month: query.month || undefined });
+    const data = await api.contacts.list(q);
+    const st = await api.contacts.stats({ class_id: store.currentClassId, month: query.month || undefined });
+    if (mainSeq.isStale(mySeq)) return;
+    list.value = data;
+    stats.value = st;
   } catch (e) {
     ElMessage.error('沟通记录加载失败：' + e.message);
   } finally {
@@ -149,9 +162,13 @@ async function saveForm() {
 async function removeOne(row) {
   const ok = await ElMessageBox.confirm(`删除与「${row.student_name}」的沟通记录？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.contacts.remove(row.id);
-  ElMessage.success('已删除');
-  load();
+  try {
+    await api.contacts.remove(row.id);
+    ElMessage.success('已删除');
+    load();
+  } catch (e) {
+    ElMessage.error('删除失败：' + e.message);
+  }
 }
 
 function methodType(m) {
@@ -174,19 +191,4 @@ function methodType(m) {
 }
 .stat-chip b { font-size: 20px; font-weight: 900; color: var(--tomato-deep); }
 .stat-chip span { font-size: 12px; color: var(--muted); font-weight: 800; }
-
-/* 行内操作按钮（与学生管理一致） */
-.row-btn {
-  margin: 0 4px 0 0 !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 4px 12px;
-  height: auto;
-}
-.row-btn:hover { background: var(--mustard); color: var(--ink); }
-.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
-.row-btn-del:hover { background: var(--tomato); color: #fff; }
 </style>

@@ -35,6 +35,7 @@
     </div>
 
     <el-table :data="list" stripe v-loading="loading">
+      <template #empty><el-empty description="暂无请假记录，点右上角「登记请假」" :image-size="60" /></template>
       <el-table-column prop="student_name" label="学生" min-width="110">
         <template #default="{ row }"><b>{{ row.student_name }}</b><span class="text-muted" v-if="row.school_no">（{{ row.school_no }}）</span></template>
       </el-table-column>
@@ -109,6 +110,11 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+// 每个数据域独立计数器，避免并发 load 相互作废
+const mainSeq = useSeqLoad();
+const studentsSeq = useSeqLoad();
 
 const list = ref([]);
 const todayLeaves = ref([]);
@@ -128,13 +134,17 @@ onMounted(() => { load(); loadStudents(); });
 
 async function loadStudents() {
   if (!store.currentClassId) { students.value = []; return; }
+  const mySeq = studentsSeq.seq();
   try {
-    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (studentsSeq.isStale(mySeq)) return;
+    students.value = data;
   } catch (e) { ElMessage.error('学生列表加载失败：' + e.message); }
 }
 
 async function load() {
   if (!store.currentClassId) { list.value = []; todayLeaves.value = []; return; }
+  const mySeq = mainSeq.seq();
   loading.value = true;
   try {
     const q = { class_id: store.currentClassId };
@@ -142,8 +152,11 @@ async function load() {
     if (query.student_id) q.student_id = query.student_id;
     if (query.type) q.type = query.type;
     if (query.status) q.status = query.status;
-    list.value = await api.leaves.list(q);
-    todayLeaves.value = await api.leaves.today(store.currentClassId);
+    const data = await api.leaves.list(q);
+    const td = await api.leaves.today(store.currentClassId);
+    if (mainSeq.isStale(mySeq)) return;
+    list.value = data;
+    todayLeaves.value = td;
   } catch (e) {
     ElMessage.error('请假记录加载失败：' + e.message);
   } finally {
@@ -195,17 +208,25 @@ async function saveForm() {
 }
 
 async function setStatus(row, status) {
-  await api.leaves.update(row.id, { status });
-  ElMessage.success(`已标记为「${status}」`);
-  load();
+  try {
+    await api.leaves.update(row.id, { status });
+    ElMessage.success(`已标记为「${status}」`);
+    load();
+  } catch (e) {
+    ElMessage.error('操作失败：' + e.message);
+  }
 }
 
 async function removeOne(row) {
   const ok = await ElMessageBox.confirm(`删除「${row.student_name}」的请假记录？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.leaves.remove(row.id);
-  ElMessage.success('已删除');
-  load();
+  try {
+    await api.leaves.remove(row.id);
+    ElMessage.success('已删除');
+    load();
+  } catch (e) {
+    ElMessage.error('删除失败：' + e.message);
+  }
 }
 
 function statusType(s) {
@@ -228,19 +249,4 @@ function statusType(s) {
   box-shadow: var(--shadow-xs);
 }
 .today-names { font-size: 13px; font-weight: 800; color: var(--ink); }
-
-/* 行内操作按钮（与学生管理一致） */
-.row-btn {
-  margin: 0 4px 0 0 !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 4px 12px;
-  height: auto;
-}
-.row-btn:hover { background: var(--mustard); color: var(--ink); }
-.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
-.row-btn-del:hover { background: var(--tomato); color: #fff; }
 </style>

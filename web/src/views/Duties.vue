@@ -1,5 +1,5 @@
 <template>
-  <div class="page-card">
+  <div class="page-card" v-loading="loading">
     <div class="page-head">
       <div>
         <h2 class="page-head-title">值日管理</h2>
@@ -28,7 +28,7 @@
             </div>
             <div class="group-members">
               <el-tag v-for="m in g.members" :key="m.id" closable size="default"
-                      :type="m.gender === '女' ? 'danger' : 'primary'"
+                      :type="m.gender === '女' ? 'danger' : 'warning'"
                       @close="removeMember(m)">{{ m.student_name }}</el-tag>
               <span v-if="!g.members.length" class="text-muted">空组</span>
             </div>
@@ -109,10 +109,14 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, User, Printer, MagicStick } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+const { seq, isStale } = useSeqLoad();
 
 const tab = ref('groups');
 const duties = ref([]);
 const students = ref([]);
+const loading = ref(false);
 const week = ref(Number(localStorage.getItem('duty-week') || 1));
 
 const memberVisible = ref(false);
@@ -151,11 +155,18 @@ onMounted(load);
 
 async function load() {
   if (!store.currentClassId) { duties.value = []; return; }
+  const mySeq = seq();
+  loading.value = true;
   try {
-    duties.value = await api.duties.list({ class_id: store.currentClassId });
-    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const d = await api.duties.list({ class_id: store.currentClassId });
+    const st = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (isStale(mySeq)) return;
+    duties.value = d;
+    students.value = st;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -224,8 +235,12 @@ async function runAutoGroup() {
 async function removeMember(m) {
   const ok = await ElMessageBox.confirm(`把「${m.student_name}」移出第 ${m.group_no} 组？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.duties.remove(m.id);
-  load();
+  try {
+    await api.duties.remove(m.id);
+    load();
+  } catch (e) {
+    ElMessage.error('移出失败：' + e.message);
+  }
 }
 
 /* ---------- 打印值日表 ---------- */
@@ -269,20 +284,7 @@ function printRoster() {
   border-radius: 999px; padding: 2px 14px; font-size: 13px; font-weight: 900;
   box-shadow: var(--shadow-xs);
 }
-/* 组卡操作按钮：清晰胶囊，不与底色融合 */
-.grp-btn {
-  margin-left: 6px !important;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #fff;
-  color: var(--ink);
-  font-weight: 800;
-  padding: 4px 12px;
-  height: auto;
-}
-.grp-btn:hover { background: var(--mustard); color: var(--ink); }
-.grp-btn-del { border-color: var(--tomato); color: var(--tomato); }
-.grp-btn-del:hover { background: var(--tomato); color: #fff; }
+/* 组卡操作按钮：清晰胶囊，不与底色融合（样式见全局 style.css） */
 .group-members { display: flex; flex-wrap: wrap; gap: 6px; }
 .current-group {
   padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);
