@@ -35,13 +35,11 @@ if "%PORT_STATE%"=="2" (
   rem 端口被占且健康检查通过 = 已有实例在运行
   echo.
   echo [提示] 检测到「教师工作台」已经在运行！
-  echo        服务地址：http://localhost:3210
   echo        正在为你打开浏览器...
-  echo        如需重启，请先关闭旧的启动窗口。
   echo.
   start http://localhost:3210
-  echo 已打开浏览器。按任意键退出本窗口...
-  pause >nul
+  echo 已打开浏览器。本窗口 3 秒后自动关闭。
+  timeout /t 3 >nul
   goto :eof
 )
 if "%PORT_STATE%"=="1" (
@@ -63,12 +61,23 @@ echo.
 echo ============================================
 echo   教师工作台启动中...
 echo   服务地址: http://localhost:3210
-echo   浏览器将自动打开；关闭本窗口即停止服务
-echo   数据保存在 data 文件夹（备份 = 复制该文件夹）
 echo ============================================
 echo.
-call npm start
-if errorlevel 1 goto :error
+
+rem 用 PowerShell 以最小化独立窗口启动 node 服务（继承当前目录），主窗口可安全关闭
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process node -ArgumentList 'server/index.js' -WorkingDirectory '%~dp0' -WindowStyle Minimized"
+
+echo   ✔ 服务已在后台最小化窗口运行
+echo   ✔ 浏览器将自动打开 http://localhost:3210
+echo.
+echo   说明：
+echo   - 本窗口现在可以安全关闭，不会影响服务
+echo   - 需要停止服务时，从任务栏找到并关闭
+echo     「node」那个最小化窗口即可
+echo   - 数据实时保存，关闭窗口前无需额外操作
+echo.
+echo 本窗口 8 秒后自动关闭...
+timeout /t 8 >nul
 goto :eof
 
 :error
