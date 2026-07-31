@@ -1,17 +1,19 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
-import Overview from './views/Overview.vue';
-import Students from './views/Students.vue';
-import Seats from './views/Seats.vue';
-import Analytics from './views/Analytics.vue';
-import Scores from './views/Scores.vue';
-import Attendance from './views/Attendance.vue';
-import Documents from './views/Documents.vue';
-import Duties from './views/Duties.vue';
-import Leaders from './views/Leaders.vue';
-import SubjectLeaders from './views/SubjectLeaders.vue';
-import Leaves from './views/Leaves.vue';
-import Contacts from './views/Contacts.vue';
-import Classes from './views/Classes.vue';
+
+// 路由懒加载：按需加载页面 JS，显著缩小首屏体积
+const Overview = () => import('./views/Overview.vue');
+const Students = () => import('./views/Students.vue');
+const Seats = () => import('./views/Seats.vue');
+const Analytics = () => import('./views/Analytics.vue');
+const Scores = () => import('./views/Scores.vue');
+const Attendance = () => import('./views/Attendance.vue');
+const Documents = () => import('./views/Documents.vue');
+const Duties = () => import('./views/Duties.vue');
+const Leaders = () => import('./views/Leaders.vue');
+const SubjectLeaders = () => import('./views/SubjectLeaders.vue');
+const Leaves = () => import('./views/Leaves.vue');
+const Contacts = () => import('./views/Contacts.vue');
+const Classes = () => import('./views/Classes.vue');
 
 export default createRouter({
   history: createWebHashHistory(),

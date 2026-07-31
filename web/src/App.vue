@@ -90,7 +90,10 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Search, Notebook, Reading, Clock, ChatDotRound } from '@element-plus/icons-vue';
+import {
+  Search, Notebook, Reading, Clock, ChatDotRound, HomeFilled, User, Grid,
+  TrendCharts, DocumentChecked, Finished, FolderOpened, Calendar, UserFilled, Setting,
+} from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { store, currentClass, loadClasses } from './store.js';
 
@@ -249,5 +252,25 @@ async function onClassChange(id) {
   background-size: 30px 30px;
   padding: 20px;
   overflow: auto;
+}
+
+/* ---------- 响应式：窄屏侧栏折叠为图标栏 ---------- */
+@media (max-width: 900px) {
+  .layout { flex-direction: row; }
+  .sidebar { width: 64px !important; }
+  .sidebar :deep(.el-aside) { width: 64px !important; }
+  .logo { margin: 10px 8px 4px; padding: 10px 8px; flex-direction: column; gap: 2px; }
+  .logo-text, .logo-pin { display: none; }
+  .nav-menu { padding: 0 6px; }
+  .nav-menu :deep(.el-menu-item) {
+    justify-content: center;
+    padding: 0 !important;
+    margin: 6px 0;
+  }
+  .nav-menu :deep(.el-menu-item span) { display: none; }
+  .nav-menu :deep(.el-menu-item .el-icon) { margin: 0 !important; font-size: 20px; }
+  .nav-menu :deep(.el-menu-item-group__title) { text-align: center; padding: 10px 4px 4px; font-size: 10px; }
+  .sidebar-footer { font-size: 10px; padding: 8px 4px; }
+  .main-area { padding: 12px; }
 }
 </style>
