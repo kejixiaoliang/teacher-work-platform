@@ -44,10 +44,12 @@
       <el-table-column prop="result" label="结果/反馈" min-width="200" show-overflow-tooltip>
         <template #default="{ row }"><span class="text-muted">{{ row.result || '—' }}</span></template>
       </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column label="操作" min-width="160" fixed="right" header-align="center">
         <template #default="{ row }">
-          <el-button class="row-btn" size="small" @click="openForm(row)">编辑</el-button>
-          <el-button class="row-btn row-btn-del" size="small" @click="removeOne(row)">删除</el-button>
+          <div class="op-group">
+            <el-button class="row-btn" size="small" @click="openForm(row)">编辑</el-button>
+            <el-button class="row-btn row-btn-del" size="small" @click="removeOne(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>

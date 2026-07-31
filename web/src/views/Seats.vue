@@ -190,10 +190,12 @@
         <el-table-column prop="remark" label="说明" />
         <el-table-column prop="student_count" label="人数" width="60" />
         <el-table-column prop="created_at" label="保存时间" width="130" />
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" min-width="180" header-align="center">
           <template #default="{ row }">
-            <el-button class="mini-btn" size="small" @click="viewLayout(row)">查看/恢复</el-button>
-            <el-button class="mini-btn mini-btn-del" size="small" @click="deleteLayout(row)">删除</el-button>
+            <div class="op-group">
+              <el-button class="mini-btn" size="small" @click="viewLayout(row)">查看/恢复</el-button>
+              <el-button class="mini-btn mini-btn-del" size="small" @click="deleteLayout(row)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>

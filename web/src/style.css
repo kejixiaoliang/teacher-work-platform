@@ -260,9 +260,21 @@ body {
 .row-btn-edit:hover { background: var(--mint); color: var(--ink); }
 .row-btn-del { border-color: var(--tomato); color: var(--tomato); }
 .row-btn-del:hover { background: var(--tomato); color: #fff; }
-/* 操作列按钮组：居中、等距，避免贴边（Leaders/SubjectLeaders 等） */
-.op-group { display: inline-flex; gap: 8px; justify-content: center; }
+/* 操作列按钮组：block 级 flex 占满单元格、内部绝对居中（不依赖 td text-align），
+   按钮等距排列。避免 inline-flex + 表格 fit 拉伸导致按钮贴边/偏移。 */
+.op-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  white-space: nowrap;
+}
 .op-group .row-btn { margin: 0 !important; }
+.op-group .mini-btn,
+.op-group .grp-btn { margin: 0 !important; }
+/* 覆盖 Element Plus 相邻按钮默认 12px 左边距，间距统一由 gap 控制 */
+.op-group .el-button + .el-button { margin-left: 0; }
 .mini-btn {
   margin: 0 0 0 4px !important;
   border-radius: 999px;

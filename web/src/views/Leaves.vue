@@ -63,11 +63,13 @@
         </template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" min-width="210" fixed="right" header-align="center">
         <template #default="{ row }">
-          <el-button class="row-btn" size="small" @click="openForm(row)">编辑</el-button>
-          <el-button v-if="row.status !== '已销假'" class="row-btn" size="small" @click="setStatus(row, '已销假')">销假</el-button>
-          <el-button class="row-btn row-btn-del" size="small" @click="removeOne(row)">删除</el-button>
+          <div class="op-group">
+            <el-button class="row-btn" size="small" @click="openForm(row)">编辑</el-button>
+            <el-button v-if="row.status !== '已销假'" class="row-btn" size="small" @click="setStatus(row, '已销假')">销假</el-button>
+            <el-button class="row-btn row-btn-del" size="small" @click="removeOne(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>

@@ -80,17 +80,19 @@
           <span v-else class="text-muted">在读</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" min-width="230" fixed="right" header-align="center">
         <template #default="{ row }">
-          <template v-if="!trashed">
-            <el-button class="row-btn" size="small" @click.stop="openDetail(row)">详情</el-button>
-            <el-button class="row-btn row-btn-edit" size="small" @click.stop="openEdit(row)">编辑</el-button>
-            <el-button class="row-btn row-btn-del" size="small" @click.stop="removeOne(row)">删除</el-button>
-          </template>
-          <template v-else>
-            <el-button class="row-btn row-btn-edit" size="small" @click.stop="batchRestore([row.id])">恢复</el-button>
-            <el-button class="row-btn row-btn-del" size="small" @click.stop="batchPurge([row.id])">删除</el-button>
-          </template>
+          <div class="op-group">
+            <template v-if="!trashed">
+              <el-button class="row-btn" size="small" @click.stop="openDetail(row)">详情</el-button>
+              <el-button class="row-btn row-btn-edit" size="small" @click.stop="openEdit(row)">编辑</el-button>
+              <el-button class="row-btn row-btn-del" size="small" @click.stop="removeOne(row)">删除</el-button>
+            </template>
+            <template v-else>
+              <el-button class="row-btn row-btn-edit" size="small" @click.stop="batchRestore([row.id])">恢复</el-button>
+              <el-button class="row-btn row-btn-del" size="small" @click.stop="batchPurge([row.id])">删除</el-button>
+            </template>
+          </div>
         </template>
       </el-table-column>
     </el-table>

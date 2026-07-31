@@ -27,11 +27,13 @@
         <template #default="{ row }">{{ row.student_count }}</template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" show-overflow-tooltip />
-      <el-table-column label="操作" width="180">
+      <el-table-column label="操作" min-width="200" header-align="center">
         <template #default="{ row }">
-          <el-button class="row-btn" size="small" @click="openEdit(row)">编辑</el-button>
-          <el-button v-if="row.id !== store.currentClassId" class="row-btn" size="small" @click="switchClass(row)">切换</el-button>
-          <el-button class="row-btn row-btn-del" size="small" @click="remove(row)">删除</el-button>
+          <div class="op-group">
+            <el-button class="row-btn" size="small" @click="openEdit(row)">编辑</el-button>
+            <el-button v-if="row.id !== store.currentClassId" class="row-btn" size="small" @click="switchClass(row)">切换</el-button>
+            <el-button class="row-btn row-btn-del" size="small" @click="remove(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
