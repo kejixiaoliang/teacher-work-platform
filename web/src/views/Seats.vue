@@ -148,7 +148,7 @@
     <div v-if="menuVisible" class="ctx-menu no-print" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
       <div v-if="curSeat() && curSeat().studentId" class="ctx-title">{{ curSeat().name }}</div>
       <div class="ctx-item" @click="toggleLock">🔒 {{ curSeat() && curSeat().locked ? '解锁' : '锁定座位' }}</div>
-      <div v-if="curSeat() && curSeat().studentId" class="ctx-item" @click="clearSeat">🗑 设为空座</div>
+      <div v-if="curSeat() && curSeat().studentId" class="ctx-item" @click="confirmClearSeat">🗑 设为空座</div>
       <div class="ctx-item" @click="menuVisible = false">✕ 关闭</div>
     </div>
 
@@ -186,7 +186,7 @@
         <div class="podium" style="margin-bottom:8px">🎓 讲 台</div>
         <div class="seat-grid">
           <div v-for="r in histRows" :key="r" class="row">
-            <div v-for="c in histCols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
+            <div v-for="c in histCols" :key="c" class="seat-wrap hist-wrap" :class="{ aisle: isAisle(c) }">
               <div class="seat" :class="{ empty: !histName(r, c) }">
                 <div class="s-name">{{ histName(r, c) || '空' }}</div>
               </div>
@@ -203,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue';
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { MagicStick, Refresh, Printer, Clock, Check } from '@element-plus/icons-vue';
@@ -267,6 +267,7 @@ async function saveLayoutSize() {
     currentClass.value.seat_rows = r;
     currentClass.value.seat_cols = c;
     Object.keys(grid).forEach(k => delete grid[k]);
+    initGrid();
     conflicts.value = [];
     unplaced.value = [];
     dirty.value = false;
@@ -292,12 +293,20 @@ const histCols = computed(() => histDetail.value.cols || 8);
 const seatDialogVisible = ref(false);
 const seatDlg = ref({ row: 1, col: 1, key: null, studentId: null });
 
+let loadSeq = 0; // 竞态防护（P1-13）
+
 const keyOf = (r, c) => `${r},${c}`;
 
-function seat(r, c) {
-  const k = keyOf(r, c);
-  if (!grid[k]) grid[k] = { studentId: null, row: r - 1, col: c - 1, locked: false };
-  return grid[k];
+function seat(r, c) { return grid[keyOf(r, c)] || { studentId: null, row: r - 1, col: c - 1, locked: false }; }
+
+/** 预初始化整个网格的空座（消除模板渲染副作用，P2-17） */
+function initGrid() {
+  for (let r = 1; r <= rows.value; r++) {
+    for (let c = 1; c <= cols.value; c++) {
+      const k = keyOf(r, c);
+      if (!grid[k]) grid[k] = { studentId: null, row: r - 1, col: c - 1, locked: false };
+    }
+  }
 }
 
 function emptySeat(r, c) {
@@ -305,6 +314,7 @@ function emptySeat(r, c) {
 }
 
 async function loadSeats() {
+  const seq = ++loadSeq;
   Object.keys(grid).forEach(k => delete grid[k]);
   conflicts.value = [];
   unplaced.value = [];
@@ -316,17 +326,22 @@ async function loadSeats() {
       api.seats.get(store.currentClassId),
       api.students.list({ class_id: store.currentClassId, status: '在读' }),
     ]);
+    if (seq !== loadSeq) return; // 过期响应丢弃
     students.value = stu;
     for (const s of seats) {
       grid[keyOf(s.row + 1, s.col + 1)] = { ...s, studentId: s.studentId ?? s.student_id };
     }
+    initGrid();
   } catch (e) {
-    ElMessage.error('座位布局加载失败：' + e.message);
+    if (seq === loadSeq) ElMessage.error('座位布局加载失败：' + e.message);
   }
 }
 
 watch(() => store.currentClassId, loadSeats);
 onMounted(loadSeats);
+// 同步未保存状态到全局（供顶栏切班级拦截，P1-1）
+watch(dirty, v => { store.seatsDirty = v; });
+onMounted(() => { store.seatsDirty = dirty.value; });
 
 function fmtV(v) { return v == null ? '' : Number(v).toFixed(1); }
 
@@ -420,6 +435,14 @@ function clearSeat() {
   menuVisible.value = false;
   dirty.value = true;
 }
+async function confirmClearSeat() {
+  const k = menuKey.value || selectedKey.value;
+  const s = grid[k];
+  if (!k || !s || !s.studentId) return;
+  const ok = await ElMessageBox.confirm(`把「${s.name}」设为空座？`, '设为空座', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
+  clearSeat();
+}
 
 /* ---------- 拖拽交换 ---------- */
 function onDragStart(e, r, c) {
@@ -452,6 +475,7 @@ async function runAuto() {
     for (const s of r.seats) {
       grid[keyOf(s.row + 1, s.col + 1)] = { ...s, studentId: s.studentId };
     }
+    initGrid();
     conflicts.value = r.conflicts || [];
     unplaced.value = r.unplaced || [];
     previewing.value = true;
@@ -479,6 +503,7 @@ async function runShift() {
     for (const s of r.seats) {
       grid[keyOf(s.row + 1, s.col + 1)] = { ...s, studentId: s.studentId };
     }
+    initGrid();
     previewing.value = true;
     dirty.value = true;
     shiftDialog.value = false;
@@ -518,17 +543,25 @@ async function saveLayout() {
 /* ---------- 历史 ---------- */
 async function openHistory() {
   if (!store.currentClassId) return;
-  layouts.value = await api.seats.layouts(store.currentClassId);
-  historyVisible.value = true;
+  try {
+    layouts.value = await api.seats.layouts(store.currentClassId);
+    historyVisible.value = true;
+  } catch (e) {
+    ElMessage.error('历史布局加载失败：' + e.message);
+  }
 }
 async function viewLayout(row) {
-  const d = await api.seats.layoutDetail(row.id);
-  const hs = d.seats || [];
-  const hRows = hs.length ? Math.max(...hs.map(s => s.row)) + 1 : rows.value;
-  const hCols = hs.length ? Math.max(...hs.map(s => s.col)) + 1 : cols.value;
-  histDetail.value = { ...d, rows: hRows, cols: hCols };
-  historyVisible.value = false;
-  historyDetailVisible.value = true;
+  try {
+    const d = await api.seats.layoutDetail(row.id);
+    const hs = d.seats || [];
+    const hRows = hs.length ? Math.max(...hs.map(s => s.row)) + 1 : rows.value;
+    const hCols = hs.length ? Math.max(...hs.map(s => s.col)) + 1 : cols.value;
+    histDetail.value = { ...d, rows: hRows, cols: hCols };
+    historyVisible.value = false;
+    historyDetailVisible.value = true;
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
 }
 function histName(r, c) {
   const s = (histDetail.value.seats || []).find(x => x.row === r - 1 && x.col === c - 1);
@@ -542,6 +575,7 @@ async function applyHistory() {
       name: s.studentId != null ? histDetail.value.names[s.studentId] || '' : '',
     };
   }
+  initGrid();
   historyDetailVisible.value = false;
   previewing.value = true;
   dirty.value = true;
@@ -550,13 +584,22 @@ async function applyHistory() {
 async function deleteLayout(row) {
   const ok = await ElMessageBox.confirm('删除这条历史记录？', '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.seats.removeLayout(row.id);
-  layouts.value = layouts.value.filter(l => l.id !== row.id);
+  try {
+    await api.seats.removeLayout(row.id);
+    layouts.value = layouts.value.filter(l => l.id !== row.id);
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
 }
 
 function print() {
   window.print();
 }
+
+/* ---------- 右键菜单：点击外部关闭（P1-8） ---------- */
+function onDocClick() { menuVisible.value = false; }
+onMounted(() => document.addEventListener('click', onDocClick));
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
 
 /* ---------- 离开拦截：未保存修改时提醒 ---------- */
 onBeforeRouteLeave(async () => {
@@ -620,6 +663,9 @@ onBeforeRouteLeave(async () => {
 .row { display: flex; gap: 10px; }
 .seat-wrap { flex: 0 0 clamp(76px, 9.5vw, 104px); }
 .seat-wrap.aisle { margin-left: 30px; }
+/* 历史弹窗内限宽，避免溢出（P1-9） */
+.seat-wrap.hist-wrap { flex-basis: 84px; }
+.hist-wrap.aisle { margin-left: 18px; }
 
 .seat {
   border: 2px solid #e2eee8; border-radius: 12px; padding: 8px 4px 7px;
@@ -660,6 +706,7 @@ onBeforeRouteLeave(async () => {
   .seat-wrap.aisle { margin-left: 20px; }
   .seat { border-width: 1px; min-height: 52px; }
   .seat.boy, .seat.girl, .seat.locked { background: #fff; }
+  .seat.empty .s-name { display: none; } /* 打印不显示"空"字（P2-8） */
   .podium { box-shadow: none; background: #eee; color: #333; }
 }
 

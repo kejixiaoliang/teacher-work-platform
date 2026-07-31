@@ -11,7 +11,12 @@
     </div>
 
     <el-table :data="store.classes" stripe>
-      <el-table-column prop="name" label="班级名称" width="140" />
+      <el-table-column prop="name" label="班级名称" width="150">
+        <template #default="{ row }">
+          {{ row.name }}
+          <el-tag v-if="row.id === store.currentClassId" size="small" type="success" round style="margin-left:6px">当前</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="academic_year" label="学年" width="110" />
       <el-table-column prop="term" label="学期" width="70" />
       <el-table-column label="座位布局" width="150">
@@ -112,9 +117,10 @@ function switchClass(row) {
 }
 
 async function remove(row) {
+  const isCurrent = row.id === store.currentClassId;
   const ok = await ElMessageBox.confirm(
-    `确定删除「${row.name}」？将连带删除该班所有学生、座位与历史布局，不可恢复！`,
-    '删除班级', { type: 'error', confirmButtonText: '删除' }
+    `确定删除「${row.name}」？${isCurrent ? '这是当前使用的班级！' : ''}将连带删除该班所有学生、座位与历史布局，不可恢复！`,
+    '删除班级', { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
   ).catch(() => false);
   if (!ok) return;
   await api.classes.remove(row.id);

@@ -28,7 +28,7 @@ onBeforeUnmount(() => {
   chart?.dispose();
   chart = null;
 });
-watch(() => props.option, render, { deep: true });
+watch(() => props.option, render);
 
 function resize() { chart?.resize(); }
 </script>

@@ -169,18 +169,36 @@ router.post('/preset-leaders', (req, res) => {
   res.json({ ok: true, data: { added, skipped, totalRoles: PRESET_ROLES.length } });
 });
 
-// 更新
+// 更新（同样做班干部职务唯一 + 值日生一人一组校验，排除自身）
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
   const row = db.prepare('SELECT * FROM duties WHERE id = ?').get(id);
   if (!row) return res.json({ ok: false, error: '记录不存在' });
   const b = req.body || {};
+  const role = b.role || row.role;
+  const studentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
+  if (role !== '值日生') {
+    const dup = db.prepare('SELECT student_id FROM duties WHERE class_id = ? AND role = ? AND id <> ?')
+      .get(row.class_id, role, id);
+    if (dup) {
+      const holder = db.prepare('SELECT name FROM students WHERE id = ?').get(dup.student_id);
+      return res.json({ ok: false, error: `「${role}」已由 ${holder?.name || '其他学生'} 担任` });
+    }
+  } else {
+    const g = db.prepare(`
+      SELECT group_no FROM duties WHERE class_id = ? AND student_id = ? AND role = '值日生' AND id <> ?
+    `).get(row.class_id, studentId, id);
+    if (g != null) {
+      const nm = db.prepare('SELECT name FROM students WHERE id = ?').get(studentId);
+      return res.json({ ok: false, error: `${nm?.name || '该学生'} 已在第 ${g.group_no} 组，同一学生不能重复值日` });
+    }
+  }
   db.prepare(`UPDATE duties SET role=?, group_no=?, week_days=?, remark=?, student_id=? WHERE id=?`).run(
-    b.role || row.role,
+    role,
     b.group_no !== undefined ? (b.group_no != null ? Number(b.group_no) : null) : row.group_no,
     b.week_days !== undefined ? b.week_days : row.week_days,
     b.remark !== undefined ? b.remark : row.remark,
-    b.student_id !== undefined ? Number(b.student_id) : row.student_id,
+    studentId,
     id
   );
   res.json({ ok: true });

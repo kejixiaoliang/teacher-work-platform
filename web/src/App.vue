@@ -59,8 +59,9 @@
                     :prefix-icon="Search" @keyup.enter="goSearch" @clear="goSearch" />
           <template v-if="store.classes.length > 1">
             <span class="text-muted">班级：</span>
-            <el-select v-model="store.currentClassId" size="default" style="width:140px">
-              <el-option v-for="c in store.classes" :key="c.id" :value="c.id" :label="c.name" />
+            <el-select :model-value="store.currentClassId" style="width:150px" @update:model-value="onClassChange">
+              <el-option v-for="c in store.classes" :key="c.id" :value="c.id" :label="c.name"
+                         :title="c.name" />
             </el-select>
           </template>
           <span v-else-if="currentClass" class="class-tag">🏫 {{ currentClass.name }}</span>
@@ -80,7 +81,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Search } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { store, currentClass, loadClasses } from './store.js';
 
 const route = useRoute();
@@ -100,6 +101,18 @@ function goSearch() {
   const kw = globalKw.value.trim();
   router.push({ path: '/students', query: kw ? { kw } : {} });
   if (kw) ElMessage({ type: 'info', message: `已搜索「${kw}」`, duration: 1200 });
+}
+
+// 切班级：座位页有未保存修改时先确认（P1-1）
+async function onClassChange(id) {
+  if (store.seatsDirty && route.path === '/seats') {
+    const ok = await ElMessageBox.confirm(
+      '当前座位有未保存的修改，切换班级将丢失。确定切换吗？',
+      '未保存提示', { type: 'warning', confirmButtonText: '仍要切换', cancelButtonText: '取消' }
+    ).catch(() => false);
+    if (!ok) return;
+  }
+  store.currentClassId = id;
 }
 </script>
 

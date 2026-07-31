@@ -17,6 +17,19 @@ if (!clsCols.includes('aisle_mode')) {
   db.exec('ALTER TABLE classes ADD COLUMN aisle_mode INTEGER DEFAULT 1');
 }
 
+// 常用查询索引（P2-16）
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);
+  CREATE INDEX IF NOT EXISTS idx_documents_class ON documents(class_id);
+  CREATE INDEX IF NOT EXISTS idx_duties_class ON duties(class_id);
+  CREATE INDEX IF NOT EXISTS idx_seat_layouts_class ON seat_layouts(class_id);
+  CREATE INDEX IF NOT EXISTS idx_metrics_student ON student_metrics_history(student_id);
+  CREATE INDEX IF NOT EXISTS idx_records_student ON student_records(student_id);
+  CREATE INDEX IF NOT EXISTS idx_contacts_student ON contacts(student_id);
+  CREATE INDEX IF NOT EXISTS idx_scores_exam ON exam_scores(exam_id);
+  CREATE INDEX IF NOT EXISTS idx_attendance_class_date ON attendance(class_id, date);
+`);
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS classes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

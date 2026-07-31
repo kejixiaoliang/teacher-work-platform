@@ -47,8 +47,7 @@
                           style="width:150px" @change="loadStats" />
           <span class="text-muted">按登记日期统计各状态天数</span>
         </div>
-        <el-table :data="stats" size="small" border stripe v-loading="statsLoading">
-          <el-table-column prop="school_no" label="学号" width="90" />
+        <el-table :data="stats" size="small" border stripe v-loading="statsLoading">          <el-table-column prop="school_no" label="学号" width="90" />
           <el-table-column prop="name" label="姓名" width="110" />
           <el-table-column prop="出勤" label="出勤" width="80" />
           <el-table-column prop="迟到" label="迟到" width="80">
@@ -60,7 +59,6 @@
           </el-table-column>
           <el-table-column prop="days" label="登记天数" width="90" />
         </el-table>
-        <el-empty v-if="!stats.length" description="该月暂无考勤登记" :image-size="60" />
       </el-tab-pane>
     </el-tabs>
   </div>
@@ -68,7 +66,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -86,6 +84,11 @@ watch(() => store.currentClassId, () => { loadDaily(); loadStats(); });
 onMounted(() => { loadDaily(); loadStats(); });
 
 async function loadDaily() {
+  // 未保存考勤切换确认（P1-7）
+  if (dirty.value) {
+    const ok = await ElMessageBox.confirm('当前日期考勤有未保存的修改，切换将丢失。确定继续吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+    if (!ok) return;
+  }
   if (!store.currentClassId) { rows.value = []; return; }
   loading.value = true;
   try {

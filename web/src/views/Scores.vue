@@ -62,7 +62,7 @@
               <el-table :data="ranking" size="small" border stripe>
                 <el-table-column prop="rank" label="排名" width="70">
                   <template #default="{ row }">
-                    <el-tag :type="row.rank <= 3 ? 'danger' : 'info'" round>{{ row.rank }}</el-tag>
+                    <el-tag :type="row.rank <= 3 ? 'warning' : 'info'" round>{{ row.rank }}</el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column prop="name" label="姓名" width="110" />
@@ -140,8 +140,19 @@ const trendPoints = ref([]);
 const examDialogVisible = ref(false);
 const examForm = ref({ id: null, name: '', date: '', subjects: [] });
 
-watch(() => store.currentClassId, () => { loadExams(); allStudents.value = []; trendStudentId.value = null; });
-onMounted(() => { loadExams(); loadStudents(); });
+watch(() => store.currentClassId, () => {
+  // 切班级：重置所有状态 + 重载考试与学生（P0-1）
+  currentExam.value = null;
+  tab.value = 'entry';
+  scoreMatrix.value = {};
+  scoreRows.value = [];
+  subjectStats.value = [];
+  ranking.value = [];
+  trendStudentId.value = null;
+  trendPoints.value = [];
+  loadExams();
+  loadStudents();
+});
 
 async function loadExams() {
   if (!store.currentClassId) { exams.value = []; currentExam.value = null; return; }
@@ -156,13 +167,20 @@ async function loadExams() {
   }
 }
 async function loadStudents() {
-  if (!store.currentClassId) return;
+  if (!store.currentClassId) { allStudents.value = []; return; }
   try {
     allStudents.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
-  } catch { /* 忽略 */ }
+  } catch (e) {
+    ElMessage.error('学生列表加载失败：' + e.message);
+  }
 }
 
 async function selectExam(e) {
+  // 未保存成绩切换确认（P1-7）
+  if (scoreDirty.value) {
+    const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，切换将丢失。确定切换吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+    if (!ok) return;
+  }
   currentExam.value = e;
   tab.value = 'entry';
   scoreDirty.value = false;

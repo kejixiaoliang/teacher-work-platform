@@ -82,11 +82,11 @@ router.put('/:id', (req, res) => {
   }
   const sets = FIELDS.map(k => `${k} = @${k}`).join(', ');
   db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run({
-    ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] ?? null }), {}),
-    name: (b.name !== undefined ? String(b.name).trim() : row.name),
-    school_no: b.school_no !== undefined ? String(b.school_no).trim() : row.school_no,
-    gender: b.gender || row.gender,
-    status: b.status || row.status,
+    ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] === undefined ? row[k] : (b[k] == null ? null : b[k]) }), {}),
+    name: b.name === undefined ? row.name : (b.name == null ? row.name : String(b.name).trim()),
+    school_no: b.school_no === undefined ? row.school_no : (b.school_no == null ? null : String(b.school_no).trim()),
+    gender: b.gender === undefined || b.gender == null ? row.gender : b.gender,
+    status: b.status === undefined || b.status == null ? row.status : b.status,
     is_boarding: b.is_boarding !== undefined ? (b.is_boarding ? 1 : 0) : row.is_boarding,
     is_myopia: b.is_myopia !== undefined ? (b.is_myopia ? 1 : 0) : row.is_myopia,
     id,
@@ -94,9 +94,14 @@ router.put('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// 软删除（进回收站）
+// 软删除（进回收站，同时清空其座位，避免"幽灵座位"）
 router.delete('/:id', (req, res) => {
-  db.prepare(`UPDATE students SET deleted_at=datetime('now','localtime') WHERE id=?`).run(Number(req.params.id));
+  const id = Number(req.params.id);
+  const tx = db.transaction(() => {
+    db.prepare(`UPDATE students SET deleted_at=datetime('now','localtime') WHERE id=?`).run(id);
+    db.prepare(`DELETE FROM seats WHERE student_id=?`).run(id);
+  });
+  tx();
   res.json({ ok: true });
 });
 

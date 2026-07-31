@@ -12,7 +12,7 @@
         <div class="toolbar">
           <span class="text-muted">把学生分成 N 组，每周轮换一组；<b>每人只在一个组</b>，保证周期内每周人员不重复</span>
           <div class="spacer"></div>
-          <el-button type="primary" :icon="MagicStick" @click="openAutoGroup">⚡ 一键自动分组</el-button>
+          <el-button type="primary" @click="openAutoGroup">⚡ 一键自动分组</el-button>
           <el-button :icon="Plus" @click="addGroup">新增组</el-button>
           <el-button :icon="User" @click="openAddMembers()">往某组加人</el-button>
         </div>
@@ -106,7 +106,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, User, Printer, MagicStick } from '@element-plus/icons-vue';
+import { Plus, User, Printer } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 
@@ -151,8 +151,12 @@ onMounted(load);
 
 async function load() {
   if (!store.currentClassId) { duties.value = []; return; }
-  duties.value = await api.duties.list({ class_id: store.currentClassId });
-  students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+  try {
+    duties.value = await api.duties.list({ class_id: store.currentClassId });
+    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+  } catch (e) {
+    ElMessage.error('数据加载失败：' + e.message);
+  }
 }
 
 /* ---------- 值日分组 ---------- */
@@ -163,9 +167,14 @@ async function addGroup() {
 async function removeGroup(no) {
   const ok = await ElMessageBox.confirm(`删除第 ${no} 组及其全部成员？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  const list = dutyList.value.filter(d => d.group_no === no);
-  for (const d of list) await api.duties.remove(d.id);
-  load();
+  try {
+    // 并行删除（P2-15）
+    const list = dutyList.value.filter(d => d.group_no === no);
+    await Promise.all(list.map(d => api.duties.remove(d.id)));
+    load();
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
 }
 function openAddMembers(no) {
   memberForm.value = { group_no: no ?? null, student_ids: [] };
@@ -199,11 +208,6 @@ function openAutoGroup() {
 }
 async function runAutoGroup() {
   if (!store.currentClassId) return;
-  const ok = await ElMessageBox.confirm(
-    `将按名单顺序平均分成 ${autoGroupCount.value} 组（每组约 ${Math.ceil(students.value.length / autoGroupCount.value)} 人），并重置现有值日分组。继续？`,
-    '一键自动分组', { type: 'warning', confirmButtonText: '生成' }
-  ).catch(() => false);
-  if (!ok) return;
   autoGroupLoading.value = true;
   try {
     const r = await api.duties.autoGroup({ class_id: store.currentClassId, groupCount: autoGroupCount.value });
@@ -225,20 +229,25 @@ async function removeMember(m) {
 }
 
 /* ---------- 打印值日表 ---------- */
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 function printRoster() {
   if (!groupCount.value) return;
   const cls = store.classes.find(c => c.id === store.currentClassId);
-  const lines = ['<h3>值日安排表</h3>', `<p>班级：${cls?.name || ''}（开学第 ${week.value} 周）</p>`];
+  const lines = ['<h3>值日安排表</h3>', `<p>班级：${esc(cls?.name || '')}（开学第 ${week.value} 周）</p>`];
   lines.push('<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">');
   lines.push('<tr><th>周次</th><th>值日组</th><th>值日学生</th></tr>');
   for (const r of rosterRows.value) {
-    lines.push(`<tr><td>第 ${r.week} 周</td><td>第 ${r.groupNo} 组</td><td>${r.members || '—'}</td></tr>`);
+    lines.push(`<tr><td>第 ${r.week} 周</td><td>第 ${r.groupNo} 组</td><td>${esc(r.members) || '—'}</td></tr>`);
   }
   lines.push('</table>');
   for (const g of groups.value) {
-    lines.push(`<p style="margin-top:10px"><b>第 ${g.no} 组名单：</b>${g.members.map(m => m.student_name).join('、') || '（空）'}</p>`);
+    lines.push(`<p style="margin-top:10px"><b>第 ${g.no} 组名单：</b>${esc(g.members.map(m => m.student_name).join('、')) || '（空）'}</p>`);
   }
   const win = window.open('', '_blank');
+  if (!win) return ElMessage.warning('弹窗被浏览器拦截，请允许弹出窗口后重试');
   win.document.write(`<html><head><meta charset="utf-8"><title>值日表</title><style>body{font-family:"Microsoft YaHei",sans-serif;padding:20px}td{text-align:center}</style></head><body>${lines.join('')}</body></html>`);
   win.document.close();
   win.focus();

@@ -31,10 +31,16 @@
         <EChart :option="gradeOption" height="280px" />
       </div>
       <div class="chart-card">
-        <div class="chart-title">👥 班级构成</div>
+        <div class="chart-title">👥 性别构成</div>
         <EChart :option="genderOption" height="280px" />
       </div>
+      <div class="chart-card">
+        <div class="chart-title">🏠 住宿情况</div>
+        <EChart :option="boardingOption" height="280px" />
+      </div>
     </div>
+
+    <el-empty v-if="!students.length" description="当前班级还没有在读学生，先去「学生管理」添加或导入" :image-size="90" style="margin-top:20px" />
 
     <p class="text-muted" style="margin-top:12px">数据来源：学生档案当前值。身高/视力可随「学期存档」对比历史。</p>
   </div>
@@ -50,7 +56,7 @@ import EChart from '../components/EChart.vue';
 const students = ref([]);
 const loading = ref(false);
 
-const MINT_HEIGHT = 120, MAX_HEIGHT = 190, STEP = 10;
+const MINT_HEIGHT = 120, MAX_HEIGHT = 200, STEP = 10;
 
 const heightOption = computed(() => {
   const buckets = {};
@@ -69,7 +75,7 @@ const heightOption = computed(() => {
   return {
     tooltip: { trigger: 'axis' },
     grid: { left: 40, right: 16, top: 20, bottom: 28 },
-    xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 11 } },
+    xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 12 } },
     yAxis: { type: 'value', minInterval: 1 },
     series: [{ type: 'bar', data, barWidth: '55%', itemStyle: { color: '#3ec6a8', borderRadius: [6, 6, 0, 0] } }],
   };
@@ -118,7 +124,6 @@ const gradeOption = computed(() => {
 const genderOption = computed(() => {
   const male = students.value.filter(s => s.gender === '男').length;
   const female = students.value.length - male;
-  const boarding = students.value.filter(s => s.is_boarding).length;
   return {
     tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
     legend: { bottom: 0 },
@@ -128,8 +133,22 @@ const genderOption = computed(() => {
       data: [
         { name: '男生', value: male, itemStyle: { color: '#55b3f0' } },
         { name: '女生', value: female, itemStyle: { color: '#f58b9f' } },
+      ],
+    }],
+  };
+});
+
+const boardingOption = computed(() => {
+  const boarding = students.value.filter(s => s.is_boarding).length;
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
+    legend: { bottom: 0 },
+    series: [{
+      type: 'pie', radius: '60%', center: ['50%', '45%'],
+      label: { formatter: '{b}\n{d}%' },
+      data: [
         { name: '住宿', value: boarding, itemStyle: { color: '#9b8cf5' } },
-        { name: '走读', value: students.value.length - boarding, itemStyle: { color: '#f0e68c' } },
+        { name: '走读', value: students.value.length - boarding, itemStyle: { color: '#f0c46c' } },
       ],
     }],
   };

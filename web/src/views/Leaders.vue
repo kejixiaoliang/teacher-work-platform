@@ -17,7 +17,7 @@
           <el-tag size="large" type="success" effect="light" round>{{ row.role }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="student_name" label="学生" width="130">
+      <el-table-column prop="student_name" label="学生" width="140" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.student_name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="80" />
@@ -28,8 +28,6 @@
         </template>
       </el-table-column>
     </el-table>
-    <el-alert v-if="!leaders.length" type="info" :closable="false" style="margin-top:14px"
-              title="还没有选任班委，点「选任班委」开始。常见职务：班长、副班长、学习委员、卫生委员…" />
 
     <!-- 选任弹窗 -->
     <el-dialog v-model="leaderVisible" title="选任班委" width="440px">
@@ -76,8 +74,12 @@ onMounted(load);
 
 async function load() {
   if (!store.currentClassId) { duties.value = []; return; }
-  duties.value = await api.duties.list({ class_id: store.currentClassId });
-  students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+  try {
+    duties.value = await api.duties.list({ class_id: store.currentClassId });
+    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+  } catch (e) {
+    ElMessage.error('数据加载失败：' + e.message);
+  }
 }
 
 function openLeader() {

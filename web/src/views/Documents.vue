@@ -32,9 +32,10 @@
 
       <!-- 拖拽上传提示区（回收站视图隐藏） -->
       <div v-if="!trashed" class="drop-zone" :class="{ dragging: dragging }"
+           @click="uploadVisible = true"
            @dragover.prevent="dragging = true" @dragleave="dragging = false">
         <el-icon :size="28"><UploadFilled /></el-icon>
-        <span>拖拽文件到此处上传（图片 / PDF / Office / 文本，单个 ≤200MB）</span>
+        <span>点击或拖拽文件到此处上传（图片 / PDF / Office / 文本，单个 ≤200MB）</span>
       </div>
 
       <!-- 文件网格 -->
@@ -76,7 +77,7 @@
       </div>
       <el-form label-width="70px" style="margin-top:14px">
         <el-form-item label="标签">
-          <el-input v-model="uploadTag" placeholder="可选，如：家长会、通知" />
+          <el-input v-model="uploadTag" placeholder="可选，多个标签用逗号分隔，如：家长会,通知" />
         </el-form-item>
       </el-form>
       <div v-if="uploadQueue.length" class="upload-list">
@@ -161,15 +162,19 @@ function formatSize(n) {
 
 async function load() {
   if (!store.currentClassId) { list.value = []; return; }
-  const q = { class_id: store.currentClassId, trashed: trashed.value ? '1' : '0', ...filter };
-  list.value = await api.documents.list(q);
-  // 收集标签
-  const all = await api.documents.list({ class_id: store.currentClassId });
-  const tagSet = new Set();
-  for (const f of all) {
-    for (const t of String(f.tag || '').split(/[,，]/)) if (t.trim()) tagSet.add(t.trim());
+  try {
+    const q = { class_id: store.currentClassId, trashed: trashed.value ? '1' : '0', ...filter };
+    list.value = await api.documents.list(q);
+    // 收集标签（并行，P2-14）
+    const [all] = await Promise.all([api.documents.list({ class_id: store.currentClassId })]);
+    const tagSet = new Set();
+    for (const f of all) {
+      for (const t of String(f.tag || '').split(/[,，]/)) if (t.trim()) tagSet.add(t.trim());
+    }
+    tags.value = [...tagSet];
+  } catch (e) {
+    ElMessage.error('文档列表加载失败：' + e.message);
   }
-  tags.value = [...tagSet];
 }
 watch(() => store.currentClassId, load);
 onMounted(load);

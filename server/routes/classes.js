@@ -1,5 +1,11 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import db from '../db.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dataDir = path.join(__dirname, '..', '..', 'data');
 
 const router = Router();
 
@@ -42,10 +48,17 @@ router.put('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// 删除班级（级联删除学生/座位/历史布局）
+// 删除班级（级联删除学生/座位/历史布局；同时清理该班上传的物理文件）
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
-  db.prepare('DELETE FROM classes WHERE id = ?').run(id);
+  const files = db.prepare('SELECT stored_name FROM documents WHERE class_id = ?').all(id);
+  const tx = db.transaction(() => {
+    for (const f of files) {
+      try { fs.unlinkSync(path.join(dataDir, 'files', f.stored_name)); } catch { /* 文件可能已不存在 */ }
+    }
+    db.prepare('DELETE FROM classes WHERE id = ?').run(id);
+  });
+  tx();
   res.json({ ok: true });
 });
 

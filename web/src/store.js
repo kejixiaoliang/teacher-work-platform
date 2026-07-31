@@ -4,6 +4,7 @@ import { api } from './api.js';
 export const store = reactive({
   classes: [],
   currentClassId: Number(localStorage.getItem('current-class-id')) || null,
+  seatsDirty: false, // 座位页是否有未保存修改（用于切班级拦截）
 });
 
 export const currentClass = computed(() =>

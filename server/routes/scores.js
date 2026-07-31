@@ -68,21 +68,27 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   const { examId, rows } = req.body || {};
   if (!examId || !Array.isArray(rows)) return res.json({ ok: false, error: '参数不完整' });
-  const exam = db.prepare('SELECT id FROM exams WHERE id = ?').get(Number(examId));
+  const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(examId));
   if (!exam) return res.json({ ok: false, error: '考试不存在' });
+  // 校验学生属于该班（防跨班脏数据）
+  const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ?').all(exam.class_id).map(r => r.id));
   const upsert = db.prepare(`
     INSERT INTO exam_scores (exam_id, student_id, subject, score) VALUES (?, ?, ?, ?)
     ON CONFLICT(exam_id, student_id, subject) DO UPDATE SET score = excluded.score
   `);
+  let saved = 0;
   const tx = db.transaction((list) => {
     for (const r of list) {
       if (r.studentId == null || !r.subject) continue;
+      if (!validIds.has(Number(r.studentId))) continue;
       const v = r.score === null || r.score === '' || r.score === undefined ? null : Number(r.score);
+      if (v != null && !Number.isFinite(v)) continue; // 非法分数跳过
       upsert.run(Number(examId), Number(r.studentId), String(r.subject), v);
+      saved++;
     }
   });
   tx(rows);
-  res.json({ ok: true, data: { count: rows.length } });
+  res.json({ ok: true, data: { count: saved } });
 });
 
 /* ================= 统计分析 ================= */

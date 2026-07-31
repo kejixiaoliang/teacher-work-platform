@@ -98,7 +98,7 @@ router.post('/auto', (req, res) => {
   res.json({ ok: true, data: result });
 });
 
-// 平移轮换（返回建议布局，不落库；锁定座位不动）
+// 平移轮换（返回建议布局，不落库；锁定座位不动；满座时保留原位不丢人）
 router.post('/shift', (req, res) => {
   const { classId, dr = 0, dc = 0 } = req.body || {};
   if (!classId) return res.json({ ok: false, error: '缺少班级' });
@@ -123,47 +123,53 @@ router.post('/shift', (req, res) => {
     for (const st of stRows) infoMap.set(st.id, st);
   }
 
-  // 先放锁定座位
+  // 锁定座位先占位（不动）
   const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
-  for (const s of seats) if (s.locked) grid[s.row][s.col] = s;
-
-  const warnings = [];
   const out = [];
-  const placed = new Set();
-  for (const s of seats) {
-    if (s.locked) {
-      grid[s.row][s.col] = s;
-      placed.add(`${s.row},${s.col}`);
-      continue;
-    }
+  const warnings = [];
+  const lockedSeats = seats.filter(s => s.locked);
+  const moveSeats = seats.filter(s => !s.locked && s.student_id != null);
+  for (const s of lockedSeats) grid[s.row][s.col] = s;
+
+  // 非锁定学生按模运算平移（互不冲突，仅可能撞上锁定座位）
+  for (const s of moveSeats) {
     const nr = (((s.row + dr) % rows) + rows) % rows;
     const nc = (((s.col + dc) % cols) + cols) % cols;
-    if (grid[nr][nc] != null) {
-      // 目标被锁定学生占用 → 就近放置
+    const info = infoMap.get(s.student_id) || {};
+    if (grid[nr][nc] == null) {
+      grid[nr][nc] = s;
+      out.push({ studentId: s.student_id, row: nr, col: nc, locked: false,
+        name: info.name, gender: info.gender, height_cm: info.height_cm,
+        vision_left: info.vision_left, vision_right: info.vision_right,
+        is_myopia: info.is_myopia, grade_level: info.grade_level });
+    } else {
+      // 目标被锁定座位占用：就近找空位
       const p = findNearestFree(grid, nr, nc, rows, cols);
       if (p) {
-        warnings.push(`${s.student_id != null ? '该学生' : '空位'} 目标位置被锁定座位占用，就近调整`);
         grid[p.r][p.c] = s;
-      }
-    } else {
-      grid[nr][nc] = s;
-    }
-  }
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (grid[r][c]) {
-        const s = grid[r][c];
-        const info = s.student_id != null ? infoMap.get(s.student_id) || {} : {};
-        out.push({
-          studentId: s.student_id,
-          row: r, col: c,
-          locked: !!s.locked,
+        out.push({ studentId: s.student_id, row: p.r, col: p.c, locked: false,
           name: info.name, gender: info.gender, height_cm: info.height_cm,
           vision_left: info.vision_left, vision_right: info.vision_right,
-          is_myopia: info.is_myopia, grade_level: info.grade_level,
-        });
+          is_myopia: info.is_myopia, grade_level: info.grade_level });
+        warnings.push(`${info.name || '该学生'} 目标位置被锁定座位占用，就近调整`);
+      } else {
+        // 无空位：保留原位（不丢人）
+        grid[s.row][s.col] = s;
+        out.push({ studentId: s.student_id, row: s.row, col: s.col, locked: false,
+          name: info.name, gender: info.gender, height_cm: info.height_cm,
+          vision_left: info.vision_left, vision_right: info.vision_right,
+          is_myopia: info.is_myopia, grade_level: info.grade_level });
+        warnings.push(`${info.name || '该学生'} 无可用空位，保持原位`);
       }
     }
+  }
+  // 锁定座位输出
+  for (const s of lockedSeats) {
+    const info = infoMap.get(s.student_id) || {};
+    out.push({ studentId: s.student_id, row: s.row, col: s.col, locked: true,
+      name: info.name, gender: info.gender, height_cm: info.height_cm,
+      vision_left: info.vision_left, vision_right: info.vision_right,
+      is_myopia: info.is_myopia, grade_level: info.grade_level });
   }
   res.json({ ok: true, data: { seats: out, warnings } });
 });

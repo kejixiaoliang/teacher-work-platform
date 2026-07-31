@@ -8,7 +8,7 @@
           {{ currentClass.academic_year || '—' }} {{ currentClass.term }} 学期
           <template v-if="currentClass.head_teacher"> ｜ 班主任：{{ currentClass.head_teacher }}</template>
         </p>
-        <p v-else class="hero-sub">请先到「班级管理」创建班级</p>
+        <p v-else class="hero-sub">请先到「班级设置」创建班级</p>
       </div>
       <div class="hero-actions">
         <el-button type="primary" size="large" @click="go('/seats')">💺 排座位</el-button>
@@ -205,6 +205,7 @@ async function exportAll() {
 .hero h2 { margin: 0 0 6px; font-size: 22px; }
 .hero-sub { margin: 0; opacity: .85; font-size: 14px; }
 .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.hero-actions .el-button--primary { background: #fff; border-color: #fff; color: #2f8f7a; font-weight: 700; }
 .hero-actions .el-button { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); color: #fff; }
 .hero-actions .el-button:hover { background: rgba(255,255,255,.26); }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }

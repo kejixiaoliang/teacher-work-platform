@@ -43,8 +43,8 @@
     <el-table :data="list" stripe @selection-change="onSelection"
               @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="school_no" label="学号" width="90" />
-      <el-table-column prop="name" label="姓名" width="90">
+      <el-table-column prop="school_no" label="学号" width="100" show-overflow-tooltip />
+      <el-table-column prop="name" label="姓名" width="100" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="60" />
@@ -92,7 +92,7 @@
       <el-form :model="form" label-width="110px">
         <el-tabs>
           <el-tab-pane label="基本信息">
-            <el-form-item label="学号" required><el-input v-model="form.school_no" placeholder="全校唯一学号" /></el-form-item>
+            <el-form-item label="学号"><el-input v-model="form.school_no" placeholder="全校唯一学号，可留空" /></el-form-item>
             <el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item>
             <el-form-item label="性别">
               <el-radio-group v-model="form.gender"><el-radio value="男">男</el-radio><el-radio value="女">女</el-radio></el-radio-group>
@@ -165,7 +165,9 @@
                 <template #default="{ row }">{{ fmtVision(row.vision_left) }}/{{ fmtVision(row.vision_right) }}</template>
               </el-table-column>
               <el-table-column prop="grade_level" label="成绩" />
-              <el-table-column prop="recorded_at" label="记录时间" width="120" />
+              <el-table-column prop="recorded_at" label="记录时间" width="130">
+                <template #default="{ row }">{{ (row.recorded_at || '').slice(0, 16).replace('T', ' ') }}</template>
+              </el-table-column>
             </el-table>
           </el-tab-pane>
 
@@ -334,8 +336,12 @@ function emptyForm() {
 
 async function load() {
   if (!store.currentClassId) { list.value = []; return; }
-  const q = { class_id: store.currentClassId, ...query, trashed: trashed.value ? '1' : '0' };
-  list.value = await api.students.list(q);
+  try {
+    const q = { class_id: store.currentClassId, ...query, trashed: trashed.value ? '1' : '0' };
+    list.value = await api.students.list(q);
+  } catch (e) {
+    ElMessage.error('学生列表加载失败：' + e.message);
+  }
 }
 
 watch(() => store.currentClassId, load);
@@ -353,7 +359,7 @@ function openDetail(row) {
   detail.value = row;
   detailTab.value = 'info';
   detailVisible.value = true;
-  api.students.metrics(row.id).then(m => (metrics.value = m));
+  api.students.metrics(row.id).then(m => (metrics.value = m)).catch(() => {});
   api.records.list(row.id).then(r => (records.value = r)).catch(() => {});
   api.records.contacts(row.id).then(c => (contacts.value = c)).catch(() => {});
 }
@@ -425,7 +431,7 @@ async function removeOne(row) {
 async function batchDelete() {
   const ok = await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 名学生？`, '批量删除', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  for (const id of selected.value) await api.students.remove(id);
+  await Promise.all(selected.value.map(id => api.students.remove(id))); // 并行（P2-15）
   ElMessage.success('已删除');
   load();
 }

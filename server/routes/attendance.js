@@ -28,19 +28,23 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   const { classId, date, rows } = req.body || {};
   if (!classId || !date || !Array.isArray(rows)) return res.json({ ok: false, error: '参数不完整' });
+  // 校验学生属于该班
+  const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ?').all(Number(classId)).map(r => r.id));
   const upsert = db.prepare(`
     INSERT INTO attendance (class_id, student_id, date, status, remark) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(class_id, student_id, date) DO UPDATE SET status = excluded.status, remark = excluded.remark
   `);
+  let saved = 0;
   const tx = db.transaction((list) => {
     for (const r of list) {
-      if (r.studentId == null) continue;
+      if (r.studentId == null || !validIds.has(Number(r.studentId))) continue;
       const status = STATUSES.includes(r.status) ? r.status : '出勤';
       upsert.run(Number(classId), Number(r.studentId), String(date), status, r.remark || '');
+      saved++;
     }
   });
   tx(rows);
-  res.json({ ok: true, data: { count: rows.length } });
+  res.json({ ok: true, data: { count: saved } });
 });
 
 // 按月统计：每人各状态天数
