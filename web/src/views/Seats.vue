@@ -89,6 +89,13 @@
                   :title="`${unplaced.length} 人未入座（座位不足）：${unplaced.join('、')}`" />
 
         <div class="podium">讲 台</div>
+        <!-- 图例：座位颜色含义 -->
+        <div class="seat-legend no-print">
+          <span class="lg-item"><i class="lg-dot lg-boy"></i>男生</span>
+          <span class="lg-item"><i class="lg-dot lg-girl"></i>女生</span>
+          <span class="lg-item"><i class="lg-dot lg-lock"></i>锁定</span>
+          <span class="lg-item"><i class="lg-dot lg-empty"></i>空座</span>
+        </div>
         <div class="seat-grid">
           <div v-for="r in rows" :key="r" class="row">
             <div v-for="c in cols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
@@ -109,10 +116,11 @@
                     <span v-if="seat(r, c).height_cm" class="chip">{{ seat(r, c).height_cm }}cm</span>
                     <span v-if="seat(r, c).vision_left" class="chip">视 {{ fmtV(seat(r, c).vision_left) }}</span>
                     <span v-if="seat(r, c).is_myopia" class="chip chip-warn">近视</span>
+                    <span v-else-if="seat(r, c).vision_left" class="chip chip-ok">不近视</span>
                     <span v-if="seat(r, c).locked" class="chip chip-lock">锁定</span>
                   </div>
                 </template>
-                <div v-else class="s-name empty-text">空</div>
+                <div v-else class="s-name empty-text"><span class="empty-ph">空</span></div>
               </div>
             </div>
           </div>
@@ -680,7 +688,7 @@ onBeforeRouteLeave(async () => {
   border: 2px solid var(--ink); border-radius: 12px; padding: 8px 4px 7px;
   text-align: center; cursor: pointer; background: #fff;
   transition: transform .12s, box-shadow .12s, border-color .12s;
-  user-select: none; min-height: 64px;
+  user-select: none; min-height: 78px;
   display: flex; flex-direction: column; justify-content: center; gap: 3px;
 }
 .seat:hover { transform: translateY(-2px); box-shadow: var(--shadow-xs); }
@@ -706,8 +714,27 @@ onBeforeRouteLeave(async () => {
   font-weight: 800;
 }
 .chip-warn { background: var(--mustard); color: var(--ink); }
+.chip-ok { background: var(--mint); color: var(--ink); }
 .chip-lock { background: var(--mustard); color: var(--ink); }
 .empty-text { color: #b0a48d; font-weight: 400; font-size: 13px; }
+.empty-ph { display: block; padding: 14px 0; }
+
+/* 图例 */
+.seat-legend {
+  display: flex; justify-content: center; gap: 18px;
+  margin: 2px auto 12px;
+  padding: 6px 14px;
+  background: rgba(255, 249, 234, .85);
+  border: 2px dashed var(--ink);
+  border-radius: 999px;
+  flex-wrap: wrap;
+}
+.lg-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--muted); }
+.lg-dot { width: 16px; height: 16px; border-radius: 5px; border: 2px solid var(--ink); display: inline-block; }
+.lg-boy { background: #e7f8f3; }
+.lg-girl { background: #fdeeea; }
+.lg-lock { background: var(--mustard); }
+.lg-empty { background: #f6efe1; border-style: dashed; }
 
 /* 打印：卡片定宽、去装饰 */
 @media print {

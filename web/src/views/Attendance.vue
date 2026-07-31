@@ -47,17 +47,18 @@
                           style="width:150px" @change="loadStats" />
           <span class="text-muted">按登记日期统计各状态天数</span>
         </div>
-        <el-table :data="stats" size="small" border stripe v-loading="statsLoading">          <el-table-column prop="school_no" label="学号" width="90" />
-          <el-table-column prop="name" label="姓名" width="110" />
-          <el-table-column prop="出勤" label="出勤" width="80" />
-          <el-table-column prop="迟到" label="迟到" width="80">
+        <el-table :data="stats" size="small" border stripe v-loading="statsLoading">
+          <el-table-column prop="school_no" label="学号" min-width="90" />
+          <el-table-column prop="name" label="姓名" min-width="110" />
+          <el-table-column prop="出勤" label="出勤" min-width="90" align="center" />
+          <el-table-column prop="迟到" label="迟到" min-width="90" align="center">
             <template #default="{ row }"><span :class="{ 'bad': row.迟到 > 0 }">{{ row.迟到 }}</span></template>
           </el-table-column>
-          <el-table-column prop="请假" label="请假" width="80" />
-          <el-table-column prop="缺勤" label="缺勤" width="80">
+          <el-table-column prop="请假" label="请假" min-width="90" align="center" />
+          <el-table-column prop="缺勤" label="缺勤" min-width="90" align="center">
             <template #default="{ row }"><span :class="{ 'bad': row.缺勤 > 0 }">{{ row.缺勤 }}</span></template>
           </el-table-column>
-          <el-table-column prop="days" label="登记天数" width="90" />
+          <el-table-column prop="days" label="登记天数" min-width="90" align="center" />
         </el-table>
       </el-tab-pane>
     </el-tabs>

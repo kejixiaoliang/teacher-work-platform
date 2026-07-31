@@ -23,8 +23,8 @@
               <span class="group-badge">第 {{ g.no }} 组</span>
               <span class="text-muted">({{ g.members.length }} 人)</span>
               <div class="spacer"></div>
-              <el-button link size="small" type="primary" @click="openAddMembers(g.no)">加人</el-button>
-              <el-button link size="small" type="danger" @click="removeGroup(g.no)">删组</el-button>
+              <el-button class="grp-btn" size="small" @click="openAddMembers(g.no)">加人</el-button>
+              <el-button class="grp-btn grp-btn-del" size="small" @click="removeGroup(g.no)">删组</el-button>
             </div>
             <div class="group-members">
               <el-tag v-for="m in g.members" :key="m.id" closable size="default"
@@ -269,6 +269,20 @@ function printRoster() {
   border-radius: 999px; padding: 2px 14px; font-size: 13px; font-weight: 900;
   box-shadow: var(--shadow-xs);
 }
+/* 组卡操作按钮：清晰胶囊，不与底色融合 */
+.grp-btn {
+  margin-left: 6px !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 12px;
+  height: auto;
+}
+.grp-btn:hover { background: var(--mustard); color: var(--ink); }
+.grp-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.grp-btn-del:hover { background: var(--tomato); color: #fff; }
 .group-members { display: flex; flex-wrap: wrap; gap: 6px; }
 .current-group {
   padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);

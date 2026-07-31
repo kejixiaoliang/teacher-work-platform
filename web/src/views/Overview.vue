@@ -18,7 +18,41 @@
       </div>
     </div>
 
+    <!-- 班级概况：一眼看班 -->
+    <div class="stats-bar" v-if="students.length">
+      <div class="stat-chip"><b class="stat-num">{{ students.length }}</b><span class="stat-lbl">学生</span></div>
+      <div class="stat-chip"><b class="stat-num">{{ boys }}</b><span class="stat-lbl">男生</span></div>
+      <div class="stat-chip"><b class="stat-num">{{ girls }}</b><span class="stat-lbl">女生</span></div>
+      <div class="stat-chip"><b class="stat-num">{{ myopiaCount }}</b><span class="stat-lbl">近视</span></div>
+      <div class="stat-chip"><b class="stat-num">{{ boardingCount }}</b><span class="stat-lbl">住宿</span></div>
+      <div class="stat-chip"><b class="stat-num">{{ avgHeight }}</b><span class="stat-lbl">平均身高</span></div>
+    </div>
+
     <div class="cards">
+      <!-- 班委 & 课代表一览：只看不编辑 -->
+      <div class="card" v-if="leaderList.length || subjectLeaderList.length">
+        <div class="card-title">班委 · 课代表 <el-button link @click="go('/leaders')">管理</el-button></div>
+        <template v-if="leaderList.length">
+          <div class="sub-title">班委</div>
+          <div class="leader-grid">
+            <div v-for="l in leaderList" :key="l.id" class="leader-item">
+              <span class="leader-role">{{ l.role }}</span>
+              <b class="leader-name">{{ l.student_name }}</b>
+            </div>
+          </div>
+        </template>
+        <template v-if="subjectLeaderList.length">
+          <div class="sub-title" style="margin-top:12px">课代表</div>
+          <div class="leader-grid">
+            <div v-for="l in subjectLeaderList" :key="l.id" class="leader-item">
+              <span class="leader-role">{{ l.role.replace('课代表', '') }}</span>
+              <b class="leader-name">{{ l.student_name }}</b>
+            </div>
+          </div>
+        </template>
+        <div v-if="!leaderList.length && !subjectLeaderList.length" class="text-muted">尚未设置班委/课代表</div>
+      </div>
+
       <!-- 今日值日 -->
       <div class="card">
         <div class="card-title">今日值日</div>
@@ -97,7 +131,21 @@ const loading = ref(false);
 const seats = ref([]);
 const recentDocs = ref([]);
 const duties = ref([]);
+const students = ref([]);
 const week = ref(Number(localStorage.getItem('duty-week') || 1));
+
+/* 班级概况统计 */
+const boys = computed(() => students.value.filter(s => s.gender === '男').length);
+const girls = computed(() => students.value.filter(s => s.gender === '女').length);
+const myopiaCount = computed(() => students.value.filter(s => s.is_myopia).length);
+const boardingCount = computed(() => students.value.filter(s => s.is_boarding).length);
+const avgHeight = computed(() => {
+  const hs = students.value.map(s => Number(s.height_cm)).filter(Boolean);
+  return hs.length ? Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) : '—';
+});
+/* 班委一览（role != 值日生 且 非课代表） */
+const leaderList = computed(() => duties.value.filter(d => d.role !== '值日生' && !d.role.endsWith('课代表')));
+const subjectLeaderList = computed(() => duties.value.filter(d => d.role.endsWith('课代表')));
 
 const seatRows = computed(() => currentClass.value?.seat_rows || 0);
 const seatCols = computed(() => currentClass.value?.seat_cols || 0);
@@ -125,17 +173,19 @@ watch(week, v => localStorage.setItem('duty-week', String(v)));
 onMounted(load);
 
 async function load() {
-  if (!store.currentClassId) { seats.value = []; recentDocs.value = []; duties.value = []; return; }
+  if (!store.currentClassId) { seats.value = []; recentDocs.value = []; duties.value = []; students.value = []; return; }
   loading.value = true;
   try {
-    const [s, d, dy] = await Promise.all([
+    const [s, d, dy, st] = await Promise.all([
       api.seats.get(store.currentClassId),
       api.documents.list({ class_id: store.currentClassId }),
       api.duties.list({ class_id: store.currentClassId }),
+      api.students.list({ class_id: store.currentClassId, status: '在读' }),
     ]);
     seats.value = s;
     recentDocs.value = d.slice(0, 6);
     duties.value = dy;
+    students.value = st;
   } catch (e) {
     ElMessage.error('首页数据加载失败：' + e.message);
   } finally {
@@ -243,6 +293,43 @@ async function exportAll() {
   box-shadow: var(--shadow-xs);
 }
 .hero-actions .el-button:hover { background: var(--mustard); transform: translateY(-2px); color: var(--ink); }
+
+/* ---------- 班级概况条 ---------- */
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.stat-chip {
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: var(--shadow-xs);
+  padding: 8px 18px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 96px;
+  justify-content: center;
+}
+.stat-num { font-size: 20px; font-weight: 900; color: var(--tomato-deep); }
+.stat-lbl { font-size: 12px; color: var(--muted); font-weight: 800; }
+
+/* ---------- 班委一览 ---------- */
+.sub-title { font-size: 12px; color: var(--muted); font-weight: 800; margin-bottom: 8px; letter-spacing: .5px; }
+.leader-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.leader-item {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 6px 10px;
+  box-shadow: 2px 2px 0 rgba(32, 27, 23, .3);
+}
+.leader-role { font-size: 11px; color: var(--muted); font-weight: 800; }
+.leader-name { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
 .card {
   background: #fff;

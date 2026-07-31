@@ -42,6 +42,9 @@
           <el-menu-item index="/leaders">
             <el-icon><UserFilled /></el-icon><span>班委学委</span>
           </el-menu-item>
+          <el-menu-item :index="'/leaders?tab=subjects'">
+            <el-icon><Reading /></el-icon><span>课代表选择</span>
+          </el-menu-item>
         </el-menu-item-group>
         <el-menu-item index="/classes" class="menu-bottom">
           <el-icon><Setting /></el-icon><span>班级设置</span>
@@ -81,7 +84,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Search, Notebook } from '@element-plus/icons-vue';
+import { Search, Notebook, Reading } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { store, currentClass, loadClasses } from './store.js';
 
@@ -93,8 +96,11 @@ const globalKw = ref('');
 onMounted(loadClasses);
 
 // 非菜单导航（如首页快捷入口）后，菜单高亮跟随路由
-watch(() => route.path, p => {
-  if (menuRef.value) menuRef.value.activeIndex = p;
+watch(() => route.fullPath, fp => {
+  if (menuRef.value) {
+    // 课代表选择：/leaders?tab=subjects 高亮对应菜单项
+    menuRef.value.activeIndex = fp.startsWith('/leaders?tab=subjects') ? '/leaders?tab=subjects' : route.path;
+  }
 });
 
 // 全局搜索学生：跳转学生页并带关键词

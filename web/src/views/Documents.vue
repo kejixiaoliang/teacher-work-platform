@@ -8,7 +8,10 @@
            :class="{ active: filter.category === c && !trashed }" @click="selectCategory(c)">
         <el-icon style="vertical-align:-2px;margin-right:4px"><component :is="cateIcon(c)" /></el-icon>{{ c }}
       </div>
-      <div class="side-title">标签</div>
+      <div class="side-title">预设标签</div>
+      <div v-for="t in PRESET_TAGS" :key="'p' + t" class="side-item preset-tag"
+           :class="{ active: filter.tag === t && !trashed }" @click="selectTag(t)"># {{ t }}</div>
+      <div class="side-title">全部标签</div>
       <div v-for="t in tags" :key="t" class="side-item"
            :class="{ active: filter.tag === t && !trashed }" @click="selectTag(t)"># {{ t }}</div>
     </div>
@@ -130,6 +133,8 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 
 const categories = ['图片', 'PDF', '文档', '表格', '演示', '文本', '其他'];
+/* 标签预设模板：上传/筛选时快速选用 */
+const PRESET_TAGS = ['教案', '试卷', '课件', '通知', '家长信', '表格模板', '制度', '其他'];
 const filter = reactive({ category: '', tag: '', keyword: '' });
 const trashed = ref(false);
 const list = ref([]);
@@ -294,6 +299,7 @@ onBeforeUnmount(() => {
 }
 .side-item:hover { background: #fff; color: var(--tomato); }
 .side-item.active { background: var(--mustard); color: var(--ink); font-weight: 900; border: 3px solid var(--ink); box-shadow: var(--shadow-xs); }
+.preset-tag { background: var(--paper); color: var(--muted); }
 .side-title { padding: 12px 12px 4px; font-size: 12px; color: var(--muted); }
 .doc-main { flex: 1; min-width: 0; }
 .drop-zone {

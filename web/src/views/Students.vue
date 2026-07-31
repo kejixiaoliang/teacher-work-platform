@@ -43,8 +43,8 @@
     <el-table :data="list" stripe @selection-change="onSelection"
               @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="school_no" label="学号" width="100" show-overflow-tooltip />
-      <el-table-column prop="name" label="姓名" width="100" show-overflow-tooltip>
+      <el-table-column prop="school_no" label="学号" min-width="90" show-overflow-tooltip />
+      <el-table-column prop="name" label="姓名" min-width="90" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="60" />
@@ -67,25 +67,33 @@
       <el-table-column label="住宿" width="60">
         <template #default="{ row }"><el-tag v-if="row.is_boarding" size="small" round>住宿</el-tag></template>
       </el-table-column>
+      <el-table-column prop="parent_phone" label="家长电话" min-width="120" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.parent_phone || row.phone || '—' }}</template>
+      </el-table-column>
+      <el-table-column prop="interest_duty" label="职务/特长" min-width="110" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.interest_duty || '—' }}</template>
+      </el-table-column>
       <el-table-column prop="status" label="状态" width="70">
         <template #default="{ row }">
           <el-tag v-if="row.status !== '在读'" size="small" type="info">{{ row.status }}</el-tag>
+          <span v-else class="text-muted">在读</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="140" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <template v-if="!trashed">
-            <el-button link type="primary" size="small" @click.stop="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click.stop="removeOne(row)">删除</el-button>
+            <el-button class="row-btn" size="small" @click.stop="openDetail(row)">详情</el-button>
+            <el-button class="row-btn row-btn-edit" size="small" @click.stop="openEdit(row)">编辑</el-button>
+            <el-button class="row-btn row-btn-del" size="small" @click.stop="removeOne(row)">删除</el-button>
           </template>
           <template v-else>
-            <el-button link type="primary" size="small" @click.stop="batchRestore([row.id])">恢复</el-button>
-            <el-button link type="danger" size="small" @click.stop="batchPurge([row.id])">删除</el-button>
+            <el-button class="row-btn row-btn-edit" size="small" @click.stop="batchRestore([row.id])">恢复</el-button>
+            <el-button class="row-btn row-btn-del" size="small" @click.stop="batchPurge([row.id])">删除</el-button>
           </template>
         </template>
       </el-table-column>
     </el-table>
-    <div class="text-muted" style="margin-top:8px">共 {{ list.length }} 人（点击行查看详情）</div>
+    <div class="text-muted" style="margin-top:8px">共 {{ list.length }} 人 · 点击行或「详情」查看档案</div>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="editVisible" :title="form.id ? '编辑学生' : '新增学生'" width="640px" destroy-on-close>
@@ -134,15 +142,37 @@
     </el-dialog>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" :title="detail.name" size="540px">
+    <el-drawer v-model="detailVisible" :title="detail.name" size="560px">
       <template v-if="detail.id">
+        <!-- 健康概览：身高/视力一眼可见 -->
+        <div class="health-strip">
+          <div class="hs-item">
+            <span class="hs-label">身高</span>
+            <b class="hs-value">{{ detail.height_cm ?? '—' }}<small>cm</small></b>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">左眼</span>
+            <b class="hs-value" :class="{ 'hs-bad': detail.vision_left != null && detail.vision_left < 4.8 }">{{ fmtVision(detail.vision_left) }}</b>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">右眼</span>
+            <b class="hs-value" :class="{ 'hs-bad': detail.vision_right != null && detail.vision_right < 4.8 }">{{ fmtVision(detail.vision_right) }}</b>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">近视</span>
+            <b class="hs-value">{{ detail.is_myopia ? '是' : '否' }}</b>
+          </div>
+          <div class="hs-item">
+            <span class="hs-label">成绩</span>
+            <b class="hs-value">{{ detail.grade_level || '—' }}</b>
+          </div>
+        </div>
+
         <el-tabs v-model="detailTab">
           <el-tab-pane label="基本信息" name="info">
             <el-descriptions :column="2" border size="small">
               <el-descriptions-item label="学号">{{ detail.school_no || '—' }}</el-descriptions-item>
               <el-descriptions-item label="性别">{{ detail.gender }}</el-descriptions-item>
-              <el-descriptions-item label="身高">{{ detail.height_cm ?? '—' }} cm</el-descriptions-item>
-              <el-descriptions-item label="视力">{{ fmtVision(detail.vision_left) }} / {{ fmtVision(detail.vision_right) }}</el-descriptions-item>
               <el-descriptions-item label="成绩">{{ detail.grade_level || '—' }}</el-descriptions-item>
               <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
               <el-descriptions-item label="住宿">{{ detail.is_boarding ? '是' : '否' }}</el-descriptions-item>
@@ -182,7 +212,8 @@
                 <el-tag size="small" :type="recType(r.type)" round>{{ r.type }}</el-tag>
                 <div class="rec-content">{{ r.content }}</div>
                 <div class="rec-meta">{{ r.date || '—' }}</div>
-                <el-button link type="danger" size="small" @click="removeRecord(r)">删</el-button>
+                <el-button class="mini-btn" size="small" @click="openRecord(r)">编</el-button>
+                <el-button class="mini-btn mini-btn-del" size="small" @click="removeRecord(r)">删</el-button>
               </div>
             </div>
             <el-empty v-else description="暂无成长记录" :image-size="50" />
@@ -202,7 +233,8 @@
                   <div class="text-muted" v-if="c.result">{{ c.result }}</div>
                 </div>
                 <div class="rec-meta">{{ c.date || '—' }}</div>
-                <el-button link type="danger" size="small" @click="removeContact(c)">删</el-button>
+                <el-button class="mini-btn" size="small" @click="openContact(c)">编</el-button>
+                <el-button class="mini-btn mini-btn-del" size="small" @click="removeContact(c)">删</el-button>
               </div>
             </div>
             <el-empty v-else description="暂无沟通记录" :image-size="50" />
@@ -212,7 +244,7 @@
     </el-drawer>
 
     <!-- 成长记录弹窗 -->
-    <el-dialog v-model="recordDialogVisible" title="添加成长记录" width="440px">
+    <el-dialog v-model="recordDialogVisible" :title="recordForm.id ? '编辑成长记录' : '添加成长记录'" width="440px">
       <el-form label-width="60px">
         <el-form-item label="类型">
           <el-select v-model="recordForm.type" style="width:150px">
@@ -231,7 +263,7 @@
     </el-dialog>
 
     <!-- 家校沟通弹窗 -->
-    <el-dialog v-model="contactDialogVisible" title="添加家校沟通" width="440px">
+    <el-dialog v-model="contactDialogVisible" :title="contactForm.id ? '编辑家校沟通' : '添加家校沟通'" width="440px">
       <el-form label-width="60px">
         <el-form-item label="方式">
           <el-select v-model="contactForm.method" style="width:150px">
@@ -314,9 +346,9 @@ const detailTab = ref('info');
 const records = ref([]);
 const contacts = ref([]);
 const recordDialogVisible = ref(false);
-const recordForm = ref({ type: '表现', content: '', date: '', remark: '' });
+const recordForm = ref({ id: null, type: '表现', content: '', date: '', remark: '' });
 const contactDialogVisible = ref(false);
-const contactForm = ref({ date: '', method: '电话', topic: '', result: '', remark: '' });
+const contactForm = ref({ id: null, date: '', method: '电话', topic: '', result: '', remark: '' });
 
 const importVisible = ref(false);
 const parsed = ref([]);
@@ -366,15 +398,21 @@ function openDetail(row) {
 function recType(t) {
   return { 奖励: 'success', 批评: 'danger', 评语: 'primary', 表现: 'warning', 其他: 'info' }[t] || 'info';
 }
-/* 成长记录 */
-function openRecord() {
-  recordForm.value = { type: '表现', content: '', date: '', remark: '' };
+/* 成长记录：新增 / 编辑（传入记录则预填） */
+function openRecord(r) {
+  recordForm.value = r
+    ? { id: r.id, type: r.type || '表现', content: r.content || '', date: r.date || '', remark: r.remark || '' }
+    : { id: null, type: '表现', content: '', date: '', remark: '' };
   recordDialogVisible.value = true;
 }
 async function saveRecord() {
   if (!recordForm.value.content.trim()) return ElMessage.warning('请填写记录内容');
-  await api.records.create(detail.value.id, recordForm.value);
-  ElMessage.success('已添加');
+  if (recordForm.value.id) {
+    await api.records.update(detail.value.id, recordForm.value.id, recordForm.value);
+  } else {
+    await api.records.create(detail.value.id, recordForm.value);
+  }
+  ElMessage.success('已保存');
   recordDialogVisible.value = false;
   records.value = await api.records.list(detail.value.id);
 }
@@ -384,14 +422,20 @@ async function removeRecord(r) {
   await api.records.remove(detail.value.id, r.id);
   records.value = await api.records.list(detail.value.id);
 }
-/* 家校沟通 */
-function openContact() {
-  contactForm.value = { date: '', method: '电话', topic: '', result: '', remark: '' };
+/* 家校沟通：新增 / 编辑（传入记录则预填） */
+function openContact(c) {
+  contactForm.value = c
+    ? { id: c.id, date: c.date || '', method: c.method || '电话', topic: c.topic || '', result: c.result || '', remark: c.remark || '' }
+    : { id: null, date: '', method: '电话', topic: '', result: '', remark: '' };
   contactDialogVisible.value = true;
 }
 async function saveContact() {
-  await api.records.addContact(detail.value.id, contactForm.value);
-  ElMessage.success('已添加');
+  if (contactForm.value.id) {
+    await api.records.updateContact(detail.value.id, contactForm.value.id, contactForm.value);
+  } else {
+    await api.records.addContact(detail.value.id, contactForm.value);
+  }
+  ElMessage.success('已保存');
   contactDialogVisible.value = false;
   contacts.value = await api.records.contacts(detail.value.id);
 }
@@ -495,25 +539,25 @@ async function onFileChange(e) {
     const fails = [];
     ws.eachRow((row, rn) => {
       if (rn === 1) return; // 表头
-      const cells = row.cells;
+      const cells = n => row.getCell(n).text ?? row.getCell(n).value;
       const r = {
         _row: rn,
-        school_no: cellStr(cells[1]),
-        name: cellStr(cells[2]),
-        gender: cellStr(cells[3]) || '男',
-        birth_date: cellStr(cells[4]),
-        phone: cellStr(cells[5]),
-        parent_phone: cellStr(cells[6]),
-        is_boarding: cellBool(cells[7]),
-        interest_duty: cellStr(cells[8]),
-        health_note: cellStr(cells[9]),
-        height_cm: cellNum(cells[10]),
-        vision_left: cellNum(cells[11]),
-        vision_right: cellNum(cells[12]),
-        is_myopia: cellBool(cells[13]),
-        grade_level: cellStr(cells[14]),
-        seat_note: cellStr(cells[15]),
-        remark: cellStr(cells[16]),
+        school_no: cellStr(cells(1)),
+        name: cellStr(cells(2)),
+        gender: cellStr(cells(3)) || '男',
+        birth_date: cellStr(cells(4)),
+        phone: cellStr(cells(5)),
+        parent_phone: cellStr(cells(6)),
+        is_boarding: cellBool(cells(7)),
+        interest_duty: cellStr(cells(8)),
+        health_note: cellStr(cells(9)),
+        height_cm: cellNum(cells(10)),
+        vision_left: cellNum(cells(11)),
+        vision_right: cellNum(cells(12)),
+        is_myopia: cellBool(cells(13)),
+        grade_level: cellStr(cells(14)),
+        seat_note: cellStr(cells(15)),
+        remark: cellStr(cells(16)),
       };
       if (!r.name) { fails.push({ row: rn, reason: '姓名为空' }); return; }
       rows.push(r);
@@ -574,4 +618,62 @@ function saveBlob(blob, name) {
 <style scoped>
 .vision-bad { color: var(--el-color-danger); font-weight: 600; }
 :deep(.el-table__row) { cursor: pointer; }
+
+/* 行内操作按钮：横向小胶囊，清晰不重叠 */
+.row-btn {
+  margin: 0 4px 0 0 !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 12px;
+  height: auto;
+}
+.row-btn:hover { background: var(--mustard); color: var(--ink); }
+.row-btn-edit { border-color: var(--mint); color: #2e6b55; }
+.row-btn-edit:hover { background: var(--mint); color: var(--ink); }
+.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.row-btn-del:hover { background: var(--tomato); color: #fff; }
+
+/* 详情抽屉：信息分组排版 */
+:deep(.el-drawer__body) { padding-top: 8px; }
+:deep(.el-descriptions) { margin-bottom: 8px; }
+:deep(.el-descriptions__label) { font-weight: 800; color: var(--muted); }
+
+/* 健康概览条：身高/视力一眼可见 */
+.health-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.hs-item {
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 8px 6px;
+  text-align: center;
+  box-shadow: 2px 2px 0 rgba(32, 27, 23, .35);
+}
+.hs-label { display: block; font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+.hs-value { font-size: 16px; font-weight: 900; color: var(--ink); }
+.hs-value small { font-size: 10px; font-weight: 700; margin-left: 1px; }
+.hs-bad { color: var(--tomato-deep); }
+
+/* 抽屉内记录项小按钮 */
+.mini-btn {
+  margin: 0 0 0 4px !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 2px 8px;
+  height: auto;
+  font-size: 12px;
+}
+.mini-btn:hover { background: var(--mustard); color: var(--ink); }
+.mini-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.mini-btn-del:hover { background: var(--tomato); color: #fff; }
 </style>

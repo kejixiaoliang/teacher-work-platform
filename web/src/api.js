@@ -84,9 +84,11 @@ export const api = {
   records: {
     list: id => request('GET', `/api/students/${id}/records`),
     create: (id, d) => request('POST', `/api/students/${id}/records`, d),
+    update: (id, rid, d) => request('PUT', `/api/students/${id}/records/${rid}`, d),
     remove: (id, rid) => request('DELETE', `/api/students/${id}/records/${rid}`),
     contacts: id => request('GET', `/api/students/${id}/contacts`),
     addContact: (id, d) => request('POST', `/api/students/${id}/contacts`, d),
+    updateContact: (id, cid, d) => request('PUT', `/api/students/${id}/contacts/${cid}`, d),
     removeContact: (id, cid) => request('DELETE', `/api/students/${id}/contacts/${cid}`),
   },
 };

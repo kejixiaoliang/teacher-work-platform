@@ -36,6 +36,7 @@
               <div class="toolbar">
                 <span class="text-muted">直接点击数字编辑，改完点「保存成绩」（{{ currentExam.name }}）</span>
                 <div class="spacer"></div>
+                <el-button :icon="Upload" @click="openScoreImport">导入 Excel</el-button>
                 <el-button type="success" :disabled="!scoreDirty" @click="saveScores">保存成绩</el-button>
               </div>
               <el-table :data="scoreRows" size="small" border max-height="520">
@@ -110,13 +111,32 @@
         <el-button type="primary" @click="saveExam">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 成绩导入预览 -->
+    <el-dialog v-model="scoreImportVisible" title="导入成绩预览" width="640px">
+      <el-alert type="info" :closable="false" style="margin-bottom:10px"
+                :title="`解析到 ${scoreImportRows.length} 行成绩`" />
+      <p class="text-muted" style="margin-top:0">Excel 第一行应为表头（学号/姓名 + 科目名），按学号或姓名匹配学生。</p>
+      <el-table :data="scoreImportRows" size="small" max-height="320" border>
+        <el-table-column prop="student_name" label="学生" width="100" />
+        <el-table-column prop="subject" label="科目" width="90" />
+        <el-table-column prop="score" label="成绩" width="80" />
+        <el-table-column prop="note" label="提示" min-width="140" />
+      </el-table>
+      <template #footer>
+        <el-button @click="scoreImportVisible = false">取消</el-button>
+        <el-button type="primary" :loading="scoreImporting" @click="doScoreImport">确认导入</el-button>
+      </template>
+    </el-dialog>
+    <input ref="scoreFileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onScoreFileChange" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Upload } from '@element-plus/icons-vue';
+import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import EChart from '../components/EChart.vue';
@@ -141,6 +161,88 @@ const trendPoints = ref([]);
 const examDialogVisible = ref(false);
 const examForm = ref({ id: null, name: '', date: '', subjects: [] });
 const demoLoading = ref(false);
+
+/* ---------- 成绩 Excel 导入 ---------- */
+const scoreFileInput = ref(null);
+const scoreImportVisible = ref(false);
+const scoreImporting = ref(false);
+const scoreImportRows = ref([]);   // [{studentId, subject, score, note, student_name}]
+
+function openScoreImport() {
+  if (!currentExam.value) return ElMessage.warning('请先选择或创建考试');
+  scoreFileInput.value?.click();
+}
+
+async function onScoreFileChange(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!currentExam.value) return ElMessage.warning('请先选择考试');
+  try {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0];
+    if (!ws || ws.rowCount < 2) return ElMessage.warning('Excel 中没有数据');
+    // 表头：第 1 行；按名称定位学号/姓名列与科目列
+    const header = [];
+    ws.getRow(1).eachCell((cell, col) => { header[col - 1] = String(cell.text ?? '').trim(); });
+    const stuMap = new Map(allStudents.value.map(s => [String(s.school_no || ''), s]));
+    const nameMap = new Map(allStudents.value.map(s => [s.name, s]));
+    const ID_HEADERS = ['学号', '姓名', '名字', '学生', 'number', 'name', '姓名学号'];
+    let noCol = -1, nameCol = -1;
+    const subIdx = new Map(); // 科目名 -> 列号（1-based）
+    header.forEach((h, i) => {
+      const col = i + 1;
+      if (!h) return;
+      if (h === '学号' || h.toLowerCase() === 'number' || h.toLowerCase() === 'no') noCol = col;
+      else if (h === '姓名' || h === '名字' || h === '学生' || h.toLowerCase() === 'name') nameCol = col;
+      else if (!ID_HEADERS.includes(h)) subIdx.set(h, col);
+    });
+    if (noCol === -1 && nameCol === -1) return ElMessage.warning('未找到学号/姓名列（表头请包含「学号」或「姓名」）');
+    if (!subIdx.size) return ElMessage.warning('未找到科目列（请把各科成绩放在学号/姓名右侧的列中）');
+    const rows = [];
+    ws.eachRow((row, rn) => {
+      if (rn === 1) return;
+      const no = String(row.getCell(noCol).text ?? row.getCell(noCol).value ?? '').trim();
+      const nm = String(row.getCell(nameCol).text ?? row.getCell(nameCol).value ?? '').trim();
+      const stu = (noCol !== -1 && stuMap.get(no)) || (nm ? nameMap.get(nm) : null);
+      const label = no || nm || `第${rn}行`;
+      for (const [sub, col] of subIdx) {
+        const cell = row.getCell(col);
+        const v = cell.value;
+        if (v === undefined || v === null || v === '') continue;
+        const n = Number(v);
+        if (!Number.isFinite(n)) {
+          rows.push({ studentId: stu?.id ?? null, subject: sub, score: null, student_name: stu?.name || label, note: `「${v}」非数字` });
+          continue;
+        }
+        rows.push({ studentId: stu?.id ?? null, subject: sub, score: n, student_name: stu?.name || label, note: stu ? '' : '未匹配到学生' });
+      }
+    });
+    if (!rows.length) return ElMessage.warning('未解析到有效成绩');
+    scoreImportRows.value = rows;
+    scoreImportVisible.value = true;
+  } catch (err) {
+    ElMessage.error('文件解析失败：' + err.message);
+  }
+}
+
+async function doScoreImport() {
+  if (!currentExam.value) return;
+  const valid = scoreImportRows.value.filter(r => r.studentId != null && r.score != null);
+  if (!valid.length) return ElMessage.warning('没有可导入的有效成绩（请检查学号/姓名匹配）');
+  scoreImporting.value = true;
+  try {
+    const r = await api.scores.save({ examId: currentExam.value.id, rows: valid.map(x => ({ studentId: x.studentId, subject: x.subject, score: x.score })) });
+    ElMessage.success(`已导入 ${r.count} 条成绩` + (valid.length !== scoreImportRows.value.length ? `，跳过 ${scoreImportRows.value.length - valid.length} 条无效` : ''));
+    scoreImportVisible.value = false;
+    selectExam(currentExam.value); // 刷新录入矩阵与统计
+  } catch (e) {
+    ElMessage.error(e.message);
+  } finally {
+    scoreImporting.value = false;
+  }
+}
 
 /* ---------- 载入示例成绩：一键生成预设考试+全班成绩，方便查看效果 ---------- */
 const DEMO_EXAM_NAME = '示例·期中考试';
