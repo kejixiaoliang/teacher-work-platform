@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-loading="loading">
     <!-- 欢迎横幅 -->
     <div class="hero">
       <div>
@@ -68,16 +68,31 @@
         </el-empty>
       </div>
     </div>
+
+    <!-- 数据管理区 -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">💾 数据管理</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <el-button type="primary" plain @click="archiveMetrics">📸 学期存档</el-button>
+        <el-button plain @click="exportAll">💾 导出全部数据</el-button>
+      </div>
+      <p class="text-muted" style="margin:10px 0 0">
+        学期存档：把全班当前身高/视力/成绩快照存入历史，供对比与回填。
+        导出数据：班级/学生/座位/文档记录/值日（上传的文件本体在 data/files，完整备份请连同 data 目录复制）。
+      </p>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 
 const router = useRouter();
+const loading = ref(false);
 const seats = ref([]);
 const recentDocs = ref([]);
 const duties = ref([]);
@@ -109,15 +124,22 @@ watch(week, v => localStorage.setItem('duty-week', String(v)));
 onMounted(load);
 
 async function load() {
-  if (!store.currentClassId) return;
-  const [s, d, dy] = await Promise.all([
-    api.seats.get(store.currentClassId),
-    api.documents.list({ class_id: store.currentClassId }),
-    api.duties.list({ class_id: store.currentClassId }),
-  ]);
-  seats.value = s;
-  recentDocs.value = d.slice(0, 6);
-  duties.value = dy;
+  if (!store.currentClassId) { seats.value = []; recentDocs.value = []; duties.value = []; return; }
+  loading.value = true;
+  try {
+    const [s, d, dy] = await Promise.all([
+      api.seats.get(store.currentClassId),
+      api.documents.list({ class_id: store.currentClassId }),
+      api.duties.list({ class_id: store.currentClassId }),
+    ]);
+    seats.value = s;
+    recentDocs.value = d.slice(0, 6);
+    duties.value = dy;
+  } catch (e) {
+    ElMessage.error('首页数据加载失败：' + e.message);
+  } finally {
+    loading.value = false;
+  }
 }
 
 function miniName(r, c) { return seatMap.value[`${r - 1},${c - 1}`] || ''; }
@@ -125,6 +147,52 @@ function iconOf(c) {
   return { 图片: '🖼', PDF: '📕', 文档: '📄', 表格: '📊', 演示: '📽', 文本: '📝', 其他: '📦' }[c] || '📦';
 }
 function go(p) { router.push(p); }
+
+/* ---------- 数据管理 ---------- */
+async function archiveMetrics() {
+  if (!store.currentClassId) return ElMessage.warning('请先创建班级');
+  const { value } = await ElMessageBox.prompt('输入存档学期（如 2025-2026 上）：', '学期存档', {
+    inputValue: '2025-2026 上',
+  }).catch(() => ({ value: null }));
+  if (!value) return;
+  try {
+    const r = await api.students.archive({ class_id: store.currentClassId, term: value });
+    ElMessage.success(`已存档 ${r.count} 名学生的身高/视力/成绩`);
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
+}
+
+async function exportAll() {
+  if (!store.classes.length) return ElMessage.warning('还没有班级数据');
+  try {
+    ElMessage.info('正在导出全部数据…');
+    const [students, documents, duties] = await Promise.all([
+      api.students.list({}),
+      api.documents.list({}),
+      api.duties.list({}),
+    ]);
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      classes: store.classes, students, documents, duties,
+      seats: {}, seatLayouts: {},
+    };
+    for (const c of store.classes) {
+      payload.seats[c.id] = await api.seats.get(c.id);
+      payload.seatLayouts[c.id] = await api.seats.layouts(c.id);
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `教师工作台数据-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    ElMessage.success('已导出全部数据');
+    ElMessage.info('上传的文件本体在 data/files 文件夹，完整备份请连同 data 目录一起复制', 6000);
+  } catch (e) {
+    ElMessage.error('导出失败：' + e.message);
+  }
+}
 </script>
 
 <style scoped>
@@ -136,7 +204,7 @@ function go(p) { router.push(p); }
 }
 .hero h2 { margin: 0 0 6px; font-size: 22px; }
 .hero-sub { margin: 0; opacity: .85; font-size: 14px; }
-.hero-actions { display: flex; gap: 10px; }
+.hero-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .hero-actions .el-button { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); color: #fff; }
 .hero-actions .el-button:hover { background: rgba(255,255,255,.26); }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }

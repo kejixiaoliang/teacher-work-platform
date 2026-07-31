@@ -59,13 +59,46 @@ export function autoArrange({ students, rows, cols, options = {} }) {
       return visionWorse(a) - visionWorse(b);
     });
 
-  // 第2步：蛇形填充；近视优先中间列
-  for (const s of rest) {
-    let pos = myopiaCenter && s.is_myopia ? nextFree(midList) : nextFree(positions);
-    if (!pos) pos = nextFree(positions);
-    if (!pos) break; // 座位已满
-    grid[pos.row][pos.col] = s.id;
-    seatOf.set(s.id, pos);
+  // 第2步：按行分配 + 行内居中（对称布局），近视优先中间列
+  const place = (s, r, c) => { grid[r][c] = s.id; seatOf.set(s.id, { row: r, col: c }); };
+
+  // 2.1 把学生按行分堆（从前往后，每行最多 cols 人）
+  const rowAssign = [];
+  let ri = 0;
+  for (let r = 0; r < rows && ri < rest.length; r++) {
+    const n = Math.min(cols, rest.length - ri);
+    rowAssign.push(rest.slice(ri, ri + n));
+    ri += n;
+  }
+
+  // 2.2 逐行放置：不满的行居中，近视优先坐中间列
+  const leftover = [];
+  rowAssign.forEach((rowStu, r) => {
+    const n = rowStu.length;
+    const start = Math.floor((cols - n) / 2);            // 居中起点
+    // 目标列：居中区间；区间内被占用的列，用该行其他空闲列补位
+    const chosen = [];
+    for (let c = start; c < start + n; c++) if (grid[r][c] == null) chosen.push(c);
+    for (let c = 0; c < cols && chosen.length < n; c++) {
+      if (grid[r][c] == null && !chosen.includes(c)) chosen.push(c);
+    }
+    // 列按离行中心距离排序（中间优先）
+    const rowCenter = start + (n - 1) / 2;
+    chosen.sort((a, b) => Math.abs(a - rowCenter) - Math.abs(b - rowCenter) || a - b);
+    // 近视学生拿中间列，其余拿两侧列
+    const myopes = myopiaCenter ? rowStu.filter(s => s.is_myopia) : [];
+    const others = myopiaCenter ? rowStu.filter(s => !s.is_myopia) : rowStu;
+    const myopeCount = Math.min(myopes.length, chosen.length);
+    const myopeCols = chosen.slice(0, myopeCount);
+    const otherCols = chosen.slice(myopeCount);
+    myopes.forEach((s, i) => (i < myopeCols.length ? place(s, r, myopeCols[i]) : leftover.push(s)));
+    others.forEach((s, i) => (i < otherCols.length ? place(s, r, otherCols[i]) : leftover.push(s)));
+  });
+
+  // 2.3 兜底：仍未入座的学生放任意空位
+  for (const s of leftover) {
+    const pos = nextFree(positions);
+    if (pos) { place(s, pos.row, pos.col); }
   }
 
   // 第3步：软约束检查（同桌）

@@ -1,87 +1,148 @@
 <template>
-  <div class="page-card">
-    <!-- 工具栏 -->
-    <div class="toolbar no-print">
+  <div class="page-card seats-workspace">
+    <!-- 顶部：模式切换 + 状态 -->
+    <div class="ws-top no-print">
       <el-radio-group v-model="mode" size="large">
         <el-radio-button value="manual">🖐 手动调整</el-radio-button>
         <el-radio-button value="auto">🤖 自动排座</el-radio-button>
       </el-radio-group>
-      <el-button :icon="Refresh" @click="shiftDialog = true">平移轮换</el-button>
-      <el-button :icon="Printer" @click="print">打印座位表</el-button>
-      <el-button :icon="Clock" @click="openHistory">历史布局</el-button>
-      <div class="spacer"></div>
-      <el-tag v-if="dirty" type="warning" size="large" effect="dark">有未保存修改</el-tag>
-      <el-button v-if="dirty" type="success" size="large" :icon="Check" @click="saveLayout">保存布局</el-button>
-    </div>
-
-    <!-- 模式面板：手动 = 操作提示；自动 = 规则设置 + 开始按钮 -->
-    <div v-if="mode === 'manual'" class="mode-panel no-print">
-      <span class="panel-title">🖐 手动调整</span>
-      <span class="text-muted">拖拽两个座位可互换 · 点击选中座位，用右键菜单或右侧按钮操作 · 锁定座位不参与自动排座</span>
-      <div class="spacer"></div>
-      <template v-if="curSeat() && curSeat().studentId">
-        <el-tag type="info" round>已选：{{ curSeat().name }}</el-tag>
-        <el-button size="small" @click="toggleLock">{{ curSeat().locked ? '🔓 解锁' : '🔒 锁定' }}</el-button>
-        <el-button size="small" type="danger" plain @click="clearSeat">设为空座</el-button>
-      </template>
-    </div>
-    <div v-else class="mode-panel auto-panel no-print">
-      <span class="panel-title">🤖 自动排座</span>
-      <span class="text-muted">规则优先级：锁定/特殊需求 ＞ 身高 ＞ 视力 ＞ 男女/互助（冲突会提示）</span>
-      <div class="auto-opts">
-        <el-switch v-model="autoOpts.myopiaCenter" active-text="近视坐中间" />
-        <el-switch v-model="autoOpts.mixedGender" active-text="男女搭配" />
-        <el-switch v-model="autoOpts.peerHelp" active-text="成绩互助" />
+      <div class="ws-status">
+        <span class="text-muted">已入座 <b class="stat-num">{{ seatedCount }}</b> / {{ rows * cols }} 人 · 空座 {{ emptyCount }}</span>
+        <el-tag v-if="dirty" type="warning" size="large" effect="dark">有未保存修改</el-tag>
+        <el-button v-if="dirty" type="success" size="large" :icon="Check" @click="saveLayout">保存布局</el-button>
       </div>
-      <el-button type="primary" size="large" :loading="autoLoading" :icon="MagicStick" @click="runAuto">
-        开始自动排座
-      </el-button>
     </div>
 
-    <!-- 提示横幅 -->
-    <el-alert v-if="previewing" type="warning" :closable="false" class="no-print" style="margin-bottom:10px"
-              title="当前为预览结果，未保存。确认无误后点击右上角「保存布局」。" />
-    <el-alert v-if="conflicts.length" type="info" :closable="true" class="no-print" style="margin-bottom:10px"
-              :title="`自动排座提示 ${conflicts.length} 条，可在手动模式下微调`">
-      <ul style="margin:6px 0 0;padding-left:18px">
-        <li v-for="(c, i) in conflicts" :key="i">{{ c.message }}</li>
-      </ul>
-    </el-alert>
-    <el-alert v-if="unplaced.length" type="error" :closable="false" class="no-print" style="margin-bottom:10px"
-              :title="`${unplaced.length} 人未入座（座位不足）：${unplaced.join('、')}`" />
+    <div class="ws-body">
+      <!-- ===== 左侧控制面板 ===== -->
+      <aside class="ws-panel no-print">
+        <!-- 教室布局 -->
+        <section class="panel-sec">
+          <div class="panel-sec-title">🏫 教室布局</div>
+          <el-radio-group v-model="layoutMode" size="small" @change="saveLayoutMode">
+            <el-radio-button :value="0">均分</el-radio-button>
+            <el-radio-button :value="1">中间走道</el-radio-button>
+            <el-radio-button :value="2">双走道</el-radio-button>
+          </el-radio-group>
+          <div class="panel-row">
+            <span class="text-muted">行</span>
+            <el-input-number v-model="layoutRows" :min="1" :max="15" size="small" @change="saveLayoutSize" />
+            <span class="text-muted">列</span>
+            <el-input-number v-model="layoutCols" :min="1" :max="15" size="small" @change="saveLayoutSize" />
+          </div>
+        </section>
 
-    <!-- 座位网格 -->
-    <div class="seat-area">
-      <div class="podium">🎓 讲 台</div>
-      <div class="seat-grid">
-        <div v-for="r in rows" :key="r" class="row">
-          <div v-for="c in cols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
-            <div class="seat"
-                 :class="{ locked: seat(r, c).locked, empty: !seat(r, c).studentId,
-                           selected: selectedKey === keyOf(r, c), 'drag-over': dragOver === keyOf(r, c),
-                           girl: seat(r, c).gender === '女', boy: seat(r, c).gender === '男' }"
-                 :draggable="mode === 'manual' && !seat(r, c).locked && !!seat(r, c).studentId"
-                 @dragstart="onDragStart($event, r, c)"
-                 @dragover.prevent="dragOver = keyOf(r, c)"
-                 @dragleave="dragOver = null"
-                 @drop.prevent="onDrop(r, c)"
-                 @click="selectSeat(r, c)"
-                 @contextmenu.prevent="openMenu($event, r, c)">
-              <template v-if="seat(r, c).studentId">
-                <div class="s-name">{{ seat(r, c).name }}</div>
-                <div class="s-meta">
-                  <span v-if="seat(r, c).height_cm" class="chip">{{ seat(r, c).height_cm }}cm</span>
-                  <span v-if="seat(r, c).vision_left" class="chip">视 {{ fmtV(seat(r, c).vision_left) }}</span>
-                  <span v-if="seat(r, c).is_myopia" class="chip chip-warn">近视</span>
-                  <span v-if="seat(r, c).locked" class="chip chip-lock">🔒 锁定</span>
-                </div>
-              </template>
-              <div v-else class="s-name empty-text">空</div>
+        <!-- 自动排座规则 -->
+        <section v-if="mode === 'auto'" class="panel-sec">
+          <div class="panel-sec-title">🤖 排座规则</div>
+          <div class="panel-row col">
+            <el-switch v-model="autoOpts.myopiaCenter" active-text="近视坐中间" />
+            <el-switch v-model="autoOpts.mixedGender" active-text="男女搭配" />
+            <el-switch v-model="autoOpts.peerHelp" active-text="成绩互助" />
+          </div>
+          <el-button type="primary" class="panel-main-btn" size="large" :loading="autoLoading" :icon="MagicStick" @click="runAuto">
+            开始自动排座
+          </el-button>
+        </section>
+
+        <!-- 手动操作 -->
+        <section v-else class="panel-sec">
+          <div class="panel-sec-title">🖐 手动操作</div>
+          <p class="text-muted" style="margin:0 0 8px">点击座位可安排学生 · 拖拽换座/移动 · 右键快捷操作</p>
+          <template v-if="curSeat() && curSeat().studentId">
+            <div class="panel-row">
+              <el-tag type="info" round>已选：{{ curSeat().name }}</el-tag>
+              <el-button size="small" @click="toggleLock">{{ curSeat().locked ? '🔓 解锁' : '🔒 锁定' }}</el-button>
+            </div>
+            <el-button size="small" type="danger" plain class="panel-main-btn" @click="clearSeat">设为空座</el-button>
+          </template>
+          <span v-else class="text-muted">尚未选中座位</span>
+        </section>
+
+        <!-- 常用操作 -->
+        <section class="panel-sec">
+          <div class="panel-sec-title">📦 常用操作</div>
+          <div class="panel-ops">
+            <el-button :icon="Refresh" @click="shiftDialog = true">平移轮换</el-button>
+            <el-button :icon="Clock" @click="openHistory">历史布局</el-button>
+            <el-button :icon="Printer" @click="print">打印座位表</el-button>
+          </div>
+        </section>
+      </aside>
+
+      <!-- ===== 右侧画布 ===== -->
+      <div class="ws-canvas">
+        <!-- 提示横幅 -->
+        <el-alert v-if="previewing" type="warning" :closable="false" class="no-print canvas-alert"
+                  title="当前为预览结果，未保存。确认后点左上「保存布局」。" />
+        <el-alert v-if="conflicts.length" type="info" :closable="true" class="no-print canvas-alert"
+                  :title="`自动排座提示 ${conflicts.length} 条，可在手动模式微调`">
+          <ul style="margin:6px 0 0;padding-left:18px">
+            <li v-for="(c, i) in conflicts" :key="i">{{ c.message }}</li>
+          </ul>
+        </el-alert>
+        <el-alert v-if="unplaced.length" type="error" :closable="false" class="no-print canvas-alert"
+                  :title="`${unplaced.length} 人未入座（座位不足）：${unplaced.join('、')}`" />
+
+        <div class="podium">🎓 讲 台</div>
+        <div class="seat-grid">
+          <div v-for="r in rows" :key="r" class="row">
+            <div v-for="c in cols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
+              <div class="seat"
+                   :class="{ locked: seat(r, c).locked, empty: !seat(r, c).studentId,
+                             selected: selectedKey === keyOf(r, c), 'drag-over': dragOver === keyOf(r, c),
+                             girl: seat(r, c).gender === '女', boy: seat(r, c).gender === '男' }"
+                   :draggable="mode === 'manual' && !seat(r, c).locked && !!seat(r, c).studentId"
+                   @dragstart="onDragStart($event, r, c)"
+                   @dragover.prevent="dragOver = keyOf(r, c)"
+                   @dragleave="dragOver = null"
+                   @drop.prevent="onDrop(r, c)"
+                   @click="selectSeat(r, c)"
+                   @contextmenu.prevent="openMenu($event, r, c)">
+                <template v-if="seat(r, c).studentId">
+                  <div class="s-name">{{ seat(r, c).name }}</div>
+                  <div class="s-meta">
+                    <span v-if="seat(r, c).height_cm" class="chip">{{ seat(r, c).height_cm }}cm</span>
+                    <span v-if="seat(r, c).vision_left" class="chip">视 {{ fmtV(seat(r, c).vision_left) }}</span>
+                    <span v-if="seat(r, c).is_myopia" class="chip chip-warn">近视</span>
+                    <span v-if="seat(r, c).locked" class="chip chip-lock">🔒 锁定</span>
+                  </div>
+                </template>
+                <div v-else class="s-name empty-text">空</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- 座位安排弹窗 -->
+    <el-dialog v-model="seatDialogVisible" title="座位安排" width="460px">
+      <template v-if="seatDlg.key && grid[seatDlg.key]">
+        <div class="seat-dlg-info">
+          <b>第 {{ seatDlg.row }} 行 · 第 {{ seatDlg.col }} 列</b>
+          <el-tag v-if="grid[seatDlg.key].studentId" type="success" size="large" round style="margin-left:10px">
+            {{ grid[seatDlg.key].name }}（{{ grid[seatDlg.key].gender }}）
+          </el-tag>
+          <el-tag v-else type="info" size="large" round style="margin-left:10px">空座</el-tag>
+          <div class="spacer"></div>
+          <el-button v-if="grid[seatDlg.key].studentId" size="small" @click="toggleLockDlg">
+            {{ grid[seatDlg.key].locked ? '🔓 解锁' : '🔒 锁定' }}
+          </el-button>
+          <el-button v-if="grid[seatDlg.key].studentId" size="small" type="danger" plain @click="removeFromSeat">移出座位</el-button>
+        </div>
+        <el-divider content-position="left">安排学生</el-divider>
+        <div class="seat-dlg-place">
+          <el-select v-model="seatDlg.studentId" filterable placeholder="选择未入座的学生" style="flex:1">
+            <el-option v-for="s in unseatedStudents" :key="s.id" :value="s.id"
+                       :label="`${s.name}（${s.school_no}，${s.height_cm ?? '?'}cm）`" />
+          </el-select>
+          <el-button type="primary" :disabled="!seatDlg.studentId" @click="placeStudent">放入此座</el-button>
+        </div>
+        <p v-if="!unseatedStudents.length" class="text-muted">所有在读学生都已入座；如需新学生，请先到「学生管理」添加</p>
+        <p class="text-muted">小提示：拖拽有人的座位到空座 = 移动；拖到有人的座位 = 交换</p>
+      </template>
+    </el-dialog>
 
     <!-- 右键/选中菜单 -->
     <div v-if="menuVisible" class="ctx-menu no-print" :style="{ left: menu.x + 'px', top: menu.y + 'px' }">
@@ -90,9 +151,6 @@
       <div v-if="curSeat() && curSeat().studentId" class="ctx-item" @click="clearSeat">🗑 设为空座</div>
       <div class="ctx-item" @click="menuVisible = false">✕ 关闭</div>
     </div>
-
-    <!-- 自动排座设置（已并入模式面板） -->
-
 
     <!-- 平移轮换 -->
     <el-dialog v-model="shiftDialog" title="平移轮换" width="400px">
@@ -125,10 +183,10 @@
     <!-- 历史布局详情 -->
     <el-dialog v-model="historyDetailVisible" :title="'历史布局：' + (histDetail.remark || '')" width="720px">
       <div class="seat-area" style="padding:10px">
-        <div class="podium" style="margin-bottom:8px">讲 台</div>
+        <div class="podium" style="margin-bottom:8px">🎓 讲 台</div>
         <div class="seat-grid">
-          <div v-for="r in rows" :key="r" class="row">
-            <div v-for="c in cols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
+          <div v-for="r in histRows" :key="r" class="row">
+            <div v-for="c in histCols" :key="c" class="seat-wrap" :class="{ aisle: isAisle(c) }">
               <div class="seat" :class="{ empty: !histName(r, c) }">
                 <div class="s-name">{{ histName(r, c) || '空' }}</div>
               </div>
@@ -145,7 +203,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { MagicStick, Refresh, Printer, Clock, Check } from '@element-plus/icons-vue';
 import { api } from '../api.js';
@@ -156,6 +215,7 @@ const rows = computed(() => currentClass.value?.seat_rows || 6);
 const cols = computed(() => currentClass.value?.seat_cols || 8);
 
 const grid = reactive({});        // "r,c" -> seat
+const students = ref([]);         // 在读学生（用于手动安排）
 const dirty = ref(false);
 const previewing = ref(false);
 const conflicts = ref([]);
@@ -170,6 +230,53 @@ const menuKey = ref(null);
 const autoLoading = ref(false);
 const autoOpts = reactive({ myopiaCenter: true, mixedGender: false, peerHelp: true });
 
+/* 教室布局设置（直接改班级配置） */
+const layoutMode = ref(currentClass.value?.aisle_mode ?? 1);
+const layoutRows = ref(currentClass.value?.seat_rows ?? 6);
+const layoutCols = ref(currentClass.value?.seat_cols ?? 8);
+watch(() => currentClass.value, (c) => {
+  if (!c) return;
+  layoutMode.value = c.aisle_mode ?? 1;
+  layoutRows.value = c.seat_rows ?? 6;
+  layoutCols.value = c.seat_cols ?? 8;
+});
+async function saveLayoutMode() {
+  const m = layoutMode.value;
+  if (!currentClass.value) return;
+  try {
+    await api.classes.update(currentClass.value.id, { ...currentClass.value, aisle_mode: m });
+    currentClass.value.aisle_mode = m;
+    ElMessage.success('教室布局已更新');
+  } catch (e) {
+    ElMessage.error(e.message);
+    layoutMode.value = currentClass.value?.aisle_mode ?? 1;
+  }
+}
+async function saveLayoutSize() {
+  if (!currentClass.value) return;
+  const r = layoutRows.value, c = layoutCols.value;
+  const ok = await ElMessageBox.confirm(
+    `将教室网格调整为 ${r} 行 × ${c} 列？当前未保存的排座会被清空（已保存的布局仍可在「历史布局」查看）。`,
+    '调整教室布局', { type: 'warning' }
+  ).catch(() => false);
+  if (!ok) { layoutRows.value = currentClass.value.seat_rows; layoutCols.value = currentClass.value.seat_cols; return; }
+  try {
+    await api.classes.update(currentClass.value.id, {
+      ...currentClass.value, seat_rows: r, seat_cols: c,
+    });
+    currentClass.value.seat_rows = r;
+    currentClass.value.seat_cols = c;
+    Object.keys(grid).forEach(k => delete grid[k]);
+    conflicts.value = [];
+    unplaced.value = [];
+    dirty.value = false;
+    previewing.value = false;
+    ElMessage.info('网格已调整，请重新排座（旧布局可在「历史布局」中查看）');
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
+}
+
 const shiftDialog = ref(false);
 const shiftLoading = ref(false);
 const shiftDr = ref(1);
@@ -178,7 +285,12 @@ const shiftDc = ref(0);
 const historyVisible = ref(false);
 const historyDetailVisible = ref(false);
 const layouts = ref([]);
-const histDetail = ref({ seats: [], names: {} });
+const histDetail = ref({ seats: [], names: {}, rows: 6, cols: 8 });
+const histRows = computed(() => histDetail.value.rows || 6);
+const histCols = computed(() => histDetail.value.cols || 8);
+
+const seatDialogVisible = ref(false);
+const seatDlg = ref({ row: 1, col: 1, key: null, studentId: null });
 
 const keyOf = (r, c) => `${r},${c}`;
 
@@ -200,9 +312,13 @@ async function loadSeats() {
   previewing.value = false;
   if (!store.currentClassId) return;
   try {
-    const seats = await api.seats.get(store.currentClassId);
+    const [seats, stu] = await Promise.all([
+      api.seats.get(store.currentClassId),
+      api.students.list({ class_id: store.currentClassId, status: '在读' }),
+    ]);
+    students.value = stu;
     for (const s of seats) {
-      grid[keyOf(s.row + 1, s.col + 1)] = { ...s };
+      grid[keyOf(s.row + 1, s.col + 1)] = { ...s, studentId: s.studentId ?? s.student_id };
     }
   } catch (e) {
     ElMessage.error('座位布局加载失败：' + e.message);
@@ -222,9 +338,58 @@ function isAisle(c) {
   return c === Math.ceil(cols.value / 2);
 }
 
+/** 当前网格内的入座/空座统计 */
+const seatedCount = computed(() => {
+  let n = 0;
+  for (const [k, s] of Object.entries(grid)) {
+    const [r, c] = k.split(',').map(Number);
+    if (r <= rows.value && c <= cols.value && s.studentId != null) n++;
+  }
+  return n;
+});
+const emptyCount = computed(() => rows.value * cols.value - seatedCount.value);
+
 /* ---------- 选择/右键 ---------- */
+const seatedIds = computed(() => new Set(Object.values(grid).map(s => s.studentId).filter(Boolean)));
+const unseatedStudents = computed(() => students.value.filter(s => !seatedIds.value.has(s.id)));
+
 function selectSeat(r, c) {
   selectedKey.value = keyOf(r, c);
+  if (mode.value === 'manual') {
+    seatDlg.value = { row: r, col: c, key: keyOf(r, c), studentId: null };
+    seatDialogVisible.value = true;
+  }
+}
+function placeStudent() {
+  const k = seatDlg.value.key;
+  const stu = students.value.find(s => s.id === seatDlg.value.studentId);
+  if (!k || !grid[k] || !stu) return;
+  const g = grid[k];
+  if (g.studentId && g.studentId !== stu.id) {
+    ElMessage.warning(`已把「${g.name}」换为「${stu.name}」`);
+  }
+  Object.assign(g, {
+    studentId: stu.id, name: stu.name, gender: stu.gender,
+    height_cm: stu.height_cm, vision_left: stu.vision_left, vision_right: stu.vision_right,
+    is_myopia: stu.is_myopia, grade_level: stu.grade_level,
+  });
+  seatDlg.value.studentId = null;
+  dirty.value = true;
+  ElMessage.success(`已安排 ${stu.name} 到第 ${seatDlg.value.row} 行第 ${seatDlg.value.col} 列`);
+}
+function removeFromSeat() {
+  const k = seatDlg.value.key;
+  if (!k || !grid[k]) return;
+  const g = grid[k];
+  g.studentId = null; g.name = ''; g.gender = ''; g.height_cm = null;
+  g.vision_left = null; g.vision_right = null; g.is_myopia = false; g.grade_level = '';
+  dirty.value = true;
+  ElMessage.success('已移出座位');
+}
+function toggleLockDlg() {
+  const k = seatDlg.value.key;
+  if (k && grid[k]) grid[k].locked = !grid[k].locked;
+  dirty.value = true;
 }
 function curSeat() { return grid[selectedKey.value] || grid[menuKey.value] || null; }
 function openMenu(e, r, c) {
@@ -270,7 +435,6 @@ function onDrop(e, r, c) {
   const b = grid[targetKey];
   if (!a || !b) return;
   if (a.locked || b.locked) return ElMessage.warning('锁定座位不可拖拽/拖入');
-  // 只交换学生相关字段（座位坐标、锁定状态不变）
   const fields = ['studentId', 'name', 'gender', 'height_cm', 'vision_left', 'vision_right', 'is_myopia', 'grade_level'];
   for (const f of fields) {
     const t = a[f]; a[f] = b[f]; b[f] = t;
@@ -293,10 +457,11 @@ async function runAuto() {
     previewing.value = true;
     dirty.value = true;
     if (!r.conflicts.length) {
-      ElMessage.success(`自动排座完成，${r.seats.length} 人全部入座！点右上角「保存布局」生效`);
+      ElMessage.success(`自动排座完成，${r.seats.length} 人全部入座！点左上角「保存布局」生效`);
     } else {
-      ElMessage.warning(`自动排座完成，有 ${r.conflicts.length} 条冲突提示，可在下方查看并手动微调`);
+      ElMessage.warning(`自动排座完成，有 ${r.conflicts.length} 条冲突提示，可手动微调`);
     }
+    nextTick(() => document.querySelector('.ws-canvas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   } catch (e) {
     ElMessage.error(e.message);
   } finally {
@@ -331,15 +496,15 @@ async function saveLayout() {
   if (!store.currentClassId) return;
   const seats = [];
   for (const [k, s] of Object.entries(grid)) {
-    if (s.studentId != null) {
+    if (s.studentId != null || s.locked) {
       const [r, c] = k.split(',').map(Number);
-      seats.push({ studentId: s.studentId, row: r - 1, col: c - 1, locked: !!s.locked });
+      seats.push({ studentId: s.studentId ?? null, row: r - 1, col: c - 1, locked: !!s.locked });
     }
   }
   try {
     const remark = previewing.value ? '自动排座/轮换' : '';
     await api.seats.save({ classId: store.currentClassId, seats, remark });
-    ElMessage.success(`已保存布局（${seats.length} 人）`);
+    ElMessage.success(`已保存布局（${seats.filter(x => x.studentId != null).length} 人）`);
     dirty.value = false;
     previewing.value = false;
     conflicts.value = [];
@@ -358,12 +523,14 @@ async function openHistory() {
 }
 async function viewLayout(row) {
   const d = await api.seats.layoutDetail(row.id);
-  histDetail.value = d;
+  const hs = d.seats || [];
+  const hRows = hs.length ? Math.max(...hs.map(s => s.row)) + 1 : rows.value;
+  const hCols = hs.length ? Math.max(...hs.map(s => s.col)) + 1 : cols.value;
+  histDetail.value = { ...d, rows: hRows, cols: hCols };
   historyVisible.value = false;
   historyDetailVisible.value = true;
 }
 function histName(r, c) {
-  const k = keyOf(r, c);
   const s = (histDetail.value.seats || []).find(x => x.row === r - 1 && x.col === c - 1);
   return s && s.studentId != null ? histDetail.value.names[s.studentId] || '?' : '';
 }
@@ -381,7 +548,8 @@ async function applyHistory() {
   ElMessage.info('已载入历史布局，可修改后保存');
 }
 async function deleteLayout(row) {
-  await ElMessageBox.confirm('删除这条历史记录？', '确认', { type: 'warning' });
+  const ok = await ElMessageBox.confirm('删除这条历史记录？', '确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   await api.seats.removeLayout(row.id);
   layouts.value = layouts.value.filter(l => l.id !== row.id);
 }
@@ -389,24 +557,60 @@ async function deleteLayout(row) {
 function print() {
   window.print();
 }
+
+/* ---------- 离开拦截：未保存修改时提醒 ---------- */
+onBeforeRouteLeave(async () => {
+  if (!dirty.value) return true;
+  try {
+    await ElMessageBox.confirm('当前座位有未保存的修改，确定离开吗？', '未保存提示', {
+      type: 'warning', confirmButtonText: '仍要离开', cancelButtonText: '留下',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+});
 </script>
 
 <style scoped>
-/* ---------- 模式面板 ---------- */
-.mode-panel {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  background: linear-gradient(90deg, #f0faf6, #f7fdfb);
-  border: 1px solid #d5f0e6; border-radius: 12px;
-  padding: 12px 16px; margin-bottom: 14px;
+/* ============ 工作台布局 ============ */
+.seats-workspace { padding: 0; display: flex; flex-direction: column; }
+.ws-top {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; border-bottom: 1px solid #eef7f3; flex-wrap: wrap; gap: 10px;
 }
-.panel-title { font-weight: 700; color: #2f8f7a; white-space: nowrap; }
-.auto-opts { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-.auto-panel { background: linear-gradient(90deg, #e6f9f5, #f2fcf9); }
+.ws-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stat-num { color: #2f8f7a; font-size: 16px; }
+.ws-body { display: flex; min-height: 72vh; }
 
-/* ---------- 座位网格：校园薄荷风 + 中间走道 ---------- */
-.seat-area { padding: 22px 8px 10px; overflow-x: auto; }
+/* 左侧面板 */
+.ws-panel {
+  width: 250px; flex-shrink: 0;
+  border-right: 1px solid #eef7f3;
+  padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  background: #fbfefd; overflow-y: auto; max-height: calc(100vh - 120px);
+  position: sticky; top: 0;
+}
+.panel-sec {
+  background: #fff; border: 1px solid #e8f5ef; border-radius: 10px; padding: 12px;
+}
+.panel-sec-title { font-size: 13px; font-weight: 700; color: #2f8f7a; margin-bottom: 10px; }
+.panel-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.panel-row.col { flex-direction: column; align-items: flex-start; gap: 10px; }
+.panel-main-btn { width: 100%; margin-top: 12px; }
+.panel-ops { display: flex; flex-direction: column; gap: 8px; }
+.panel-ops .el-button { margin-left: 0; }
+
+/* 右侧画布 */
+.ws-canvas {
+  flex: 1; padding: 22px 16px 30px; overflow: auto;
+  display: flex; flex-direction: column; align-items: center;
+}
+.canvas-alert { width: 100%; max-width: 900px; margin-bottom: 10px; }
+
+/* ============ 座位网格 ============ */
 .podium {
-  width: 250px; margin: 0 auto 18px; text-align: center;
+  width: 250px; margin: 4px auto 18px; text-align: center;
   background: linear-gradient(90deg, #3ec6a8, #57d4bc);
   color: #fff; font-weight: 700; font-size: 15px; letter-spacing: 6px;
   border-radius: 999px; padding: 10px 0;
@@ -414,7 +618,7 @@ function print() {
 }
 .seat-grid { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .row { display: flex; gap: 10px; }
-.seat-wrap { flex: 0 0 clamp(84px, 11.5vw, 118px); }
+.seat-wrap { flex: 0 0 clamp(76px, 9.5vw, 104px); }
 .seat-wrap.aisle { margin-left: 30px; }
 
 .seat {
@@ -450,6 +654,8 @@ function print() {
 
 /* 打印：卡片定宽、去装饰 */
 @media print {
+  .ws-panel, .no-print { display: none !important; }
+  .ws-canvas { padding: 0; }
   .seat-wrap { flex-basis: 92px; }
   .seat-wrap.aisle { margin-left: 20px; }
   .seat { border-width: 1px; min-height: 52px; }
@@ -457,7 +663,9 @@ function print() {
   .podium { box-shadow: none; background: #eee; color: #333; }
 }
 
-/* ---------- 右键菜单 ---------- */
+/* ---------- 座位安排弹窗 / 右键菜单 ---------- */
+.seat-dlg-info { display: flex; align-items: center; }
+.seat-dlg-place { display: flex; gap: 10px; align-items: center; }
 .ctx-menu {
   position: fixed; z-index: 3000; background: #fff; border-radius: 10px;
   box-shadow: 0 6px 20px rgba(31, 80, 66, .16); padding: 4px 0; min-width: 150px;

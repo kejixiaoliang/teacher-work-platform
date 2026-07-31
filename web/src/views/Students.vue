@@ -1,6 +1,19 @@
 <template>
   <div class="page-card">
-    <!-- 工具栏 -->
+    <!-- 页头 -->
+    <div class="page-head">
+      <div>
+        <h2 class="page-head-title">📋 学生管理</h2>
+        <p class="page-head-desc">维护全班学生档案，支持 Excel 批量导入导出与回收站恢复</p>
+      </div>
+      <div class="page-head-actions">
+        <el-button type="primary" :icon="Plus" @click="openEdit()">新增学生</el-button>
+        <el-button :icon="Upload" @click="fileInput.click()">导入 Excel</el-button>
+        <el-button :icon="Files" @click="exportExcel">导出 Excel</el-button>
+      </div>
+    </div>
+
+    <!-- 工具栏：搜索/筛选 -->
     <div class="toolbar">
       <el-input v-model="query.keyword" placeholder="搜索姓名/学号" clearable style="width:200px"
                 :prefix-icon="Search" @input="debouncedLoad" />
@@ -17,22 +30,18 @@
         <el-option label="是" value="1" /><el-option label="否" value="0" />
       </el-select>
       <div class="spacer"></div>
-      <el-button type="primary" :icon="Plus" @click="openEdit()">新增学生</el-button>
       <el-button :icon="Download" @click="downloadTemplate">下载导入模板</el-button>
-      <el-button :icon="Upload" @click="fileInput.click()">导入 Excel</el-button>
-      <el-button :icon="Files" @click="exportExcel">导出 Excel</el-button>
       <el-button v-if="!trashed" :icon="Delete" type="danger" plain @click="batchDelete"
                  :disabled="!selected.length">批量删除</el-button>
       <el-button v-if="trashed" :icon="RefreshLeft" @click="batchRestore" :disabled="!selected.length">恢复</el-button>
       <el-button v-if="trashed" :icon="DeleteFilled" type="danger" plain @click="batchPurge"
                  :disabled="!selected.length">彻底删除</el-button>
-      <el-button :icon="trashed ? 'View' : 'Delete'" text @click="toggleTrash">
-        {{ trashed ? '返回列表' : '回收站' }}
-      </el-button>
+      <el-button @click="toggleTrash">{{ trashed ? '返回列表' : '🗑 回收站' }}</el-button>
       <input ref="fileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onFileChange" />
     </div>
 
-    <el-table :data="list" stripe @selection-change="onSelection" @row-click="openDetail" style="cursor:pointer">
+    <el-table :data="list" stripe @selection-change="onSelection"
+              @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
       <el-table-column type="selection" width="40" />
       <el-table-column prop="school_no" label="学号" width="90" />
       <el-table-column prop="name" label="姓名" width="90">
@@ -181,11 +190,14 @@
 
 <script setup>
 import { ref, reactive, watch, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Plus, Download, Upload, Files, Delete, DeleteFilled, RefreshLeft } from '@element-plus/icons-vue';
 import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
+
+const route = useRoute();
 
 const TEMPLATE_COLS = [
   { key: 'school_no', title: '学号', width: 12 },
@@ -241,7 +253,14 @@ async function load() {
 }
 
 watch(() => store.currentClassId, load);
-onMounted(load);
+// 顶栏全局搜索跳转：读取 ?kw= 填入搜索框
+watch(() => route.query.kw, kw => {
+  if (kw) { query.keyword = kw; load(); }
+});
+onMounted(() => {
+  if (route.query.kw) query.keyword = String(route.query.kw);
+  load();
+});
 
 function onSelection(rows) { selected.value = rows.map(r => r.id); }
 function openDetail(row) {
@@ -269,14 +288,16 @@ async function saveEdit() {
 }
 
 async function removeOne(row) {
-  await ElMessageBox.confirm(`确定把「${row.name}」移入回收站？`, '删除确认', { type: 'warning' });
+  const ok = await ElMessageBox.confirm(`确定把「${row.name}」移入回收站？`, '删除确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   await api.students.remove(row.id);
   ElMessage.success('已移入回收站');
   load();
 }
 
 async function batchDelete() {
-  await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 名学生？`, '批量删除', { type: 'warning' });
+  const ok = await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 名学生？`, '批量删除', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   for (const id of selected.value) await api.students.remove(id);
   ElMessage.success('已删除');
   load();
@@ -289,7 +310,8 @@ async function batchRestore(ids) {
 }
 async function batchPurge(ids) {
   const idList = ids || selected.value;
-  await ElMessageBox.confirm(`彻底删除 ${idList.length} 名学生？此操作不可恢复！`, '彻底删除', { type: 'error' });
+  const ok = await ElMessageBox.confirm(`彻底删除 ${idList.length} 名学生？此操作不可恢复！`, '彻底删除', { type: 'error' }).catch(() => false);
+  if (!ok) return;
   await api.students.purge(idList);
   ElMessage.success('已彻底删除');
   load();
@@ -389,6 +411,8 @@ async function doImport() {
 }
 
 async function exportExcel() {
+  if (!list.value.length) return ElMessage.info('当前没有可导出的学生');
+  ElMessage.info(`将导出当前筛选结果 ${list.value.length} 人`);
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('学生名单');
   ws.addRow(TEMPLATE_COLS.map(c => c.title));

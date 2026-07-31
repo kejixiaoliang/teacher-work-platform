@@ -1,9 +1,13 @@
 <template>
   <div class="page-card">
-    <div class="toolbar">
-      <span class="text-muted">选任固定班委（班长、学委、课代表…），同一职务一人担任</span>
-      <div class="spacer"></div>
-      <el-button type="primary" :icon="Plus" @click="openLeader()">选任班委</el-button>
+    <div class="page-head">
+      <div>
+        <h2 class="page-head-title">🏅 班委学委</h2>
+        <p class="page-head-desc">选任固定班委（班长、学委、课代表…），同一职务一人担任</p>
+      </div>
+      <div class="page-head-actions">
+        <el-button type="primary" :icon="Plus" @click="openLeader()">选任班委</el-button>
+      </div>
     </div>
 
     <el-table :data="leaders" stripe>
@@ -94,7 +98,8 @@ async function saveLeader() {
 }
 
 async function removeDuty(row) {
-  await ElMessageBox.confirm(`解除「${row.student_name}」的「${row.role}」职务？`, '确认', { type: 'warning' });
+  const ok = await ElMessageBox.confirm(`解除「${row.student_name}」的「${row.role}」职务？`, '确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   await api.duties.remove(row.id);
   load();
 }

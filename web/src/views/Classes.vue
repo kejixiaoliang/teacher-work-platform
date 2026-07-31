@@ -1,9 +1,13 @@
 <template>
   <div class="page-card">
-    <div class="toolbar">
-      <span style="font-weight:600">班级列表</span>
-      <div class="spacer"></div>
-      <el-button type="primary" :icon="Plus" @click="openEdit()">新建班级</el-button>
+    <div class="page-head">
+      <div>
+        <h2 class="page-head-title">⚙️ 班级设置</h2>
+        <p class="page-head-desc">管理班级信息、座位网格尺寸与教室布局</p>
+      </div>
+      <div class="page-head-actions">
+        <el-button type="primary" :icon="Plus" @click="openEdit()">新建班级</el-button>
+      </div>
     </div>
 
     <el-table :data="store.classes" stripe>
@@ -79,13 +83,26 @@ function openEdit(row) {
 
 async function save() {
   if (!form.value.name || !form.value.name.trim()) return ElMessage.warning('请填写班级名称');
+  const f = {
+    name: form.value.name.trim(),
+    academic_year: form.value.academic_year || '',
+    term: form.value.term || '上',
+    seat_rows: form.value.seat_rows,
+    seat_cols: form.value.seat_cols,
+    aisle_mode: form.value.aisle_mode ?? 1,
+    head_teacher: form.value.head_teacher || '',
+    remark: form.value.remark || '',
+  };
   try {
-    if (form.value.id) await api.classes.update(form.value.id, form.value);
-    else await api.classes.create(form.value);
+    if (form.value.id) {
+      await api.classes.update(form.value.id, f);
+    } else {
+      const r = await api.classes.create(f);
+      store.currentClassId = r.id; // 新建后直接切换到新班级
+    }
     ElMessage.success('已保存');
     editVisible.value = false;
     await loadClasses();
-    if (!form.value.id && store.classes.length) store.currentClassId = store.classes[0].id;
   } catch (e) { ElMessage.error(e.message); }
 }
 
@@ -95,10 +112,11 @@ function switchClass(row) {
 }
 
 async function remove(row) {
-  await ElMessageBox.confirm(
+  const ok = await ElMessageBox.confirm(
     `确定删除「${row.name}」？将连带删除该班所有学生、座位与历史布局，不可恢复！`,
     '删除班级', { type: 'error', confirmButtonText: '删除' }
-  );
+  ).catch(() => false);
+  if (!ok) return;
   await api.classes.remove(row.id);
   ElMessage.success('已删除');
   await loadClasses();

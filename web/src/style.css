@@ -40,8 +40,28 @@ body {
   align-items: center;
   margin-bottom: 14px;
 }
-.toolbar .spacer { flex: 1; }
+/* spacer 用 auto 外边距而非 flex:1，避免换行后占满整行 */
+.toolbar .spacer { margin-left: auto; }
 .text-muted { color: #98a6a0; font-size: 13px; }
+
+/* ============ 页面骨架（统一页头规范） ============ */
+.page-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.page-head-title {
+  margin: 0; font-size: 19px; font-weight: 700; color: #2f3e39;
+  display: flex; align-items: center; gap: 8px;
+}
+.page-head-desc { margin: 5px 0 0; color: #98a6a0; font-size: 13px; }
+.page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* 输入控件统一圆角 */
+.el-input__wrapper, .el-select__wrapper, .el-textarea__inner { border-radius: 8px; }
+.el-input-number { border-radius: 8px; }
+
+/* 主内容区最大宽度，超宽屏居中不拉伸 */
+.main-area-inner { max-width: 1200px; margin: 0 auto; }
 
 /* 标题小标点 */
 .page-head { font-size: 16px; font-weight: 700; margin: 0 0 14px; color: #2f3e39; }

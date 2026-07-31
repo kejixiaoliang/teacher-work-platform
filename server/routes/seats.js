@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
   const { class_id } = req.query;
   if (!class_id) return res.json({ ok: false, error: '缺少班级' });
   const rows = db.prepare(`
-    SELECT t.row, t.col, t.locked, t.student_id,
+    SELECT t.row, t.col, t.locked, t.student_id AS studentId,
       s.name, s.gender, s.height_cm, s.vision_left, s.vision_right, s.is_myopia, s.grade_level
     FROM seats t LEFT JOIN students s ON s.id = t.student_id
     WHERE t.class_id = ? ORDER BY t.row, t.col

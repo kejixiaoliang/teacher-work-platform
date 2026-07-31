@@ -15,18 +15,23 @@
 
     <!-- 右侧主区 -->
     <div class="page-card doc-main">
+      <div class="page-head">
+        <div>
+          <h2 class="page-head-title">📁 文档管理</h2>
+          <p class="page-head-desc">上传、分类、预览班级文件（图片/PDF/Office/文本）</p>
+        </div>
+        <div class="page-head-actions">
+          <el-button v-if="!trashed" type="primary" :icon="Upload" @click="uploadVisible = true">上传文件</el-button>
+          <el-button @click="toggleTrash">{{ trashed ? '返回文件列表' : '🗑 回收站' }}</el-button>
+        </div>
+      </div>
       <div class="toolbar">
         <el-input v-model="filter.keyword" placeholder="搜索文件名" clearable style="width:200px"
                   :prefix-icon="Search" @input="debouncedLoad" />
-        <div class="spacer"></div>
-        <el-button type="primary" :icon="Upload" @click="uploadVisible = true">上传文件</el-button>
-        <el-button :icon="trashed ? 'Back' : 'Delete'" @click="toggleTrash">
-          {{ trashed ? '返回文件列表' : '回收站' }}
-        </el-button>
       </div>
 
-      <!-- 拖拽上传提示区 -->
-      <div class="drop-zone" :class="{ dragging: dragging }"
+      <!-- 拖拽上传提示区（回收站视图隐藏） -->
+      <div v-if="!trashed" class="drop-zone" :class="{ dragging: dragging }"
            @dragover.prevent="dragging = true" @dragleave="dragging = false">
         <el-icon :size="28"><UploadFilled /></el-icon>
         <span>拖拽文件到此处上传（图片 / PDF / Office / 文本，单个 ≤200MB）</span>
@@ -230,23 +235,28 @@ async function saveRename() {
   load();
 }
 async function remove(f) {
-  await ElMessageBox.confirm(`把「${f.original_name}」移入回收站？`, '删除', { type: 'warning' });
+  const ok = await ElMessageBox.confirm(`把「${f.original_name}」移入回收站？`, '删除', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   await api.documents.remove(f.id);
   load();
 }
 async function restore(ids) {
   await api.documents.restore(ids);
+  ElMessage.success('已恢复');
   load();
 }
 async function purge(ids) {
-  await ElMessageBox.confirm(`彻底删除 ${ids.length} 个文件？物理文件将一并删除，不可恢复！`, '彻底删除', { type: 'error' });
+  const ok = await ElMessageBox.confirm(`彻底删除 ${ids.length} 个文件？物理文件将一并删除，不可恢复！`, '彻底删除', { type: 'error' }).catch(() => false);
+  if (!ok) return;
   await api.documents.purge(ids);
+  ElMessage.success('已彻底删除');
   load();
 }
 
-// 页面级拖拽上传：任何位置拖入文件都触发上传
+// 页面级拖拽上传：任何位置拖入文件都触发上传（回收站视图禁用）
 function onPageDrop(e) {
   e.preventDefault();
+  if (trashed.value) return;
   const files = e.dataTransfer?.files;
   if (files && files.length) {
     if (!uploadVisible.value) uploadVisible.value = true;

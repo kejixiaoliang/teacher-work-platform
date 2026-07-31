@@ -1,21 +1,24 @@
-import { reactive, computed } from 'vue';
+import { reactive, computed, watch } from 'vue';
 import { api } from './api.js';
 
 export const store = reactive({
   classes: [],
-  currentClassId: null,
+  currentClassId: Number(localStorage.getItem('current-class-id')) || null,
 });
 
 export const currentClass = computed(() =>
   store.classes.find(c => c.id === store.currentClassId) || null
 );
 
+// 当前班级持久化，刷新后保持
+watch(() => store.currentClassId, id => {
+  if (id) localStorage.setItem('current-class-id', String(id));
+  else localStorage.removeItem('current-class-id');
+});
+
 export async function loadClasses() {
   store.classes = await api.classes.list();
-  if (!store.currentClassId && store.classes.length) {
-    store.currentClassId = store.classes[0].id;
-  }
-  if (store.currentClassId && !store.classes.some(c => c.id === store.currentClassId)) {
+  if (!store.currentClassId || !store.classes.some(c => c.id === store.currentClassId)) {
     store.currentClassId = store.classes.length ? store.classes[0].id : null;
   }
   return store.classes;

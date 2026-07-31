@@ -42,6 +42,17 @@ function categoryOf(ext) {
   return '其他';
 }
 
+/** multer/busboy 把 UTF-8 文件名按 latin1 解码，这里还原 */
+function decodeName(n) {
+  if (/[\u0080-\u00FF]/.test(n || '')) {
+    try {
+      const d = Buffer.from(n, 'latin1').toString('utf8');
+      if (/[\u4e00-\u9fff]/.test(d) && !d.includes('\uFFFD')) return d;
+    } catch { /* 还原失败保留原名 */ }
+  }
+  return n;
+}
+
 function pickDoc(row) {
   if (!row) return null;
   return { ...row, size: Number(row.size) };
@@ -51,7 +62,7 @@ function pickDoc(row) {
 router.post('/', upload.single('file'), (req, res) => {
   if (!req.file) return res.json({ ok: false, error: '未收到文件' });
   const { class_id, tag, name } = req.body || {};
-  const original = name || req.file.originalname;
+  const original = decodeName(name || req.file.originalname);
   const ext = path.extname(original).toLowerCase();
   const info = db.prepare(`
     INSERT INTO documents (class_id, original_name, stored_name, category, size, mime, tag)

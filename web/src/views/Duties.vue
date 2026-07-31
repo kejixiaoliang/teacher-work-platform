@@ -1,5 +1,11 @@
 <template>
   <div class="page-card">
+    <div class="page-head">
+      <div>
+        <h2 class="page-head-title">🧹 值日管理</h2>
+        <p class="page-head-desc">把学生分成若干组，按周轮换值日，可打印值日表</p>
+      </div>
+    </div>
     <el-tabs v-model="tab">
       <!-- ============ 值日分组 ============ -->
       <el-tab-pane label="值日分组" name="groups">
@@ -133,7 +139,8 @@ async function addGroup() {
   openAddMembers(next);
 }
 async function removeGroup(no) {
-  await ElMessageBox.confirm(`删除第 ${no} 组及其全部成员？`, '确认', { type: 'warning' });
+  const ok = await ElMessageBox.confirm(`删除第 ${no} 组及其全部成员？`, '确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   const list = dutyList.value.filter(d => d.group_no === no);
   for (const d of list) await api.duties.remove(d.id);
   load();
@@ -155,7 +162,8 @@ async function saveMembers() {
   load();
 }
 async function removeMember(m) {
-  await ElMessageBox.confirm(`把「${m.student_name}」移出第 ${m.group_no} 组？`, '确认', { type: 'warning' });
+  const ok = await ElMessageBox.confirm(`把「${m.student_name}」移出第 ${m.group_no} 组？`, '确认', { type: 'warning' }).catch(() => false);
+  if (!ok) return;
   await api.duties.remove(m.id);
   load();
 }

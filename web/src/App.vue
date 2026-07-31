@@ -1,6 +1,6 @@
 <template>
   <el-container class="layout">
-    <el-aside width="210px" class="sidebar no-print">
+    <el-aside width="200px" class="sidebar no-print">
       <div class="logo">
         <span class="logo-emoji">🌿</span>
         <div class="logo-text">
@@ -8,7 +8,7 @@
           <small>班主任的好帮手</small>
         </div>
       </div>
-      <el-menu :default-active="$route.path" router class="nav-menu">
+      <el-menu ref="menuRef" :default-active="$route.path" router class="nav-menu">
         <el-menu-item index="/overview">
           <el-icon><HomeFilled /></el-icon><span>概览首页</span>
         </el-menu-item>
@@ -27,8 +27,8 @@
         <el-menu-item index="/leaders">
           <el-icon><UserFilled /></el-icon><span>班委学委</span>
         </el-menu-item>
-        <el-menu-item index="/classes">
-          <el-icon><House /></el-icon><span>班级管理</span>
+        <el-menu-item index="/classes" class="menu-bottom">
+          <el-icon><Setting /></el-icon><span>班级设置</span>
         </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">数据仅存本机 🔒</div>
@@ -40,56 +40,51 @@
           <span class="title-dot"></span>{{ $route.meta.title }}
         </div>
         <div class="topbar-right">
+          <el-input v-model="globalKw" placeholder="搜索学生（姓名/学号）" clearable style="width:210px"
+                    :prefix-icon="Search" @keyup.enter="goSearch" @clear="goSearch" />
           <template v-if="store.classes.length > 1">
-            <span class="text-muted">当前班级：</span>
-            <el-select v-model="store.currentClassId" size="small" style="width:150px">
+            <span class="text-muted">班级：</span>
+            <el-select v-model="store.currentClassId" size="default" style="width:140px">
               <el-option v-for="c in store.classes" :key="c.id" :value="c.id" :label="c.name" />
             </el-select>
           </template>
           <span v-else-if="currentClass" class="class-tag">🏫 {{ currentClass.name }}</span>
-          <el-button size="small" type="primary" plain @click="archiveMetrics">📸 学期存档</el-button>
-          <el-button size="small" plain @click="exportAll">💾 备份数据</el-button>
         </div>
       </el-header>
 
       <el-main class="main-area">
-        <router-view />
+        <div class="main-area-inner">
+          <router-view />
+        </div>
       </el-main>
     </el-container>
   </el-container>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { api } from './api.js';
+import { ref, watch, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Search } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { store, currentClass, loadClasses } from './store.js';
+
+const route = useRoute();
+const router = useRouter();
+const menuRef = ref(null);
+const globalKw = ref('');
 
 onMounted(loadClasses);
 
-async function archiveMetrics() {
-  if (!store.currentClassId) return ElMessage.warning('请先创建班级');
-  const { value } = await ElMessageBox.prompt('输入存档学期（如 2025-2026 上）：', '学期存档', {
-    inputValue: '2025-2026 上',
-  }).catch(() => ({ value: null }));
-  if (!value) return;
-  try {
-    const r = await api.students.archive({ class_id: store.currentClassId, term: value });
-    ElMessage.success(`已存档 ${r.count} 名学生的身高/视力/成绩`);
-  } catch (e) {
-    ElMessage.error(e.message);
-  }
-}
+// 非菜单导航（如首页快捷入口）后，菜单高亮跟随路由
+watch(() => route.path, p => {
+  if (menuRef.value) menuRef.value.activeIndex = p;
+});
 
-async function exportAll() {
-  const data = JSON.stringify({ classes: store.classes, exportedAt: new Date().toISOString() }, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `班级数据备份-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  ElMessage.success('已导出备份文件（含班级基础信息）');
+// 全局搜索学生：跳转学生页并带关键词
+function goSearch() {
+  const kw = globalKw.value.trim();
+  router.push({ path: '/students', query: kw ? { kw } : {} });
+  if (kw) ElMessage({ type: 'info', message: `已搜索「${kw}」`, duration: 1200 });
 }
 </script>
 
@@ -106,25 +101,22 @@ async function exportAll() {
 }
 .logo {
   display: flex; align-items: center; gap: 10px;
-  padding: 18px 16px 16px;
+  padding: 18px 14px 14px;
 }
-.logo-emoji { font-size: 30px; line-height: 1; }
-.logo-text b { display: block; font-size: 17px; color: #2f8f7a; letter-spacing: .5px; }
+.logo-emoji { font-size: 28px; line-height: 1; }
+.logo-text b { display: block; font-size: 16px; color: #2f8f7a; letter-spacing: .5px; }
 .logo-text small { font-size: 11px; color: #9dbcb1; }
 
 .nav-menu { border-right: none; padding: 0 10px; }
 .nav-menu :deep(.el-menu-item) {
-  height: 44px;
-  line-height: 44px;
+  height: 42px;
+  line-height: 42px;
   border-radius: 10px;
-  margin: 4px 0;
+  margin: 3px 0;
   color: #5c6f68;
   font-size: 14px;
 }
-.nav-menu :deep(.el-menu-item:hover) {
-  background: #f0faf6;
-  color: #2f8f7a;
-}
+.nav-menu :deep(.el-menu-item:hover) { background: #f0faf6; color: #2f8f7a; }
 .nav-menu :deep(.el-menu-item.is-active) {
   background: linear-gradient(90deg, #3ec6a8, #55d4b6);
   color: #fff;
@@ -133,10 +125,15 @@ async function exportAll() {
 }
 .nav-menu :deep(.el-menu-item.is-active .el-icon) { color: #fff; }
 .nav-menu :deep(.el-menu-item .el-icon) { font-size: 18px; }
+.nav-menu :deep(.menu-bottom) {
+  margin-top: 8px;
+  border-top: 1px dashed #e0f0e9;
+  border-radius: 0 0 10px 10px;
+}
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 14px;
+  padding: 12px;
   font-size: 11px;
   color: #a8c3b9;
   text-align: center;
@@ -147,6 +144,9 @@ async function exportAll() {
 .topbar {
   background: #fff;
   display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; row-gap: 8px;
+  min-height: 60px; height: auto !important;
+  padding: 8px 18px;
   box-shadow: 0 2px 8px rgba(62, 198, 168, .06);
   z-index: 5;
 }
@@ -159,7 +159,7 @@ async function exportAll() {
   background: linear-gradient(135deg, #3ec6a8, #7ee0c8);
   box-shadow: 0 0 6px rgba(62, 198, 168, .5);
 }
-.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .class-tag {
   background: #e6f9f5; color: #2f8f7a;
   border-radius: 20px; padding: 4px 14px; font-size: 13px; font-weight: 600;
