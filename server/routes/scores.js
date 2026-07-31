@@ -52,7 +52,9 @@ router.put('/exams/:id', (req, res) => {
 
 // 删除考试（级联删成绩）
 router.delete('/exams/:id', (req, res) => {
-  db.prepare('DELETE FROM exams WHERE id = ?').run(Number(req.params.id));
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的考试 ID' });
+  db.prepare('DELETE FROM exams WHERE id = ?').run(id);
   res.json({ ok: true });
 });
 
@@ -75,8 +77,8 @@ router.put('/', (req, res) => {
   if (!examId || !Array.isArray(rows)) return res.json({ ok: false, error: '参数不完整' });
   const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(Number(examId));
   if (!exam) return res.json({ ok: false, error: '考试不存在' });
-  // 校验学生属于该班（防跨班脏数据）
-  const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ?').all(exam.class_id).map(r => r.id));
+  // 校验学生属于该班且在册（软删除学生不能写入成绩）
+  const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ? AND deleted_at IS NULL').all(exam.class_id).map(r => r.id));
   const upsert = db.prepare(`
     INSERT INTO exam_scores (exam_id, student_id, subject, score) VALUES (?, ?, ?, ?)
     ON CONFLICT(exam_id, student_id, subject) DO UPDATE SET score = excluded.score

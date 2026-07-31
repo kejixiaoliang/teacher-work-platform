@@ -394,10 +394,19 @@ async function load() {
     if (listSeq.isStale(mySeq)) return;
     list.value = data;
     page.value = 1; // 筛选/搜索/切班后回到第 1 页
+    selected.value = []; // 切班/筛选后清空多选，防残留旧班学生 id 误操作（P0）
   } catch (e) {
     ElMessage.error('学生列表加载失败：' + e.message);
   }
 }
+
+// 切班：关闭详情抽屉/编辑弹窗，防止后续保存写错学生档案
+watch(() => store.currentClassId, () => {
+  detailVisible.value = false;
+  editVisible.value = false;
+  recordDialogVisible.value = false;
+  contactDialogVisible.value = false;
+});
 
 watch(() => store.currentClassId, load);
 // 顶栏全局搜索跳转：读取 ?kw= 填入搜索框
@@ -512,14 +521,22 @@ async function batchDelete() {
   try {
     await Promise.all(selected.value.map(id => api.students.remove(id))); // 并行（P2-15）
     ElMessage.success('已删除');
-    load();
-  } catch (e) { ElMessage.error('批量删除失败：' + e.message); }
+  } catch (e) {
+    ElMessage.error('部分删除失败：' + e.message);
+  } finally {
+    selected.value = [];
+    load(); // 部分失败也要刷新，保持 UI 与服务器一致
+  }
 }
 async function batchRestore(ids) {
   const idList = ids || selected.value;
   try {
-    await api.students.restore(idList);
-    ElMessage.success('已恢复');
+    const r = await api.students.restore(idList);
+    if (r.skipped?.length) {
+      ElMessage.warning(`已恢复 ${r.count} 人；${r.skipped.length} 人因学号被占用未恢复（${r.skipped.map(s => s.name).join('、')}）`);
+    } else {
+      ElMessage.success(`已恢复 ${r.count} 人`);
+    }
     load();
   } catch (e) { ElMessage.error('恢复失败：' + e.message); }
 }

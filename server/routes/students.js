@@ -97,6 +97,7 @@ router.put('/:id', (req, res) => {
 // 软删除（进回收站，同时清空其座位，避免"幽灵座位"）
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的学生 ID' });
   const tx = db.transaction(() => {
     db.prepare(`UPDATE students SET deleted_at=datetime('now','localtime') WHERE id=?`).run(id);
     db.prepare(`DELETE FROM seats WHERE student_id=?`).run(id);
@@ -109,13 +110,25 @@ router.delete('/:id', (req, res) => {
 router.post('/restore', (req, res) => {
   const { ids } = req.body || {};
   if (!Array.isArray(ids) || ids.length === 0) return res.json({ ok: false, error: '未选择学生' });
+  const skipped = [];
+  let restored = 0;
   const tx = db.transaction(() => {
-    for (const id of ids) {
-      db.prepare(`UPDATE students SET deleted_at=NULL WHERE id=?`).run(Number(id));
+    for (const rawId of ids) {
+      const id = Number(rawId);
+      if (!Number.isInteger(id) || id < 1) continue;
+      // 恢复前查重：若存在同 school_no 的在册学生（唯一索引会冲突），跳过该生（P1-4）
+      const row = db.prepare('SELECT id, school_no, name FROM students WHERE id = ? AND deleted_at IS NOT NULL').get(id);
+      if (!row) continue;
+      if (row.school_no) {
+        const dup = db.prepare('SELECT id FROM students WHERE school_no = ? AND deleted_at IS NULL').get(row.school_no);
+        if (dup) { skipped.push({ id: row.id, name: row.name, reason: `学号 ${row.school_no} 已被在册学生占用` }); continue; }
+      }
+      db.prepare(`UPDATE students SET deleted_at=NULL WHERE id=?`).run(id);
+      restored++;
     }
   });
   tx();
-  res.json({ ok: true, data: { count: ids.length } });
+  res.json({ ok: true, data: { count: restored, skipped } });
 });
 
 // 彻底删除

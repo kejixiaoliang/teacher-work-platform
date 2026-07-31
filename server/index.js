@@ -47,6 +47,9 @@ app.use('/api', (err, req, res, next) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// API 未匹配路由 → 统一 JSON 404（而非 Express 默认 HTML）
+app.use('/api', (req, res) => res.status(404).json({ ok: false, error: '接口不存在' }));
+
 // 生产模式：托管构建后的前端（静态资源 gzip 压缩）
 const distDir = path.join(__dirname, '..', 'web', 'dist');
 if (fs.existsSync(distDir)) {
@@ -55,6 +58,8 @@ if (fs.existsSync(distDir)) {
     if (req.path.startsWith('/api') || !req.headers['accept-encoding']?.includes('gzip')) return next();
     // 根路径/无扩展名 → 视作 index.html
     const rawPath = req.path === '/' ? '/index.html' : req.path;
+    // 路径穿越防护：拒绝包含 .. 或非相对路径的请求（防读取 distDir 之外的服务端 .gz 文件）
+    if (rawPath.includes('..') || !rawPath.startsWith('/')) return next();
     const ext = path.extname(rawPath).toLowerCase();
     if (!['.js', '.css', '.html', '.json', '.svg', '.txt'].includes(ext)) return next();
     const gzFile = path.join(distDir, rawPath + '.gz');
@@ -65,14 +70,19 @@ if (fs.existsSync(distDir)) {
       '.json': 'application/json', '.svg': 'image/svg+xml', '.txt': 'text/plain',
     }[ext] || 'application/octet-stream');
     res.setHeader('Vary', 'Accept-Encoding');
+    // 带 hash 的构建产物可强缓存一年；index.html 本身不做强缓存（其 URL 固定）
+    res.setHeader('Cache-Control', rawPath === '/index.html' ? 'no-cache' : 'public, max-age=31536000, immutable');
     res.sendFile(gzFile);
   });
   app.use(express.static(distDir));
   app.get(/^\/(?!api\/).*/, (req, res) => res.sendFile(path.join(distDir, 'index.html')));
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`\n✅ 教师工作台已启动：http://localhost:${PORT}`);
+// 单机应用：默认仅绑定本机回环地址，避免局域网/公网可访问（H2）。
+// 如需局域网内其他设备访问，可设置环境变量 HOST=0.0.0.0 覆盖。
+const listenHost = process.env.HOST || '127.0.0.1';
+const server = app.listen(PORT, listenHost, () => {
+  console.log(`\n✅ 教师工作台已启动：http://${listenHost === '0.0.0.0' ? 'localhost' : listenHost}:${PORT}`);
   console.log('   关闭本窗口即停止服务；数据保存在 data/ 文件夹。\n');
   // 自动打开浏览器（Windows，可用环境变量 NO_OPEN=1 关闭）
   if (process.env.NO_OPEN !== '1' && process.platform === 'win32') {

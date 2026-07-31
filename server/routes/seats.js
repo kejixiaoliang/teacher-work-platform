@@ -113,6 +113,9 @@ router.post('/auto', (req, res) => {
 router.post('/shift', (req, res) => {
   const { classId, dr = 0, dc = 0 } = req.body || {};
   if (!classId) return res.json({ ok: false, error: '缺少班级' });
+  // dr/dc 数值化并取整，防止字符串拼接/NaN 破坏模运算（M5）
+  const drN = Number.isInteger(Number(dr)) ? Number(dr) : 0;
+  const dcN = Number.isInteger(Number(dc)) ? Number(dc) : 0;
   const cls = getClass(classId);
   if (!cls) return res.json({ ok: false, error: '班级不存在' });
   const rows = cls.seat_rows, cols = cls.seat_cols;
@@ -144,8 +147,8 @@ router.post('/shift', (req, res) => {
 
   // 非锁定学生按模运算平移（互不冲突，仅可能撞上锁定座位）
   for (const s of moveSeats) {
-    const nr = (((s.row + dr) % rows) + rows) % rows;
-    const nc = (((s.col + dc) % cols) + cols) % cols;
+    const nr = (((s.row + drN) % rows) + rows) % rows;
+    const nc = (((s.col + dcN) % cols) + cols) % cols;
     const info = infoMap.get(s.student_id) || {};
     if (grid[nr][nc] == null) {
       grid[nr][nc] = s;
@@ -234,7 +237,9 @@ router.get('/layouts/:id', (req, res) => {
 
 // 删除历史布局记录
 router.delete('/layouts/:id', (req, res) => {
-  db.prepare('DELETE FROM seat_layouts WHERE id = ?').run(Number(req.params.id));
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的布局 ID' });
+  db.prepare('DELETE FROM seat_layouts WHERE id = ?').run(id);
   res.json({ ok: true });
 });
 

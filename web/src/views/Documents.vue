@@ -212,7 +212,7 @@ async function load() {
   } catch (e) {
     ElMessage.error('文档列表加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!isStale(mySeq)) loading.value = false;
   }
 }
 watch(() => store.currentClassId, load);

@@ -7,15 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(path.join(dataDir, 'teacher.db'));
+const dbFile = path.join(dataDir, 'teacher.db');
+// 记录启动时是否为全新数据库（用于首次启动才写示例数据，避免用户删光班级后重启"复活"演示数据）
+const isFreshDb = !fs.existsSync(dbFile);
+
+const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
-
-// 迁移：classes 表补 aisle_mode 列（已存在的旧库）
-const clsCols = db.prepare('PRAGMA table_info(classes)').all().map(c => c.name);
-if (!clsCols.includes('aisle_mode')) {
-  db.exec('ALTER TABLE classes ADD COLUMN aisle_mode INTEGER DEFAULT 1');
-}
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS classes (
@@ -124,12 +122,7 @@ CREATE TABLE IF NOT EXISTS exams (
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
--- 迁移：清理同班同名重复考试（保留每组最新一条，成绩随级联删除），随后建唯一索引
-DELETE FROM exams WHERE id NOT IN (
-  SELECT MAX(id) FROM exams GROUP BY class_id, name
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_class_name ON exams(class_id, name);
-
+-- 唯一索引由 migrate() 在去重后创建（先删重复再建索引，防止旧库启动即抛约束错误）
 CREATE TABLE IF NOT EXISTS exam_scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   exam_id INTEGER REFERENCES exams(id) ON DELETE CASCADE,
@@ -197,10 +190,41 @@ CREATE INDEX IF NOT EXISTS idx_records_student ON student_records(student_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_student ON contacts(student_id);
 CREATE INDEX IF NOT EXISTS idx_scores_exam ON exam_scores(exam_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_class_date ON attendance(class_id, date);
+-- 外键子表按 student_id 的级联删除/查询索引（P2-21）
+CREATE INDEX IF NOT EXISTS idx_seats_student ON seats(student_id);
+CREATE INDEX IF NOT EXISTS idx_exam_scores_student ON exam_scores(student_id);
+CREATE INDEX IF NOT EXISTS idx_duties_student ON duties(student_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id);
 `);
 
-/** 首次启动时写入示例班级 + 示例学生，方便演示排座。表非空则跳过。 */
+// ===== 迁移（必须在建表之后，且一次性迁移用 user_version 标记，避免重复执行） =====
+function migrate() {
+  // v1：旧库 classes 补 aisle_mode 列（新建库建表语句已含该列，这里只对旧库生效）
+  if (db.pragma('user_version', { simple: true }) < 1) {
+    const clsCols = db.prepare('PRAGMA table_info(classes)').all().map(c => c.name);
+    if (!clsCols.includes('aisle_mode')) {
+      db.exec('ALTER TABLE classes ADD COLUMN aisle_mode INTEGER DEFAULT 1');
+    }
+    // 一次性清理：同班同名重复考试，保留每组最新一条（成绩随级联删除）。
+    // 放在 user_version 迁移里，避免每次启动都无条件删数据。
+    db.exec(`
+      DELETE FROM exams WHERE id NOT IN (
+        SELECT MAX(id) FROM exams GROUP BY class_id, name
+      );
+      -- 必须先删除重复数据再建唯一索引，否则旧库启动即抛 SQLITE_CONSTRAINT
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_class_name ON exams(class_id, name);
+    `);
+    db.pragma('user_version = 1');
+    console.log('[migrate] 数据库迁移完成 → user_version 1');
+  }
+}
+migrate();
+
+/** 首次启动（全新数据库）时写入示例班级 + 示例学生，方便演示排座。
+ *  仅当启动时 data/teacher.db 不存在才写入；可用环境变量 SEED_DEMO=0 强制关闭。 */
 export function seedIfEmpty() {
+  if (process.env.SEED_DEMO === '0') return;
+  if (!isFreshDb) return; // 非全新库（用户删光班级等）不复活演示数据
   const count = db.prepare('SELECT COUNT(*) AS c FROM classes').get().c;
   if (count > 0) return;
 

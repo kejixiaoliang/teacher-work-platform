@@ -4,7 +4,24 @@ async function request(method, url, body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
-  const r = await fetch(url, opts);
+  // 15s 超时：防止慢请求永久 pending 卡住 loading（P2）
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  opts.signal = ctrl.signal;
+  let r;
+  try {
+    r = await fetch(url, opts);
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('请求超时，请重试');
+    throw new Error('网络错误：' + e.message);
+  }
+  clearTimeout(timer);
+  // 非 2xx 状态：后端可能返回 HTML 错误页或无 body，先按状态抛错（P2）
+  if (!r.ok) {
+    const j = await r.json().catch(() => null);
+    throw new Error((j && j.error) || `请求失败（${r.status}）`);
+  }
   const j = await r.json().catch(() => ({ ok: false, error: '服务器响应异常' }));
   if (!j.ok) throw new Error(j.error || '请求失败');
   return j.data;
@@ -48,8 +65,12 @@ export const api = {
   },
   documents: {
     list: q => request('GET', '/api/documents' + toQuery(q)),
-    upload: formData => fetch('/api/documents', { method: 'POST', body: formData })
-      .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error || '上传失败'); return j.data; }),
+    upload: async formData => {
+      const r = await fetch('/api/documents', { method: 'POST', body: formData });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) throw new Error((j && j.error) || '上传失败');
+      return j.data;
+    },
     update: (id, d) => request('PUT', `/api/documents/${id}`, d),
     remove: id => request('DELETE', `/api/documents/${id}`),
     restore: ids => request('POST', '/api/documents/restore', { ids }),

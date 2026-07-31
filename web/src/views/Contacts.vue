@@ -102,7 +102,14 @@ function emptyForm() {
   return { id: null, student_id: null, method: '电话', date: '', topic: '', result: '' };
 }
 
-watch(() => store.currentClassId, () => { load(); loadStudents(); });
+// 切班：重置筛选条件 + 关闭编辑弹窗，防止旧班筛选残留导致列表恒空
+watch(() => store.currentClassId, () => {
+  query.month = '';
+  query.student_id = null;
+  formVisible.value = false;
+  load();
+  loadStudents();
+});
 onMounted(() => { load(); loadStudents(); });
 
 async function loadStudents() {
@@ -123,15 +130,19 @@ async function load() {
     const q = { class_id: store.currentClassId };
     if (query.month) q.month = query.month;
     if (query.student_id) q.student_id = query.student_id;
-    const data = await api.contacts.list(q);
-    const st = await api.contacts.stats({ class_id: store.currentClassId, month: query.month || undefined });
+    // 双请求并行，各自独立落值：单请求失败不拖垮主数据（P1）
+    const [dataRes, stRes] = await Promise.allSettled([
+      api.contacts.list(q),
+      api.contacts.stats({ class_id: store.currentClassId, month: query.month || undefined }),
+    ]);
     if (mainSeq.isStale(mySeq)) return;
-    list.value = data;
-    stats.value = st;
+    if (dataRes.status === 'fulfilled') list.value = dataRes.value;
+    else ElMessage.error('沟通记录加载失败：' + dataRes.reason?.message);
+    if (stRes.status === 'fulfilled') stats.value = stRes.value;
   } catch (e) {
     ElMessage.error('沟通记录加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!mainSeq.isStale(mySeq)) loading.value = false;
   }
 }
 

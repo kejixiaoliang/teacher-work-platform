@@ -137,15 +137,19 @@ const groups = computed(() => {
   return [...map.values()].sort((a, b) => a.no - b.no);
 });
 const groupCount = computed(() => groups.value.length);
+// 当前周对应组：按排序后的索引取（组号删除后可能不连续，不能用 (week-1)%count+1 直接当组号找）
 const currentGroupNo = computed(() => groupCount.value ? ((week.value - 1) % groupCount.value) + 1 : null);
-const currentGroup = computed(() => groups.value.find(g => g.no === currentGroupNo.value));
+const currentGroup = computed(() => {
+  const idx = currentGroupNo.value;
+  return idx != null ? groups.value[idx - 1] : null;
+});
 const rosterRows = computed(() => {
   if (!groupCount.value) return [];
-  // 完整周期：第 w 周 = 第 w 组（一个周期内每周人员不重复）
+  // 完整周期：第 w 周 = 排序后第 w 组（一个周期内每周人员不重复；组号不连续时按索引对齐）
   return Array.from({ length: groupCount.value }, (_, i) => {
     const w = i + 1;
-    const g = groups.value.find(x => x.no === w);
-    return { week: w, groupNo: w, members: g ? g.members.map(m => m.student_name).join('、') : '' };
+    const g = groups.value[i];
+    return { week: w, groupNo: g ? g.no : w, members: g ? g.members.map(m => m.student_name).join('、') : '' };
   });
 });
 
@@ -158,15 +162,19 @@ async function load() {
   const mySeq = seq();
   loading.value = true;
   try {
-    const d = await api.duties.list({ class_id: store.currentClassId });
-    const st = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    // 双请求并行，各自独立落值：学生列表失败不拖垮值日表
+    const [dRes, stRes] = await Promise.allSettled([
+      api.duties.list({ class_id: store.currentClassId }),
+      api.students.list({ class_id: store.currentClassId, status: '在读' }),
+    ]);
     if (isStale(mySeq)) return;
-    duties.value = d;
-    students.value = st;
+    if (dRes.status === 'fulfilled') duties.value = dRes.value;
+    else ElMessage.error('值日数据加载失败：' + dRes.reason?.message);
+    if (stRes.status === 'fulfilled') students.value = stRes.value;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!isStale(mySeq)) loading.value = false;
   }
 }
 
@@ -182,9 +190,11 @@ async function removeGroup(no) {
     // 并行删除（P2-15）
     const list = dutyList.value.filter(d => d.group_no === no);
     await Promise.all(list.map(d => api.duties.remove(d.id)));
-    load();
+    ElMessage.success('已删除');
   } catch (e) {
-    ElMessage.error(e.message);
+    ElMessage.error('部分删除失败：' + e.message);
+  } finally {
+    load(); // 部分失败也要刷新，保持 UI 与服务器一致
   }
 }
 function openAddMembers(no) {

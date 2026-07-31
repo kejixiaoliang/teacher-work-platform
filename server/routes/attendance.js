@@ -28,8 +28,8 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   const { classId, date, rows } = req.body || {};
   if (!classId || !date || !Array.isArray(rows)) return res.json({ ok: false, error: '参数不完整' });
-  // 校验学生属于该班
-  const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ?').all(Number(classId)).map(r => r.id));
+  // 校验学生属于该班且在册（软删除学生不能写入考勤）
+  const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ? AND deleted_at IS NULL').all(Number(classId)).map(r => r.id));
   const upsert = db.prepare(`
     INSERT INTO attendance (class_id, student_id, date, status, remark) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(class_id, student_id, date) DO UPDATE SET status = excluded.status, remark = excluded.remark
@@ -51,6 +51,7 @@ router.put('/', (req, res) => {
 router.get('/stats', (req, res) => {
   const { class_id, month } = req.query;
   if (!class_id || !month) return res.json({ ok: false, error: '缺少班级或月份' });
+  if (!/^\d{4}-\d{2}$/.test(String(month))) return res.json({ ok: false, error: '月份格式应为 YYYY-MM' });
   const prefix = String(month) + '%';
   const rows = db.prepare(`
     SELECT a.student_id, st.name, st.school_no,

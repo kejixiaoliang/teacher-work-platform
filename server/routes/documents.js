@@ -126,7 +126,9 @@ router.put('/:id', (req, res) => {
 
 // 软删除
 router.delete('/:id', (req, res) => {
-  db.prepare(`UPDATE documents SET deleted_at=datetime('now','localtime') WHERE id=?`).run(Number(req.params.id));
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的文件 ID' });
+  db.prepare(`UPDATE documents SET deleted_at=datetime('now','localtime') WHERE id=?`).run(id);
   res.json({ ok: true });
 });
 

@@ -160,10 +160,13 @@ const boardingOption = computed(() => {
 const myopiaRate = computed(() => students.value.length ? Math.round(students.value.filter(s => s.is_myopia).length / students.value.length * 100) : 0);
 const avgHeight = computed(() => {
   const hs = students.value.map(s => Number(s.height_cm)).filter(Boolean);
-  return hs.length ? Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) : 0;
+  return hs.length ? Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) : '—';
 });
+// 平均视力（较差眼）：全部学生参与，不再剔除 ≥5.2 的学生（口径与卡片标题一致）
 const avgVision = computed(() => {
-  const vs = students.value.map(s => Math.min(Number(s.vision_left) || 5, Number(s.vision_right) || 5)).filter(v => v < 5.2);
+  const vs = students.value
+    .map(s => Math.min(Number(s.vision_left) || 5, Number(s.vision_right) || 5))
+    .filter(v => Number.isFinite(v));
   return vs.length ? (vs.reduce((a, b) => a + b, 0) / vs.length).toFixed(1) : '—';
 });
 const boardingCount = computed(() => students.value.filter(s => s.is_boarding).length);
@@ -182,7 +185,7 @@ async function load() {
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!isStale(mySeq)) loading.value = false;
   }
 }
 </script>

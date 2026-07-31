@@ -369,8 +369,40 @@ async function loadStudents() {
     const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
     if (studentsSeq.isStale(mySeq)) return;
     allStudents.value = data;
+    // 切班竞态修复：考试先返回、学生后返回时，selectExam 用空学生构建了矩阵，这里补建
+    if (currentExam.value && !scoreRows.value.length && allStudents.value.length) {
+      rebuildMatrix(currentExam.value);
+      await fillScores(currentExam.value);
+    }
   } catch (e) {
     ElMessage.error('学生列表加载失败：' + e.message);
+  }
+}
+
+// 用当前学生列表构建录入矩阵（行=学生，列=科目）
+function rebuildMatrix(e) {
+  scoreMatrix.value = {};
+  scoreRows.value = allStudents.value.map(s => ({ id: s.id, name: s.name }));
+  for (const s of allStudents.value) {
+    scoreMatrix.value[s.id] = {};
+    for (const sub of e.subjects) scoreMatrix.value[s.id][sub] = null;
+  }
+}
+
+// 拉取已保存成绩并填充矩阵 + 统计
+async function fillScores(e) {
+  try {
+    const rows = await api.scores.list(e.id);
+    if (currentExam.value?.id !== e.id) return;
+    for (const r of rows) {
+      if (scoreMatrix.value[r.student_id]) scoreMatrix.value[r.student_id][r.subject] = r.score;
+    }
+    const an = await api.scores.analysis(e.id);
+    if (currentExam.value?.id !== e.id) return;
+    subjectStats.value = an.subjectStats;
+    ranking.value = an.ranking;
+  } catch (err) {
+    ElMessage.error(err.message);
   }
 }
 
@@ -384,27 +416,8 @@ async function selectExam(e) {
   tab.value = 'entry';
   scoreDirty.value = false;
   // 初始化矩阵
-  scoreMatrix.value = {};
-  scoreRows.value = allStudents.value.map(s => ({ id: s.id, name: s.name }));
-  for (const s of allStudents.value) {
-    scoreMatrix.value[s.id] = {};
-    for (const sub of e.subjects) scoreMatrix.value[s.id][sub] = null;
-  }
-  try {
-    const rows = await api.scores.list(e.id);
-    // 竞态防护：等待期间用户可能已切到其他考试，丢弃过期响应
-    if (currentExam.value?.id !== e.id) return false;
-    for (const r of rows) {
-      if (scoreMatrix.value[r.student_id]) scoreMatrix.value[r.student_id][r.subject] = r.score;
-    }
-    // 分析数据
-    const an = await api.scores.analysis(e.id);
-    if (currentExam.value?.id !== e.id) return false;
-    subjectStats.value = an.subjectStats;
-    ranking.value = an.ranking;
-  } catch (err) {
-    ElMessage.error(err.message);
-  }
+  rebuildMatrix(e);
+  await fillScores(e);
   return true;
 }
 
@@ -462,10 +475,13 @@ async function removeExam(e) {
 }
 
 /* ---------- 趋势 ---------- */
+const trendSeq = useSeqLoad();
 async function loadTrend() {
   if (!trendStudentId.value) return;
+  const mySeq = trendSeq.seq();
   try {
     const d = await api.scores.trend(store.currentClassId, trendStudentId.value);
+    if (trendSeq.isStale(mySeq)) return; // 快速切换学生时丢弃过期响应
     trendPoints.value = d;
   } catch (e) {
     ElMessage.error(e.message);

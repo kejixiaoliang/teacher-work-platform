@@ -73,7 +73,9 @@ router.put('/:id', (req, res) => {
 
 // 删除沟通记录
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM contacts WHERE id = ?').run(Number(req.params.id));
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的记录 ID' });
+  db.prepare('DELETE FROM contacts WHERE id = ?').run(id);
   res.json({ ok: true });
 });
 

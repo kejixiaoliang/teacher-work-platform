@@ -199,7 +199,11 @@ const dutyGroups = computed(() => {
 });
 const groupCount = computed(() => dutyGroups.value.length);
 const currentGroupNo = computed(() => groupCount.value ? ((week.value - 1) % groupCount.value) + 1 : null);
-const currentGroup = computed(() => dutyGroups.value.find(g => (g[0]?.group_no ?? 1) === currentGroupNo.value));
+// 组号删除后可能不连续，按排序索引取组（P1）
+const currentGroup = computed(() => {
+  const idx = currentGroupNo.value;
+  return idx != null ? dutyGroups.value[idx - 1] : null;
+});
 
 watch(() => store.currentClassId, load);
 watch(week, v => localStorage.setItem('duty-week', String(v)));
@@ -233,7 +237,7 @@ async function load() {
   } catch (e) {
     ElMessage.error('首页数据加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!isStale(mySeq)) loading.value = false;
   }
 }
 

@@ -84,7 +84,9 @@ router.put('/:id', (req, res) => {
 
 // 删除请假
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM leaves WHERE id = ?').run(Number(req.params.id));
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的请假 ID' });
+  db.prepare('DELETE FROM leaves WHERE id = ?').run(id);
   res.json({ ok: true });
 });
 

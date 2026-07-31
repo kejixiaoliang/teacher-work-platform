@@ -82,15 +82,19 @@ async function load() {
   const mySeq = seq();
   loading.value = true;
   try {
-    const d = await api.duties.list({ class_id: store.currentClassId });
-    const st = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    // 双请求并行，各自独立落值：学生列表失败不拖垮课代表表
+    const [dRes, stRes] = await Promise.allSettled([
+      api.duties.list({ class_id: store.currentClassId }),
+      api.students.list({ class_id: store.currentClassId, status: '在读' }),
+    ]);
     if (isStale(mySeq)) return;
-    duties.value = d;
-    students.value = st;
+    if (dRes.status === 'fulfilled') duties.value = dRes.value;
+    else ElMessage.error('课代表数据加载失败：' + dRes.reason?.message);
+    if (stRes.status === 'fulfilled') students.value = stRes.value;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!isStale(mySeq)) loading.value = false;
   }
 }
 

@@ -129,7 +129,16 @@ function emptyForm() {
   return { id: null, student_id: null, type: '事假', dateRange: [], days: 1, reason: '', status: '已批准', remark: '' };
 }
 
-watch(() => store.currentClassId, () => { load(); loadStudents(); });
+// 切班：重置筛选条件 + 关闭编辑弹窗，防止旧班筛选残留导致列表恒空
+watch(() => store.currentClassId, () => {
+  query.month = '';
+  query.student_id = null;
+  query.type = '';
+  query.status = '';
+  formVisible.value = false;
+  load();
+  loadStudents();
+});
 onMounted(() => { load(); loadStudents(); });
 
 async function loadStudents() {
@@ -152,15 +161,19 @@ async function load() {
     if (query.student_id) q.student_id = query.student_id;
     if (query.type) q.type = query.type;
     if (query.status) q.status = query.status;
-    const data = await api.leaves.list(q);
-    const td = await api.leaves.today(store.currentClassId);
+    // 双请求并行，各自独立落值：单请求失败不拖垮主数据（P1）
+    const [dataRes, tdRes] = await Promise.allSettled([
+      api.leaves.list(q),
+      api.leaves.today(store.currentClassId),
+    ]);
     if (mainSeq.isStale(mySeq)) return;
-    list.value = data;
-    todayLeaves.value = td;
+    if (dataRes.status === 'fulfilled') list.value = dataRes.value;
+    else ElMessage.error('请假记录加载失败：' + dataRes.reason?.message);
+    if (tdRes.status === 'fulfilled') todayLeaves.value = tdRes.value;
   } catch (e) {
     ElMessage.error('请假记录加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!mainSeq.isStale(mySeq)) loading.value = false;
   }
 }
 

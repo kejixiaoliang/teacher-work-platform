@@ -78,8 +78,17 @@ const dailySeq = useSeqLoad();
 const statsSeq = useSeqLoad();
 
 const tab = ref('daily');
-const date = ref(new Date().toISOString().slice(0, 10));
-const month = ref(new Date().toISOString().slice(0, 7));
+// 本地时区日期（UTC toISOString 在东八区每天 0-8 点会显示成昨天，P1）
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function localMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+const date = ref(localToday());
+const month = ref(localMonth());
 const rows = ref([]);
 const dirty = ref(false);
 const loading = ref(false);
