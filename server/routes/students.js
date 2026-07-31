@@ -226,4 +226,23 @@ router.get('/:id/metrics', (req, res) => {
   res.json({ ok: true, data: rows });
 });
 
+// 班级级历史指标聚合（B4：Analytics 学期对比用）。
+// 按学期统计平均身高/平均视力/近视率，数据来自「学期存档」快照。
+router.get('/class-metrics', (req, res) => {
+  const { class_id } = req.query;
+  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  const rows = db.prepare(`
+    SELECT m.term,
+      ROUND(AVG(m.height_cm), 1) AS avg_height,
+      ROUND(AVG(MIN(m.vision_left, m.vision_right)), 2) AS avg_vision,
+      ROUND(100.0 * SUM(m.is_myopia) / COUNT(*), 1) AS myopia_rate,
+      COUNT(*) AS count
+    FROM student_metrics_history m
+    JOIN students s ON s.id = m.student_id
+    WHERE s.class_id = ? AND s.deleted_at IS NULL AND m.height_cm IS NOT NULL
+    GROUP BY m.term ORDER BY m.term
+  `).all(Number(class_id));
+  res.json({ ok: true, data: rows });
+});
+
 export default router;

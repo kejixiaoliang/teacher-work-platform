@@ -18,7 +18,10 @@
              @click="selectExam(e)">
           <div class="exam-head">
             <span class="exam-name">{{ e.name }}</span>
-            <el-button class="mini-btn mini-btn-del" size="small" @click.stop="removeExam(e)">删</el-button>
+            <span>
+              <el-button class="mini-btn mini-btn-edit" size="small" @click.stop="openExamDialog(e)">改</el-button>
+              <el-button class="mini-btn mini-btn-del" size="small" @click.stop="removeExam(e)">删</el-button>
+            </span>
           </div>
           <div class="exam-meta">{{ e.date || '未定日期' }} · {{ e.subjects.length }} 科 · 已录 {{ e.scored_count }} 人</div>
         </div>
@@ -37,6 +40,7 @@
                 <span class="text-muted">直接点击数字编辑，改完点「保存成绩」（{{ currentExam.name }}）</span>
                 <div class="spacer"></div>
                 <el-button :icon="Upload" @click="openScoreImport">导入 Excel</el-button>
+                <el-button :icon="Download" @click="exportScores">导出成绩表</el-button>
                 <el-button type="success" :disabled="!scoreDirty" @click="saveScores">保存成绩</el-button>
               </div>
               <el-table :data="scoreRows" size="small" border max-height="520">
@@ -54,6 +58,11 @@
 
             <!-- 排名统计 -->
             <el-tab-pane label="排名与统计" name="analysis">
+              <div class="toolbar">
+                <span class="text-muted">各科指标与总分排名</span>
+                <div class="spacer"></div>
+                <el-button :icon="Download" @click="exportRanking">导出排名表</el-button>
+              </div>
               <div v-if="subjectStats.length" class="stat-cards">
                 <div v-for="s in subjectStats" :key="s.subject" class="stat-card">
                   <div class="sc-subject">{{ s.subject }}</div>
@@ -105,6 +114,7 @@
             <el-option v-for="s in COMMON_SUBJECTS" :key="s" :value="s" :label="s" />
           </el-select>
         </el-form-item>
+        <el-form-item label="备注"><el-input v-model="examForm.remark" placeholder="选填（C 组：补上死字段）" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="examDialogVisible = false">取消</el-button>
@@ -136,12 +146,13 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Upload } from '@element-plus/icons-vue';
+import { Plus, Upload, Download } from '@element-plus/icons-vue';
 import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import EChart from '../components/EChart.vue';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { exportExcel } from '../utils/exportExcel.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const examsSeq = useSeqLoad();
@@ -441,8 +452,11 @@ async function saveScores() {
 }
 
 /* ---------- 考试弹窗 ---------- */
-function openExamDialog() {
-  examForm.value = { id: null, name: '', date: '', subjects: [] };
+function openExamDialog(e) {
+  // B3：支持编辑（原 openExamDialog 不接收参数 → 考试编辑是死代码）
+  examForm.value = e
+    ? { id: e.id, name: e.name, date: e.date || '', subjects: [...(e.subjects || [])], remark: e.remark || '' }
+    : { id: null, name: '', date: '', subjects: [], remark: '' };
   examDialogVisible.value = true;
 }
 async function saveExam() {
@@ -474,9 +488,55 @@ async function removeExam(e) {
   }
 }
 
+/* ---------- 导出（B2） ---------- */
+// 导出当前考试成绩表（行=学生，列=科目，数据来自 scoreMatrix）
+async function exportScores() {
+  const e = currentExam.value;
+  if (!e) return ElMessage.warning('请先选择考试');
+  try {
+    await exportExcel(
+      '成绩表', `成绩表-${e.name}`,
+      [
+        { title: '姓名', key: 'name', width: 14 },
+        { title: '学号', key: 'schoolNo', width: 16 },
+        ...e.subjects.map(s => ({ title: s, render: r => r.scores?.[s] ?? '', width: 10 })),
+      ],
+      scoreRows.value.map(r => ({
+        name: r.name,
+        schoolNo: r.school_no || r.schoolNo || '',
+        scores: scoreMatrix.value[r.id] || {},
+      }))
+    );
+    ElMessage.success('成绩表已导出');
+  } catch (err) {
+    ElMessage.error(err.message);
+  }
+}
+// 导出排名统计表
+async function exportRanking() {
+  const e = currentExam.value;
+  if (!e) return ElMessage.warning('请先选择考试');
+  if (!ranking.value.length) return ElMessage.info('当前考试还没有可导出的排名数据');
+  try {
+    await exportExcel(
+      '排名统计', `排名统计-${e.name}`,
+      [
+        { title: '排名', key: 'rank', width: 8 },
+        { title: '姓名', key: 'name', width: 14 },
+        { title: '学号', key: 'schoolNo', width: 16 },
+        ...e.subjects.map(s => ({ title: s, render: r => r.scores?.[s] ?? '', width: 10 })),
+        { title: '总分', key: 'total', width: 10 },
+      ],
+      ranking.value
+    );
+    ElMessage.success('排名统计已导出');
+  } catch (err) {
+    ElMessage.error(err.message);
+  }
+}
+
 /* ---------- 趋势 ---------- */
-const trendSeq = useSeqLoad();
-async function loadTrend() {
+const trendSeq = useSeqLoad();async function loadTrend() {
   if (!trendStudentId.value) return;
   const mySeq = trendSeq.seq();
   try {

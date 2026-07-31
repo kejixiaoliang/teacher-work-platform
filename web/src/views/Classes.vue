@@ -119,10 +119,25 @@ function switchClass(row) {
 async function remove(row) {
   const isCurrent = row.id === store.currentClassId;
   const ok = await ElMessageBox.confirm(
-    `确定删除「${row.name}」？${isCurrent ? '这是当前使用的班级！' : ''}将连带删除该班所有学生、座位与历史布局，不可恢复！`,
-    '删除班级', { type: 'error', confirmButtonText: '删除', cancelButtonText: '取消' }
+    `确定删除「${row.name}」？${isCurrent ? '这是当前使用的班级！' : ''}将连带删除该班所有学生、座位与历史布局。删除前会先下载该班完整数据备份，确定继续吗？`,
+    '删除班级', { type: 'error', confirmButtonText: '删除并备份', cancelButtonText: '取消' }
   ).catch(() => false);
   if (!ok) return;
+  // A3：删除前自动导出该班全部数据（兜底，防误删后无法找回）
+  let backupOk = true;
+  try {
+    const data = await api.backup.exportClass(row.id);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    ElMessage.success('已下载该班数据备份');
+  } catch (e) {
+    backupOk = false;
+    ElMessage.warning('该班数据备份下载失败，仍将尝试删除');
+  }
   try {
     await api.classes.remove(row.id);
     ElMessage.success('已删除');

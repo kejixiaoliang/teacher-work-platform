@@ -18,6 +18,11 @@
 
     <!-- 图表区 -->
     <div class="chart-grid">
+      <div class="chart-card chart-wide">
+        <div class="chart-title">学期历史对比（来自「学期存档」快照）</div>
+        <EChart v-if="historyRows.length" :option="historyOption" height="300px" />
+        <el-empty v-else description="还没有学期存档数据，到首页「数据管理 → 学期存档」录入" :image-size="60" />
+      </div>
       <div class="chart-card">
         <div class="chart-title">身高分布</div>
         <EChart :option="heightOption" height="280px" />
@@ -42,7 +47,7 @@
 
     <el-empty v-if="!students.length" description="当前班级还没有在读学生，先去「学生管理」添加或导入" :image-size="90" style="margin-top:20px" />
 
-    <p class="text-muted" style="margin-top:12px">数据来源：学生档案当前值。身高/视力可随「学期存档」对比历史。</p>
+    <p class="text-muted" style="margin-top:12px">数据来源：学生档案当前值；身高/视力/近视率跨学期对比来自「学期存档」历史快照。</p>
   </div>
 </template>
 
@@ -58,6 +63,7 @@ const { seq, isStale } = useSeqLoad();
 
 const students = ref([]);
 const loading = ref(false);
+const historyRows = ref([]); // 学期历史对比数据（B4）
 
 const MINT_HEIGHT = 120, MAX_HEIGHT = 200, STEP = 10;
 
@@ -158,7 +164,29 @@ const boardingOption = computed(() => {
 });
 
 const myopiaRate = computed(() => students.value.length ? Math.round(students.value.filter(s => s.is_myopia).length / students.value.length * 100) : 0);
-const avgHeight = computed(() => {
+
+// 学期历史对比（B4）：平均身高/平均视力/近视率三条折线
+const historyOption = computed(() => {
+  const terms = historyRows.value.map(r => r.term);
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: { bottom: 0 },
+    grid: { left: 44, right: 44, top: 24, bottom: 36 },
+    xAxis: { type: 'category', data: terms, axisLabel: { fontSize: 12 } },
+    yAxis: [
+      { type: 'value', name: '身高(cm)', min: 0, splitLine: { show: true } },
+      { type: 'value', name: '视力/近视率', min: 0, max: 100, splitLine: { show: false } },
+    ],
+    series: [
+      { name: '平均身高', type: 'line', data: historyRows.value.map(r => r.avg_height ?? null), smooth: true,
+        lineStyle: { width: 3, color: '#f35b3f' }, itemStyle: { color: '#f35b3f' } },
+      { name: '平均视力', type: 'line', data: historyRows.value.map(r => r.avg_vision ?? null), smooth: true, yAxisIndex: 1,
+        lineStyle: { width: 3, color: '#8bd6af' }, itemStyle: { color: '#8bd6af' } },
+      { name: '近视率(%)', type: 'line', data: historyRows.value.map(r => r.myopia_rate ?? null), smooth: true, yAxisIndex: 1,
+        lineStyle: { width: 3, type: 'dashed', color: '#f2c84b' }, itemStyle: { color: '#f2c84b' } },
+    ],
+  };
+});const avgHeight = computed(() => {
   const hs = students.value.map(s => Number(s.height_cm)).filter(Boolean);
   return hs.length ? Math.round(hs.reduce((a, b) => a + b, 0) / hs.length) : '—';
 });
@@ -175,13 +203,19 @@ watch(() => store.currentClassId, load);
 onMounted(load);
 
 async function load() {
-  if (!store.currentClassId) { students.value = []; return; }
+  if (!store.currentClassId) { students.value = []; historyRows.value = []; return; }
   const mySeq = seq();
   loading.value = true;
   try {
-    const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    // 双请求并行：学生档案 + 学期历史对比（B4）
+    const [stRes, hisRes] = await Promise.allSettled([
+      api.students.list({ class_id: store.currentClassId, status: '在读' }),
+      api.students.classMetrics(store.currentClassId),
+    ]);
     if (isStale(mySeq)) return;
-    students.value = data;
+    if (stRes.status === 'fulfilled') students.value = stRes.value;
+    else ElMessage.error('数据加载失败：' + stRes.reason?.message);
+    if (hisRes.status === 'fulfilled') historyRows.value = hisRes.value;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
   } finally {
@@ -200,6 +234,7 @@ async function load() {
 .stat-num { font-size: 26px; font-weight: 900; color: var(--tomato); }
 .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 700; }
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
+.chart-wide { grid-column: 1 / -1; }
 .chart-card {
   background: var(--paper-soft); border: 3px solid var(--ink); border-radius: 18px; padding: 14px;
   box-shadow: var(--shadow-sm);

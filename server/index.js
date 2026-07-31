@@ -15,6 +15,8 @@ import attendanceRouter from './routes/attendance.js';
 import recordsRouter from './routes/records.js';
 import leavesRouter from './routes/leaves.js';
 import contactsRouter from './routes/contacts.js';
+import backupRouter from './routes/backup.js';
+import overviewRouter from './routes/overview.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3210;
@@ -34,6 +36,8 @@ app.use('/api/attendance', attendanceRouter);
 app.use('/api/students', recordsRouter);
 app.use('/api/leaves', leavesRouter);
 app.use('/api/contacts', contactsRouter);
+app.use('/api/backup', backupRouter);
+app.use('/api/overview', overviewRouter);
 
 // API 统一错误处理（multer 拒绝文件类型等 → 返回 JSON，不泄露内部实现细节）
 app.use('/api', (err, req, res, next) => {

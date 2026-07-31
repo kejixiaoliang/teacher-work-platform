@@ -53,6 +53,7 @@ export const api = {
     import: d => request('POST', '/api/students/import', d),
     archive: d => request('POST', '/api/students/archive', d),
     metrics: id => request('GET', `/api/students/${id}/metrics`),
+    classMetrics: classId => request('GET', `/api/students/class-metrics?class_id=${classId}`),
   },
   seats: {
     get: classId => request('GET', `/api/seats?class_id=${classId}`),
@@ -83,6 +84,7 @@ export const api = {
     create: d => request('POST', '/api/duties', d),
     batch: d => request('POST', '/api/duties/batch', d),
     autoGroup: d => request('POST', '/api/duties/auto-group', d),
+    groupDays: d => request('PUT', '/api/duties/group-days', d),
     presetLeaders: d => request('POST', '/api/duties/preset-leaders', d),
     presetSubjectLeaders: d => request('POST', '/api/duties/preset-subject-leaders', d),
     update: (id, d) => request('PUT', `/api/duties/${id}`, d),
@@ -126,5 +128,13 @@ export const api = {
     addContact: (id, d) => request('POST', `/api/students/${id}/contacts`, d),
     updateContact: (id, cid, d) => request('PUT', `/api/students/${id}/contacts/${cid}`, d),
     removeContact: (id, cid) => request('DELETE', `/api/students/${id}/contacts/${cid}`),
+  },
+  backup: {
+    export: () => request('GET', '/api/backup/export'),
+    import: payload => request('POST', '/api/backup/import', payload),
+    exportClass: id => request('GET', `/api/backup/export-class/${id}`),
+  },
+  overview: {
+    alerts: classId => request('GET', `/api/overview/alerts?class_id=${classId}`),
   },
 };

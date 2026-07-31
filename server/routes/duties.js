@@ -138,6 +138,23 @@ router.post('/auto-group', (req, res) => {
   });
 });
 
+// 按组设置值日星期（C 组：补上 week_days 死字段能力）
+// 周次×星期排班：每组可指定固定值日星期（如周一/周三），week_days 存 "1,3"
+router.put('/group-days', (req, res) => {
+  const { class_id, group_no, week_days } = req.body || {};
+  if (!class_id || group_no == null) return res.json({ ok: false, error: '缺少班级或组号' });
+  if (week_days != null && !/^[1-7](,[1-7])*$/.test(String(week_days))) {
+    return res.json({ ok: false, error: '星期格式应为 1-7 逗号分隔（1=周一 … 7=周日）' });
+  }
+  const info = db.prepare(`
+    UPDATE duties SET week_days = ? WHERE class_id = ? AND role = '值日生' AND group_no = ?
+  `).run(week_days || '', Number(class_id), Number(group_no));
+  if (info.changes === 0) {
+    return res.json({ ok: false, error: `第 ${group_no} 组不存在或没有成员` });
+  }
+  res.json({ ok: true, data: { count: info.changes } });
+});
+
 // 一键预设班委：补齐常见职务空缺（每人最多一个职务）
 router.post('/preset-leaders', (req, res) => {  const { class_id } = req.body || {};
   if (!class_id) return res.json({ ok: false, error: '缺少班级' });
@@ -216,8 +233,7 @@ router.post('/preset-subject-leaders', (req, res) => {
 });
 
 // 更新（同样做班干部职务唯一 + 值日生一人一组校验，排除自身）
-router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
+router.put('/:id', (req, res) => {  const id = Number(req.params.id);
   const row = db.prepare('SELECT * FROM duties WHERE id = ?').get(id);
   if (!row) return res.json({ ok: false, error: '记录不存在' });
   const b = req.body || {};

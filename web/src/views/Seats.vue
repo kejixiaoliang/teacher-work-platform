@@ -546,8 +546,12 @@ async function saveLayout() {
     }
   }
   try {
+    // C 组：区分排座来源，rule_snapshot 记录真实规则
+    const rule = previewing.value
+      ? { auto: true, options: { ...autoOpts } }
+      : { manual: true };
     const remark = previewing.value ? '自动排座/轮换' : '';
-    await api.seats.save({ classId: store.currentClassId, seats, remark });
+    await api.seats.save({ classId: store.currentClassId, seats, remark, rule });
     ElMessage.success(`已保存布局（${seats.filter(x => x.studentId != null).length} 人）`);
     dirty.value = false;
     previewing.value = false;

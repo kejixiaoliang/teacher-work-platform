@@ -260,6 +260,7 @@
         </el-form-item>
         <el-form-item label="内容" required><el-input v-model="recordForm.content" type="textarea" :rows="3" placeholder="记录内容" /></el-form-item>
         <el-form-item label="日期"><el-date-picker v-model="recordForm.date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="recordForm.remark" placeholder="选填（C 组：补上死字段）" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="recordDialogVisible = false">取消</el-button>
@@ -278,6 +279,7 @@
         <el-form-item label="日期"><el-date-picker v-model="contactForm.date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
         <el-form-item label="事由"><el-input v-model="contactForm.topic" placeholder="如：反馈期中成绩" /></el-form-item>
         <el-form-item label="结果"><el-input v-model="contactForm.result" type="textarea" :rows="2" placeholder="沟通结果/家长反馈" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="contactForm.remark" placeholder="选填（C 组：补上死字段）" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="contactDialogVisible = false">取消</el-button>

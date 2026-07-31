@@ -31,10 +31,18 @@
         <el-option label="已销假" value="已销假" />
       </el-select>
       <div class="spacer"></div>
+      <el-button :icon="Download" :disabled="!list.length" @click="exportLeaves">导出请假台账</el-button>
       <el-button :icon="Refresh" @click="load">刷新</el-button>
     </div>
 
-    <el-table :data="list" stripe v-loading="loading">
+    <!-- 逾期未销假提醒（B6） -->
+    <div class="today-bar overdue-bar" v-if="overdueLeaves.length">
+      <el-tag type="danger" size="large" round>逾期未销假 {{ overdueLeaves.length }} 条</el-tag>
+      <span class="today-names">{{ overdueLeaves.slice(0, 6).map(l => `${l.student_name}(${l.end_date})`).join('、') }}</span>
+      <span v-if="overdueLeaves.length > 6" class="text-muted">等 {{ overdueLeaves.length }} 条</span>
+    </div>
+
+    <el-table :data="list" stripe v-loading="loading" :row-class-name="overdueRowClass">
       <template #empty><el-empty description="暂无请假记录，点右上角「登记请假」" :image-size="60" /></template>
       <el-table-column prop="student_name" label="学生" min-width="110">
         <template #default="{ row }"><b>{{ row.student_name }}</b><span class="text-muted" v-if="row.school_no">（{{ row.school_no }}）</span></template>
@@ -105,12 +113,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Refresh } from '@element-plus/icons-vue';
+import { Plus, Refresh, Download } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { exportExcel } from '../utils/exportExcel.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const mainSeq = useSeqLoad();
@@ -127,6 +136,19 @@ const form = ref(emptyForm());
 
 function emptyForm() {
   return { id: null, student_id: null, type: '事假', dateRange: [], days: 1, reason: '', status: '已批准', remark: '' };
+}
+
+// B6：逾期未销假 = 已过 end_date 且状态不是「已销假」；用本地日期（UTC 在东八区 0-8 点会差一天）
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const today = localToday();
+const overdueLeaves = computed(() => list.value.filter(l =>
+  l.status !== '已销假' && l.end_date && l.end_date < today
+));
+function overdueRowClass({ row }) {
+  return row.status !== '已销假' && row.end_date && row.end_date < today ? 'row-overdue' : '';
 }
 
 // 切班：重置筛选条件 + 关闭编辑弹窗，防止旧班筛选残留导致列表恒空
@@ -174,6 +196,30 @@ async function load() {
     ElMessage.error('请假记录加载失败：' + e.message);
   } finally {
     if (!mainSeq.isStale(mySeq)) loading.value = false;
+  }
+}
+
+// 导出请假台账（B2）
+async function exportLeaves() {
+  try {
+    await exportExcel(
+      '请假台账', '请假台账',
+      [
+        { title: '学生', key: 'student_name', width: 12 },
+        { title: '学号', key: 'school_no', width: 14 },
+        { title: '类型', key: 'type', width: 8 },
+        { title: '开始日期', key: 'start_date', width: 14 },
+        { title: '结束日期', key: 'end_date', width: 14 },
+        { title: '天数', key: 'days', width: 8 },
+        { title: '事由', key: 'reason', width: 24 },
+        { title: '状态', key: 'status', width: 10 },
+        { title: '备注', key: 'remark', width: 18 },
+      ],
+      list.value
+    );
+    ElMessage.success('请假台账已导出');
+  } catch (e) {
+    ElMessage.error(e.message);
   }
 }
 
@@ -262,4 +308,9 @@ function statusType(s) {
   box-shadow: var(--shadow-xs);
 }
 .today-names { font-size: 13px; font-weight: 800; color: var(--ink); }
+/* 逾期未销假提醒条 */
+.overdue-bar { background: var(--el-color-danger-light-9); border-color: var(--el-color-danger); }
+/* 逾期行高亮 */
+:deep(.el-table .row-overdue td) { background: var(--el-color-danger-light-9) !important; }
+:deep(.el-table .row-overdue td:first-child) { border-left: 3px solid var(--el-color-danger); }
 </style>

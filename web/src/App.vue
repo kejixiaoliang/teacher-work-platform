@@ -65,8 +65,8 @@
           <span class="title-dot"></span>{{ $route.meta.title }}
         </div>
         <div class="topbar-right">
-          <el-input v-model="globalKw" placeholder="搜索学生（姓名/学号）" clearable style="width:210px"
-                    :prefix-icon="Search" @keyup.enter="goSearch" @clear="goSearch" />
+          <el-input v-model="globalKw" placeholder="搜索：学生/文档/请假/沟通" clearable style="width:230px"
+                    :prefix-icon="Search" @keyup.enter="openGlobalSearch" @clear="openGlobalSearch" @focus="openGlobalSearch" />
           <template v-if="store.classes.length > 1">
             <span class="text-muted">班级：</span>
             <el-select :model-value="store.currentClassId" style="width:150px" @update:model-value="onClassChange">
@@ -84,17 +84,67 @@
         </div>
       </el-main>
     </el-container>
+
+    <!-- 全局搜索弹窗（B7）：聚合学生/文档/请假/沟通 -->
+    <el-dialog v-model="searchVisible" title="全局搜索" width="560px" :show-close="true" append-to-body>
+      <el-input v-model="searchKw" placeholder="输入关键词搜索学生、文档、请假、沟通记录…" clearable
+                size="large" :prefix-icon="Search" @keyup.enter="doGlobalSearch" />
+      <div style="margin-top:12px" v-loading="searchLoading">
+        <template v-if="searchResults.students?.length">
+          <div class="gs-group">
+            <div class="gs-title">学生（{{ searchResults.students.length }}）</div>
+            <div v-for="s in searchResults.students.slice(0, 8)" :key="'s' + s.id" class="gs-item" @click="goStudent(s)">
+              <b>{{ s.name }}</b>
+              <span class="text-muted">{{ s.school_no || '无学号' }} · {{ s.class_name }}</span>
+            </div>
+          </div>
+        </template>
+        <template v-if="searchResults.documents?.length">
+          <div class="gs-group">
+            <div class="gs-title">文档（{{ searchResults.documents.length }}）</div>
+            <div v-for="d in searchResults.documents.slice(0, 8)" :key="'d' + d.id" class="gs-item" @click="go('/documents')">
+              <b>{{ d.original_name }}</b>
+              <span class="text-muted">{{ d.category }} · {{ d.class_name }}</span>
+            </div>
+          </div>
+        </template>
+        <template v-if="searchResults.leaves?.length">
+          <div class="gs-group">
+            <div class="gs-title">请假（{{ searchResults.leaves.length }}）</div>
+            <div v-for="l in searchResults.leaves.slice(0, 8)" :key="'l' + l.id" class="gs-item" @click="go('/leaves')">
+              <b>{{ l.student_name }}</b>
+              <span class="text-muted">{{ l.type }} · {{ l.start_date }}~{{ l.end_date }} · {{ l.reason }}</span>
+            </div>
+          </div>
+        </template>
+        <template v-if="searchResults.contacts?.length">
+          <div class="gs-group">
+            <div class="gs-title">沟通记录（{{ searchResults.contacts.length }}）</div>
+            <div v-for="c in searchResults.contacts.slice(0, 8)" :key="'c' + c.id" class="gs-item" @click="go('/contacts')">
+              <b>{{ c.student_name }}</b>
+              <span class="text-muted">{{ c.method }} · {{ c.date }} · {{ c.topic }}</span>
+            </div>
+          </div>
+        </template>
+        <el-empty v-if="searched && !searchLoading && !totalHits" description="没有找到匹配结果" :image-size="60" />
+      </div>
+      <template #footer>
+        <el-button @click="searchVisible = false">关闭</el-button>
+        <el-button type="primary" @click="go('/students')">前往学生管理</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   Search, Notebook, Reading, Clock, ChatDotRound, HomeFilled, User, Grid,
   TrendCharts, DocumentChecked, Finished, FolderOpened, Calendar, UserFilled, Setting,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { api } from './api.js';
 import { store, currentClass, loadClasses } from './store.js';
 
 const route = useRoute();
@@ -109,11 +159,60 @@ watch(() => route.path, p => {
   if (menuRef.value) menuRef.value.activeIndex = p;
 });
 
-// 全局搜索学生：跳转学生页并带关键词
-function goSearch() {
-  const kw = globalKw.value.trim();
-  router.push({ path: '/students', query: kw ? { kw } : {} });
-  if (kw) ElMessage({ type: 'info', message: `已搜索「${kw}」`, duration: 1200 });
+// 全局搜索（B7）：聚合学生/文档/请假/沟通
+const searchVisible = ref(false);
+const searchKw = ref('');
+const searchLoading = ref(false);
+const searched = ref(false);
+const searchResults = ref({ students: [], documents: [], leaves: [], contacts: [] });
+let searchSeq = 0; // 全局搜索竞态计数器（B7）
+const totalHits = computed(() =>
+  (searchResults.value.students?.length || 0) + (searchResults.value.documents?.length || 0)
+  + (searchResults.value.leaves?.length || 0) + (searchResults.value.contacts?.length || 0)
+);
+
+function openGlobalSearch() {
+  searchKw.value = globalKw.value.trim();
+  searchVisible.value = true;
+  searched.value = false;
+  if (searchKw.value) doGlobalSearch();
+}
+async function doGlobalSearch() {
+  const kw = searchKw.value.trim();
+  if (!kw) { searchResults.value = { students: [], documents: [], leaves: [], contacts: [] }; searched.value = true; return; }
+  // 竞态防护：快速连续输入时只采纳最后一次的结果
+  const mySeq = ++searchSeq;
+  searchLoading.value = true;
+  searched.value = true;
+  try {
+    // 跨班搜索：不带 class_id；各请求独立失败不影响其他
+    const [st, doc, lv, ct] = await Promise.allSettled([
+      api.students.list({ keyword: kw }),
+      api.documents.list({ keyword: kw }),
+      api.leaves.list({ keyword: kw }),
+      api.contacts.list({ keyword: kw }),
+    ]);
+    if (mySeq !== searchSeq) return; // 已发起更新的搜索，丢弃过期结果
+    searchResults.value = {
+      students: st.status === 'fulfilled' ? st.value : [],
+      documents: doc.status === 'fulfilled' ? doc.value : [],
+      leaves: lv.status === 'fulfilled' ? lv.value : [],
+      contacts: ct.status === 'fulfilled' ? ct.value : [],
+    };
+  } catch (e) {
+    ElMessage.error('搜索失败：' + e.message);
+  } finally {
+    if (mySeq === searchSeq) searchLoading.value = false;
+  }
+}
+function goStudent(s) {
+  searchVisible.value = false;
+  store.currentClassId = s.class_id;
+  router.push({ path: '/students', query: { kw: s.name } });
+}
+function go(p) {
+  searchVisible.value = false;
+  router.push(p);
 }
 
 // 切班级：座位页有未保存修改时先确认（P1-1）
@@ -130,6 +229,16 @@ async function onClassChange(id) {
 </script>
 
 <style scoped>
+/* ---------- 全局搜索弹窗（B7） ---------- */
+.gs-group { margin-bottom: 10px; }
+.gs-title { font-size: 12px; color: var(--muted); font-weight: 800; letter-spacing: .5px; margin-bottom: 4px; }
+.gs-item {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.gs-item:hover { background: var(--paper-soft); }
+.gs-item .text-muted { font-size: 12px; }
+
 .layout { height: 100vh; }
 
 /* ---------- 侧边栏：奶油纸 + 墨线 ---------- */

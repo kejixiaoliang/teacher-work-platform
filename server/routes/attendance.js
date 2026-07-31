@@ -34,12 +34,19 @@ router.put('/', (req, res) => {
     INSERT INTO attendance (class_id, student_id, date, status, remark) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(class_id, student_id, date) DO UPDATE SET status = excluded.status, remark = excluded.remark
   `);
+  // 方向 1：读取已有记录，保留请假联动的 remark 标记（销假时靠它清理）
+  const getRemark = db.prepare('SELECT remark FROM attendance WHERE class_id=? AND student_id=? AND date=?');
   let saved = 0;
   const tx = db.transaction((list) => {
     for (const r of list) {
       if (r.studentId == null || !validIds.has(Number(r.studentId))) continue;
       const status = STATUSES.includes(r.status) ? r.status : '出勤';
-      upsert.run(Number(classId), Number(r.studentId), String(date), status, r.remark || '');
+      const prev = getRemark.get(Number(classId), Number(r.studentId), String(date));
+      // 前端未填备注时，保留请假联动标记；否则按用户输入覆盖
+      const remark = r.remark && String(r.remark).trim()
+        ? String(r.remark).trim()
+        : (prev?.remark === '请假联动' ? '请假联动' : (r.remark || ''));
+      upsert.run(Number(classId), Number(r.studentId), String(date), status, remark);
       saved++;
     }
   });

@@ -3,11 +3,44 @@ import db from '../db.js';
 
 const router = Router();
 
+/* ================= 请假 ↔ 考勤联动（方向 1） ================= */
+// 标记：联动写入考勤的记录，销假/删除时据此清理
+const SYNC_REMARK = '请假联动';
+
+// 日期格式化 YYYY-MM-DD
+function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+/**
+ * 按请假记录同步考勤：
+ * 1) 先清理该生在该日期范围内的联动记录（仅删除仍处于「请假」状态的——老师手动改为出勤/迟到等的不删，尊重手动登记）
+ * 2) 若状态不是「已销假」，逐日补写考勤「请假」——当天已有考勤记录则不覆盖（尊重老师手动登记）
+ */
+function syncAttendance(leave, oldStart, oldEnd) {
+  const cls = Number(leave.class_id);
+  const sid = Number(leave.student_id);
+  // 清理旧范围联动记录（改日期/销假/删除时都会先清）；只删 status='请假' 的联动记录
+  db.prepare(`
+    DELETE FROM attendance WHERE class_id=? AND student_id=? AND date BETWEEN ? AND ? AND remark=? AND status='请假'
+  `).run(cls, sid, oldStart || leave.start_date, oldEnd || leave.end_date || leave.start_date, SYNC_REMARK);
+  if (leave.status === '已销假') return;
+  // 逐日补写：当天已有记录则跳过
+  const ins = db.prepare(`
+    INSERT INTO attendance (class_id, student_id, date, status, remark) VALUES (?, ?, ?, '请假', ?)
+  `);
+  const has = db.prepare('SELECT 1 FROM attendance WHERE class_id=? AND student_id=? AND date=?');
+  const start = new Date(leave.start_date + 'T00:00:00');
+  const end = new Date((leave.end_date || leave.start_date) + 'T00:00:00');
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const ds = fmtDate(d);
+    if (!has.get(cls, sid, ds)) ins.run(cls, sid, ds, SYNC_REMARK);
+  }
+}
+
 /* ================= 请假管理 ================= */
 
-// 列表（可按班级/学生/月份/类型/状态过滤，JOIN 学生姓名）
+// 列表（可按班级/学生/月份/类型/状态/关键词过滤，JOIN 学生姓名）
 router.get('/', (req, res) => {
-  const { class_id, student_id, month, type, status } = req.query;
+  const { class_id, student_id, month, type, status, keyword } = req.query;
   const conds = [];
   const params = {};
   if (class_id) { conds.push('l.class_id = @class_id'); params.class_id = Number(class_id); }
@@ -15,6 +48,11 @@ router.get('/', (req, res) => {
   if (month) { conds.push("substr(l.start_date, 1, 7) = @month"); params.month = month; }
   if (type) { conds.push('l.type = @type'); params.type = type; }
   if (status) { conds.push('l.status = @status'); params.status = status; }
+  if (keyword) {
+    // 全局搜索：按学生姓名/学号/事由模糊匹配（B7）
+    conds.push('(s.name LIKE @kw OR s.school_no LIKE @kw OR l.reason LIKE @kw)');
+    params.kw = `%${keyword}%`;
+  }
   const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
   const rows = db.prepare(`
     SELECT l.*, s.name AS student_name, s.school_no, s.gender
@@ -46,6 +84,8 @@ router.post('/', (req, res) => {
     d,
     reason || '', status || '已批准', remark || ''
   );
+  // 方向 1：联动写入考勤「请假」
+  syncAttendance({ class_id, student_id, start_date, end_date: end_date || start_date, status: status || '已批准' });
   res.json({ ok: true, data: { id: info.lastInsertRowid } });
 });
 
@@ -79,6 +119,11 @@ router.put('/:id', (req, res) => {
     newClassId,
     id
   );
+  // 方向 1：按最新状态/日期重新同步考勤（先清旧范围联动，再按新范围补写）
+  syncAttendance(
+    { class_id: newClassId, student_id: newStudentId, start_date: sDate, end_date: eDate, status: b.status !== undefined ? b.status : row.status },
+    row.start_date, row.end_date
+  );
   res.json({ ok: true });
 });
 
@@ -86,6 +131,13 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的请假 ID' });
+  const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(id);
+  if (row) {
+    // 方向 1：删除请假时清理其联动写入的考勤记录（仅仍处于「请假」状态的）
+    db.prepare(`
+      DELETE FROM attendance WHERE class_id=? AND student_id=? AND date BETWEEN ? AND ? AND remark=? AND status='请假'
+    `).run(row.class_id, row.student_id, row.start_date, row.end_date || row.start_date, SYNC_REMARK);
+  }
   db.prepare('DELETE FROM leaves WHERE id = ?').run(id);
   res.json({ ok: true });
 });

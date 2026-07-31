@@ -5,14 +5,19 @@ const router = Router();
 
 /* ================= 家校沟通（班级级台账） ================= */
 
-// 班级维度列表：按学生 JOIN，可按班级/学生/日期范围过滤
+// 班级维度列表：按学生 JOIN，可按班级/学生/日期范围/关键词过滤
 router.get('/', (req, res) => {
-  const { class_id, student_id, month } = req.query;
+  const { class_id, student_id, month, keyword } = req.query;
   const conds = [];
   const params = {};
   if (class_id) { conds.push('c.student_id IN (SELECT id FROM students WHERE class_id = @class_id)'); params.class_id = Number(class_id); }
   if (student_id) { conds.push('c.student_id = @student_id'); params.student_id = Number(student_id); }
   if (month) { conds.push("substr(c.date, 1, 7) = @month"); params.month = month; }
+  if (keyword) {
+    // 全局搜索：按学生姓名/学号/事由/结果模糊匹配（B7）
+    conds.push('(s.name LIKE @kw OR s.school_no LIKE @kw OR c.topic LIKE @kw OR c.result LIKE @kw)');
+    params.kw = `%${keyword}%`;
+  }
   const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
   const rows = db.prepare(`
     SELECT c.*, s.name AS student_name, s.school_no, s.gender

@@ -66,11 +66,13 @@ router.put('/', (req, res) => {
     const snapshot = dedup.map(s => ({
       studentId: s.student_id, row: s.row, col: s.col, locked: !!s.locked,
     }));
+    // C 组：rule_snapshot 真实记录排座规则（手动/自动/轮换），不再是写死的 {manual:true}
+    const rule = req.body?.rule || { manual: true };
     db.prepare(`
       INSERT INTO seat_layouts (class_id, rule_snapshot, seats_snapshot, remark)
       VALUES (?, ?, ?, ?)
-    `).run(classId, JSON.stringify({ manual: true }), JSON.stringify(snapshot),
-      remark || `保存布局（${new Date().toLocaleString('zh-CN')}）`);
+    `).run(classId, JSON.stringify(rule), JSON.stringify(snapshot),
+      remark || (rule.auto ? `自动排座（${rule.auto}）` : rule.shift ? `平移轮换（行${rule.shift[0]} 列${rule.shift[1]}）` : `保存布局（${new Date().toLocaleString('zh-CN')}）`));
     // 快照限流：每班只保留最近 50 条历史，防止无限膨胀
     db.prepare(`
       DELETE FROM seat_layouts WHERE id IN (

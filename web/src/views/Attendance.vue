@@ -15,6 +15,7 @@
                           style="width:160px" @change="onDateChange" />
           <span class="text-muted">共 {{ rows.length }} 人 · 已登记 {{ savedCount }} 人</span>
           <div class="spacer"></div>
+          <el-button plain :disabled="!rows.length" @click="markAllPresent">一键全部出勤</el-button>
           <el-button type="success" :disabled="!dirty" @click="saveDaily">保存今日考勤</el-button>
         </div>
         <el-table :data="rows" size="small" border max-height="560" v-loading="loading">
@@ -46,6 +47,8 @@
           <el-date-picker v-model="month" type="month" value-format="YYYY-MM" :clearable="false"
                           style="width:150px" @change="loadStats" />
           <span class="text-muted">按登记日期统计各状态天数</span>
+          <div class="spacer"></div>
+          <el-button plain :disabled="!stats.length" @click="exportStats">导出月度统计</el-button>
         </div>
         <el-table :data="stats" size="small" border stripe v-loading="statsLoading">
           <el-table-column prop="school_no" label="学号" min-width="90" />
@@ -72,6 +75,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { exportExcel } from '../utils/exportExcel.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const dailySeq = useSeqLoad();
@@ -161,6 +165,35 @@ async function saveDaily() {
     ElMessage.success(`已保存 ${date.value} 的考勤`);
     dirty.value = false;
     loadDaily();
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
+}
+
+// 一键全部出勤（B1）：全勤日不用逐行点选
+function markAllPresent() {
+  rows.value.forEach(r => { r.status = '出勤'; r.remark = ''; });
+  dirty.value = true;
+  ElMessage.success('已将全部学生设为出勤，记得保存');
+}
+
+// 导出月度统计（B2）
+async function exportStats() {
+  try {
+    await exportExcel(
+      '考勤统计', `考勤统计-${month.value}`,
+      [
+        { title: '学号', key: 'school_no', width: 14 },
+        { title: '姓名', key: 'name', width: 12 },
+        { title: '出勤', key: '出勤', width: 10 },
+        { title: '迟到', key: '迟到', width: 10 },
+        { title: '请假', key: '请假', width: 10 },
+        { title: '缺勤', key: '缺勤', width: 10 },
+        { title: '登记天数', key: 'days', width: 12 },
+      ],
+      stats.value
+    );
+    ElMessage.success('月度统计已导出');
   } catch (e) {
     ElMessage.error(e.message);
   }

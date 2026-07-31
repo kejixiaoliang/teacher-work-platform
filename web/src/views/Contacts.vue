@@ -25,6 +25,7 @@
         <el-option v-for="s in students" :key="s.id" :value="s.id" :label="`${s.name}（${s.school_no}）`" />
       </el-select>
       <div class="spacer"></div>
+      <el-button :icon="Download" :disabled="!list.length" @click="exportContacts">导出沟通台账</el-button>
       <el-button :icon="Refresh" @click="load">刷新</el-button>
     </div>
 
@@ -68,6 +69,7 @@
         <el-form-item label="日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
         <el-form-item label="事由"><el-input v-model="form.topic" placeholder="如：反馈期中成绩" /></el-form-item>
         <el-form-item label="结果"><el-input v-model="form.result" type="textarea" :rows="2" placeholder="沟通结果/家长反馈" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="form.remark" placeholder="选填（C 组：补上死字段）" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="formVisible = false">取消</el-button>
@@ -80,10 +82,11 @@
 <script setup>
 import { ref, reactive, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Refresh } from '@element-plus/icons-vue';
+import { Plus, Refresh, Download } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { exportExcel } from '../utils/exportExcel.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const mainSeq = useSeqLoad();
@@ -99,7 +102,7 @@ const formVisible = ref(false);
 const form = ref(emptyForm());
 
 function emptyForm() {
-  return { id: null, student_id: null, method: '电话', date: '', topic: '', result: '' };
+  return { id: null, student_id: null, method: '电话', date: '', topic: '', result: '', remark: '' };
 }
 
 // 切班：重置筛选条件 + 关闭编辑弹窗，防止旧班筛选残留导致列表恒空
@@ -146,9 +149,31 @@ async function load() {
   }
 }
 
+// 导出沟通台账（B2）
+async function exportContacts() {
+  try {
+    await exportExcel(
+      '沟通台账', '家校沟通台账',
+      [
+        { title: '学生', key: 'student_name', width: 12 },
+        { title: '学号', key: 'school_no', width: 14 },
+        { title: '日期', key: 'date', width: 14 },
+        { title: '方式', key: 'method', width: 10 },
+        { title: '事由', key: 'topic', width: 28 },
+        { title: '结果/反馈', key: 'result', width: 30 },
+        { title: '备注', key: 'remark', width: 18 },
+      ],
+      list.value
+    );
+    ElMessage.success('沟通台账已导出');
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
+}
+
 function openForm(row) {
   form.value = row
-    ? { id: row.id, student_id: row.student_id, method: row.method || '电话', date: row.date || '', topic: row.topic || '', result: row.result || '' }
+    ? { id: row.id, student_id: row.student_id, method: row.method || '电话', date: row.date || '', topic: row.topic || '', result: row.result || '', remark: row.remark || '' }
     : emptyForm();
   formVisible.value = true;
 }

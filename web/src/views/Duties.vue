@@ -23,9 +23,11 @@
               <span class="group-badge">第 {{ g.no }} 组</span>
               <span class="text-muted">({{ g.members.length }} 人)</span>
               <div class="spacer"></div>
+              <el-button class="grp-btn" size="small" @click="openWeekDays(g.no)">星期</el-button>
               <el-button class="grp-btn" size="small" @click="openAddMembers(g.no)">加人</el-button>
               <el-button class="grp-btn grp-btn-del" size="small" @click="removeGroup(g.no)">删组</el-button>
             </div>
+            <div v-if="g.weekDays" class="week-days-badge">值日：{{ weekDaysLabel(g.weekDays) }}</div>
             <div class="group-members">
               <el-tag v-for="m in g.members" :key="m.id" closable size="default"
                       :type="m.gender === '女' ? 'danger' : 'warning'"
@@ -100,6 +102,23 @@
         <el-button type="primary" :loading="autoGroupLoading" @click="runAutoGroup">生成分组</el-button>
       </template>
     </el-dialog>
+
+    <!-- 设置值日星期（C 组：周次×星期排班） -->
+    <el-dialog v-model="weekDaysVisible" :title="`设置第 ${weekDaysForm.group_no} 组值日星期`" width="440px">
+      <el-alert type="info" :closable="false" style="margin-bottom:12px"
+                title="可选：指定该组固定在哪几天值日（如大扫除日）。不设置则按「每周一组」轮换。" />
+      <el-form label-width="80px">
+        <el-form-item label="值日星期">
+          <el-select v-model="weekDaysForm.days" multiple clearable placeholder="选填：选择固定值日星期" style="width:100%">
+            <el-option v-for="(n, i) in WEEK_NAMES" :key="n" :value="String(i + 1)" :label="n" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="weekDaysVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveWeekDays">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -127,15 +146,21 @@ const autoGroupCount = ref(4);
 const autoGroupLoading = ref(false);
 
 const dutyList = computed(() => duties.value.filter(d => d.role === '值日生'));
+const WEEK_NAMES = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 const groups = computed(() => {
   const map = new Map();
   for (const d of dutyList.value) {
     const no = d.group_no ?? 1;
-    if (!map.has(no)) map.set(no, { no, members: [] });
+    if (!map.has(no)) map.set(no, { no, members: [], weekDays: d.week_days || '' });
     map.get(no).members.push(d);
   }
   return [...map.values()].sort((a, b) => a.no - b.no);
 });
+// 组星期展示：把 "1,3" 转成 "周一、周三"
+function weekDaysLabel(wd) {
+  if (!wd) return '';
+  return String(wd).split(',').map(n => WEEK_NAMES[Number(n) - 1]).filter(Boolean).join('、');
+}
 const groupCount = computed(() => groups.value.length);
 // 当前周对应组：按排序后的索引取（组号删除后可能不连续，不能用 (week-1)%count+1 直接当组号找）
 const currentGroupNo = computed(() => groupCount.value ? ((week.value - 1) % groupCount.value) + 1 : null);
@@ -222,6 +247,34 @@ async function saveMembers() {
   }
 }
 
+/* ---------- 值日星期（C 组） ---------- */
+const weekDaysVisible = ref(false);
+const weekDaysForm = ref({ group_no: null, days: [] });
+
+function openWeekDays(no) {
+  const g = groups.value.find(x => x.no === no);
+  weekDaysForm.value = {
+    group_no: no,
+    days: g?.weekDays ? String(g.weekDays).split(',').filter(Boolean) : [],
+  };
+  weekDaysVisible.value = true;
+}
+async function saveWeekDays() {
+  if (!weekDaysForm.value.group_no) return;
+  try {
+    await api.duties.groupDays({
+      class_id: store.currentClassId,
+      group_no: weekDaysForm.value.group_no,
+      week_days: weekDaysForm.value.days.join(','),
+    });
+    ElMessage.success('已保存值日星期');
+    weekDaysVisible.value = false;
+    load();
+  } catch (e) {
+    ElMessage.error(e.message);
+  }
+}
+
 /* ---------- 自动分组 ---------- */
 function openAutoGroup() {
   autoGroupCount.value = Math.max(4, Math.ceil(students.value.length / 6));
@@ -296,6 +349,12 @@ function printRoster() {
 }
 /* 组卡操作按钮：清晰胶囊，不与底色融合（样式见全局 style.css） */
 .group-members { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 值日星期徽标（C 组） */
+.week-days-badge {
+  display: inline-block; background: var(--peach); border: 2px solid var(--ink);
+  border-radius: 8px; padding: 1px 10px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 800; color: var(--ink);
+}
 .current-group {
   padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);
   box-shadow: var(--shadow-sm);
