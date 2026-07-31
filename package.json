@@ -1,0 +1,29 @@
+{
+  "name": "teacher-work",
+  "version": "0.1.0",
+  "private": true,
+  "description": "班主任教师工作台：班级/学生/座位/文档/值日管理（单机 Web 应用）",
+  "type": "module",
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "dev:web": "vite",
+    "dev": "concurrently -k -n server,web \"npm:dev:server\" \"npm:dev:web\"",
+    "build": "vite build",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "element-plus": "^2.9.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "multer": "^2.2.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "concurrently": "^9.1.0",
+    "vite": "^6.0.7"
+  }
+}

@@ -1,0 +1,153 @@
+import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
+import { fileURLToPath } from 'url';
+import db from '../db.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const filesDir = path.join(__dirname, '..', '..', 'data', 'files');
+if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true });
+
+const router = Router();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, filesDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    cb(null, `${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 200 * 1024 * 1024 },
+  // 文件扩展名白名单（常见办公/媒体格式）
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+      '.ppt', '.pptx', '.txt', '.md', '.csv', '.zip', '.rar', '.7z', '.mp3', '.mp4', '.wav', '.mov'];
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error(`不支持的文件类型 ${ext || '(无扩展名)'}`));
+  },
+});
+
+function categoryOf(ext) {
+  if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)) return '图片';
+  if (['.pdf'].includes(ext)) return 'PDF';
+  if (['.doc', '.docx'].includes(ext)) return '文档';
+  if (['.xls', '.xlsx', '.csv'].includes(ext)) return '表格';
+  if (['.ppt', '.pptx'].includes(ext)) return '演示';
+  if (['.txt', '.md'].includes(ext)) return '文本';
+  return '其他';
+}
+
+function pickDoc(row) {
+  if (!row) return null;
+  return { ...row, size: Number(row.size) };
+}
+
+// 上传（multipart：file + class_id + tag）
+router.post('/', upload.single('file'), (req, res) => {
+  if (!req.file) return res.json({ ok: false, error: '未收到文件' });
+  const { class_id, tag, name } = req.body || {};
+  const original = name || req.file.originalname;
+  const ext = path.extname(original).toLowerCase();
+  const info = db.prepare(`
+    INSERT INTO documents (class_id, original_name, stored_name, category, size, mime, tag)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    class_id ? Number(class_id) : null,
+    original,
+    req.file.filename,
+    categoryOf(ext),
+    req.file.size,
+    req.file.mimetype || 'application/octet-stream',
+    tag || ''
+  );
+  res.json({ ok: true, data: { id: info.lastInsertRowid, name: original } });
+});
+
+// 列表
+router.get('/', (req, res) => {
+  const { class_id, category, tag, keyword, trashed } = req.query;
+  const conds = [];
+  const params = {};
+  conds.push(trashed === '1' ? 'd.deleted_at IS NOT NULL' : 'd.deleted_at IS NULL');
+  if (class_id) { conds.push('d.class_id = @class_id'); params.class_id = Number(class_id); }
+  if (category) { conds.push('d.category = @category'); params.category = category; }
+  if (tag) { conds.push("',' || d.tag || ',' LIKE @tag"); params.tag = `%,${tag},%`; }
+  if (keyword) { conds.push('d.original_name LIKE @kw'); params.kw = `%${keyword}%`; }
+  const rows = db.prepare(`
+    SELECT d.*, c.name AS class_name FROM documents d
+    LEFT JOIN classes c ON c.id = d.class_id
+    WHERE ${conds.join(' AND ')}
+    ORDER BY d.deleted_at IS NOT NULL, d.uploaded_at DESC
+  `).all(params);
+  res.json({ ok: true, data: rows.map(pickDoc) });
+});
+
+// 重命名/改标签
+router.put('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(id);
+  if (!row) return res.json({ ok: false, error: '文件不存在' });
+  const b = req.body || {};
+  db.prepare(`UPDATE documents SET original_name=?, tag=?, deleted_at=? WHERE id=?`).run(
+    b.name !== undefined ? b.name : row.original_name,
+    b.tag !== undefined ? b.tag : row.tag,
+    b.deleted_at !== undefined ? b.deleted_at : row.deleted_at,
+    id
+  );
+  res.json({ ok: true });
+});
+
+// 软删除
+router.delete('/:id', (req, res) => {
+  db.prepare(`UPDATE documents SET deleted_at=datetime('now','localtime') WHERE id=?`).run(Number(req.params.id));
+  res.json({ ok: true });
+});
+
+// 恢复
+router.post('/restore', (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) return res.json({ ok: false, error: '未选择文件' });
+  const tx = db.transaction(() => {
+    for (const id of ids) db.prepare(`UPDATE documents SET deleted_at=NULL WHERE id=?`).run(Number(id));
+  });
+  tx();
+  res.json({ ok: true, data: { count: ids.length } });
+});
+
+// 彻底删除（含物理文件）
+router.post('/purge', (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) return res.json({ ok: false, error: '未选择文件' });
+  const tx = db.transaction(() => {
+    for (const id of ids) {
+      const row = db.prepare('SELECT stored_name FROM documents WHERE id = ?').get(Number(id));
+      if (row) {
+        try { fs.unlinkSync(path.join(filesDir, row.stored_name)); } catch { /* 文件可能已不存在 */ }
+        db.prepare('DELETE FROM documents WHERE id = ?').run(Number(id));
+      }
+    }
+  });
+  tx();
+  res.json({ ok: true, data: { count: ids.length } });
+});
+
+// 文件流（?dl=1 下载；否则预览：图片/PDF/文本 inline）
+router.get('/:id/file', (req, res) => {
+  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(Number(req.params.id));
+  if (!row || row.deleted_at) return res.status(404).json({ ok: false, error: '文件不存在' });
+  const filePath = path.join(filesDir, row.stored_name);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: '物理文件缺失' });
+  const dl = req.query.dl === '1';
+  res.setHeader('Content-Type', row.mime || 'application/octet-stream');
+  const encoded = encodeURIComponent(row.original_name).replace(/['()]/g, escape);
+  res.setHeader('Content-Disposition',
+    `${dl ? 'attachment' : 'inline'}; filename*=UTF-8''${encoded}`);
+  fs.createReadStream(filePath).pipe(res);
+});
+
+export default router;

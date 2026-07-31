@@ -1,0 +1,420 @@
+<template>
+  <div class="page-card">
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <el-input v-model="query.keyword" placeholder="搜索姓名/学号" clearable style="width:200px"
+                :prefix-icon="Search" @input="debouncedLoad" />
+      <el-select v-model="query.gender" placeholder="性别" clearable style="width:100px" @change="load">
+        <el-option label="男" value="男" /><el-option label="女" value="女" />
+      </el-select>
+      <el-select v-model="query.status" placeholder="状态" clearable style="width:110px" @change="load">
+        <el-option label="在读" value="在读" /><el-option label="转出" value="转出" /><el-option label="休学" value="休学" />
+      </el-select>
+      <el-select v-model="query.myopia" placeholder="近视" clearable style="width:90px" @change="load">
+        <el-option label="是" value="1" /><el-option label="否" value="0" />
+      </el-select>
+      <el-select v-model="query.boarding" placeholder="住宿" clearable style="width:90px" @change="load">
+        <el-option label="是" value="1" /><el-option label="否" value="0" />
+      </el-select>
+      <div class="spacer"></div>
+      <el-button type="primary" :icon="Plus" @click="openEdit()">新增学生</el-button>
+      <el-button :icon="Download" @click="downloadTemplate">下载导入模板</el-button>
+      <el-button :icon="Upload" @click="fileInput.click()">导入 Excel</el-button>
+      <el-button :icon="Files" @click="exportExcel">导出 Excel</el-button>
+      <el-button v-if="!trashed" :icon="Delete" type="danger" plain @click="batchDelete"
+                 :disabled="!selected.length">批量删除</el-button>
+      <el-button v-if="trashed" :icon="RefreshLeft" @click="batchRestore" :disabled="!selected.length">恢复</el-button>
+      <el-button v-if="trashed" :icon="DeleteFilled" type="danger" plain @click="batchPurge"
+                 :disabled="!selected.length">彻底删除</el-button>
+      <el-button :icon="trashed ? 'View' : 'Delete'" text @click="toggleTrash">
+        {{ trashed ? '返回列表' : '回收站' }}
+      </el-button>
+      <input ref="fileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onFileChange" />
+    </div>
+
+    <el-table :data="list" stripe @selection-change="onSelection" @row-click="openDetail" style="cursor:pointer">
+      <el-table-column type="selection" width="40" />
+      <el-table-column prop="school_no" label="学号" width="90" />
+      <el-table-column prop="name" label="姓名" width="90">
+        <template #default="{ row }"><b>{{ row.name }}</b></template>
+      </el-table-column>
+      <el-table-column prop="gender" label="性别" width="60" />
+      <el-table-column prop="height_cm" label="身高(cm)" width="85" />
+      <el-table-column label="视力" width="110">
+        <template #default="{ row }">
+          <span :class="{ 'vision-bad': row.vision_left != null && row.vision_left < 4.8 }">{{ fmtVision(row.vision_left) }}</span>
+          /
+          <span :class="{ 'vision-bad': row.vision_right != null && row.vision_right < 4.8 }">{{ fmtVision(row.vision_right) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="近视" width="60">
+        <template #default="{ row }"><el-tag v-if="row.is_myopia" size="small" type="warning">是</el-tag></template>
+      </el-table-column>
+      <el-table-column prop="grade_level" label="成绩" width="80">
+        <template #default="{ row }">
+          <el-tag v-if="row.grade_level" size="small" :type="gradeType(row.grade_level)">{{ row.grade_level }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="住宿" width="60">
+        <template #default="{ row }"><span v-if="row.is_boarding">🏠</span></template>
+      </el-table-column>
+      <el-table-column prop="status" label="状态" width="70">
+        <template #default="{ row }">
+          <el-tag v-if="row.status !== '在读'" size="small" type="info">{{ row.status }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="140" fixed="right">
+        <template #default="{ row }">
+          <template v-if="!trashed">
+            <el-button link type="primary" size="small" @click.stop="openEdit(row)">编辑</el-button>
+            <el-button link type="danger" size="small" @click.stop="removeOne(row)">删除</el-button>
+          </template>
+          <template v-else>
+            <el-button link type="primary" size="small" @click.stop="batchRestore([row.id])">恢复</el-button>
+            <el-button link type="danger" size="small" @click.stop="batchPurge([row.id])">删除</el-button>
+          </template>
+        </template>
+      </el-table-column>
+    </el-table>
+    <div class="text-muted" style="margin-top:8px">共 {{ list.length }} 人（点击行查看详情）</div>
+
+    <!-- 新增/编辑弹窗 -->
+    <el-dialog v-model="editVisible" :title="form.id ? '编辑学生' : '新增学生'" width="640px" destroy-on-close>
+      <el-form :model="form" label-width="110px">
+        <el-tabs>
+          <el-tab-pane label="基本信息">
+            <el-form-item label="学号" required><el-input v-model="form.school_no" placeholder="全校唯一学号" /></el-form-item>
+            <el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item>
+            <el-form-item label="性别">
+              <el-radio-group v-model="form.gender"><el-radio value="男">男</el-radio><el-radio value="女">女</el-radio></el-radio-group>
+            </el-form-item>
+            <el-form-item label="出生日期"><el-date-picker v-model="form.birth_date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
+            <el-form-item label="联系电话"><el-input v-model="form.phone" /></el-form-item>
+            <el-form-item label="家长电话"><el-input v-model="form.parent_phone" /></el-form-item>
+            <el-form-item label="是否住宿"><el-switch v-model="form.is_boarding" /></el-form-item>
+            <el-form-item label="状态">
+              <el-select v-model="form.status" style="width:120px">
+                <el-option label="在读" value="在读" /><el-option label="转出" value="转出" /><el-option label="休学" value="休学" />
+              </el-select>
+            </el-form-item>
+          </el-tab-pane>
+          <el-tab-pane label="健康与排座">
+            <el-form-item label="身高(cm)"><el-input-number v-model="form.height_cm" :min="80" :max="230" /></el-form-item>
+            <el-form-item label="左眼视力"><el-input-number v-model="form.vision_left" :min="3.0" :max="5.3" :step="0.1" :precision="1" /></el-form-item>
+            <el-form-item label="右眼视力"><el-input-number v-model="form.vision_right" :min="3.0" :max="5.3" :step="0.1" :precision="1" /></el-form-item>
+            <el-form-item label="是否近视"><el-switch v-model="form.is_myopia" /></el-form-item>
+            <el-form-item label="成绩等级">
+              <el-select v-model="form.grade_level" clearable style="width:140px">
+                <el-option label="优" value="优" /><el-option label="良" value="良" />
+                <el-option label="中" value="中" /><el-option label="待提高" value="待提高" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="特殊座位需求"><el-input v-model="form.seat_note" placeholder="如：必须坐前排、避免与XX相邻" /></el-form-item>
+            <el-form-item label="健康状况"><el-input v-model="form.health_note" placeholder="过敏、哮喘等" /></el-form-item>
+          </el-tab-pane>
+          <el-tab-pane label="其他">
+            <el-form-item label="兴趣特长/职务"><el-input v-model="form.interest_duty" placeholder="班长、课代表、绘画特长…" /></el-form-item>
+            <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="3" /></el-form-item>
+          </el-tab-pane>
+        </el-tabs>
+      </el-form>
+      <template #footer>
+        <el-button @click="editVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveEdit">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 详情抽屉 -->
+    <el-drawer v-model="detailVisible" :title="detail.name" size="420px">
+      <template v-if="detail.id">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="学号">{{ detail.school_no || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="性别">{{ detail.gender }}</el-descriptions-item>
+          <el-descriptions-item label="身高">{{ detail.height_cm ?? '—' }} cm</el-descriptions-item>
+          <el-descriptions-item label="视力">{{ fmtVision(detail.vision_left) }} / {{ fmtVision(detail.vision_right) }}</el-descriptions-item>
+          <el-descriptions-item label="成绩">{{ detail.grade_level || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
+          <el-descriptions-item label="住宿">{{ detail.is_boarding ? '是' : '否' }}</el-descriptions-item>
+          <el-descriptions-item label="近视">{{ detail.is_myopia ? '是' : '否' }}</el-descriptions-item>
+          <el-descriptions-item label="出生日期">{{ detail.birth_date || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ detail.phone || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="家长电话">{{ detail.parent_phone || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="职务/特长">{{ detail.interest_duty || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="健康状况" :span="2">{{ detail.health_note || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="座位需求" :span="2">{{ detail.seat_note || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ detail.remark || '—' }}</el-descriptions-item>
+        </el-descriptions>
+
+        <h4 style="margin:16px 0 8px">身高/视力历史</h4>
+        <el-table :data="metrics" size="small" border>
+          <el-table-column prop="term" label="学期" />
+          <el-table-column prop="height_cm" label="身高" />
+          <el-table-column label="视力">
+            <template #default="{ row }">{{ fmtVision(row.vision_left) }}/{{ fmtVision(row.vision_right) }}</template>
+          </el-table-column>
+          <el-table-column prop="grade_level" label="成绩" />
+          <el-table-column prop="recorded_at" label="记录时间" width="120" />
+        </el-table>
+      </template>
+    </el-drawer>
+
+    <!-- 导入预览 -->
+    <el-dialog v-model="importVisible" title="导入预览" width="620px">
+      <el-alert type="info" :closable="false" style="margin-bottom:10px"
+                :title="`解析到 ${parsed.length} 行，其中 ${parsedFail.length} 行有误（有误的行会跳过）`" />
+      <el-table :data="parsed" size="small" max-height="320" border>
+        <el-table-column prop="_row" label="行" width="50" />
+        <el-table-column prop="school_no" label="学号" width="90" />
+        <el-table-column prop="name" label="姓名" width="80" />
+        <el-table-column prop="gender" label="性别" width="50" />
+        <el-table-column prop="height_cm" label="身高" width="70" />
+        <el-table-column prop="vision_left" label="左眼" width="60" />
+        <el-table-column prop="vision_right" label="右眼" width="60" />
+      </el-table>
+      <template #footer>
+        <el-button @click="importVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importing" @click="doImport">确认导入</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, watch, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Search, Plus, Download, Upload, Files, Delete, DeleteFilled, RefreshLeft } from '@element-plus/icons-vue';
+import ExcelJS from 'exceljs';
+import { api } from '../api.js';
+import { store } from '../store.js';
+
+const TEMPLATE_COLS = [
+  { key: 'school_no', title: '学号', width: 12 },
+  { key: 'name', title: '姓名*', width: 10 },
+  { key: 'gender', title: '性别(男/女)', width: 12 },
+  { key: 'birth_date', title: '出生日期', width: 12 },
+  { key: 'phone', title: '联系电话', width: 14 },
+  { key: 'parent_phone', title: '家长电话', width: 14 },
+  { key: 'is_boarding', title: '是否住宿(是/否)', width: 14 },
+  { key: 'interest_duty', title: '兴趣特长/职务', width: 14 },
+  { key: 'health_note', title: '健康状况/过敏史', width: 16 },
+  { key: 'height_cm', title: '身高cm', width: 10 },
+  { key: 'vision_left', title: '左眼视力', width: 10 },
+  { key: 'vision_right', title: '右眼视力', width: 10 },
+  { key: 'is_myopia', title: '是否近视(是/否)', width: 14 },
+  { key: 'grade_level', title: '成绩等级(优/良/中/待提高)', width: 22 },
+  { key: 'seat_note', title: '特殊座位需求', width: 16 },
+  { key: 'remark', title: '备注', width: 14 },
+];
+
+const list = ref([]);
+const selected = ref([]);
+const trashed = ref(false);
+const fileInput = ref(null);
+const query = reactive({ keyword: '', gender: '', status: '', myopia: '', boarding: '' });
+
+const editVisible = ref(false);
+const form = ref(emptyForm());
+const detailVisible = ref(false);
+const detail = ref({});
+const metrics = ref([]);
+
+const importVisible = ref(false);
+const parsed = ref([]);
+const parsedFail = ref([]);
+const importing = ref(false);
+
+let debounceTimer = null;
+function debouncedLoad() { clearTimeout(debounceTimer); debounceTimer = setTimeout(load, 300); }
+
+function emptyForm() {
+  return {
+    id: null, school_no: '', name: '', gender: '男', birth_date: '', phone: '', parent_phone: '',
+    is_boarding: false, interest_duty: '', health_note: '', height_cm: null, vision_left: null,
+    vision_right: null, is_myopia: false, grade_level: '', seat_note: '', status: '在读', remark: '',
+  };
+}
+
+async function load() {
+  if (!store.currentClassId) { list.value = []; return; }
+  const q = { class_id: store.currentClassId, ...query, trashed: trashed.value ? '1' : '0' };
+  list.value = await api.students.list(q);
+}
+
+watch(() => store.currentClassId, load);
+onMounted(load);
+
+function onSelection(rows) { selected.value = rows.map(r => r.id); }
+function openDetail(row) {
+  detail.value = row;
+  detailVisible.value = true;
+  api.students.metrics(row.id).then(m => (metrics.value = m));
+}
+function toggleTrash() { trashed.value = !trashed.value; selected.value = []; load(); }
+
+function openEdit(row) {
+  form.value = row ? { ...row } : emptyForm();
+  editVisible.value = true;
+}
+
+async function saveEdit() {
+  if (!form.value.name || !form.value.name.trim()) return ElMessage.warning('请填写姓名');
+  const f = { ...form.value, is_boarding: form.value.is_boarding ? 1 : 0, is_myopia: form.value.is_myopia ? 1 : 0 };
+  try {
+    if (f.id) await api.students.update(f.id, f);
+    else await api.students.create({ ...f, class_id: store.currentClassId });
+    ElMessage.success('已保存');
+    editVisible.value = false;
+    load();
+  } catch (e) { ElMessage.error(e.message); }
+}
+
+async function removeOne(row) {
+  await ElMessageBox.confirm(`确定把「${row.name}」移入回收站？`, '删除确认', { type: 'warning' });
+  await api.students.remove(row.id);
+  ElMessage.success('已移入回收站');
+  load();
+}
+
+async function batchDelete() {
+  await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 名学生？`, '批量删除', { type: 'warning' });
+  for (const id of selected.value) await api.students.remove(id);
+  ElMessage.success('已删除');
+  load();
+}
+async function batchRestore(ids) {
+  const idList = ids || selected.value;
+  await api.students.restore(idList);
+  ElMessage.success('已恢复');
+  load();
+}
+async function batchPurge(ids) {
+  const idList = ids || selected.value;
+  await ElMessageBox.confirm(`彻底删除 ${idList.length} 名学生？此操作不可恢复！`, '彻底删除', { type: 'error' });
+  await api.students.purge(idList);
+  ElMessage.success('已彻底删除');
+  load();
+}
+
+function fmtVision(v) { return v == null || v === '' ? '—' : Number(v).toFixed(1); }
+function gradeType(g) { return { 优: 'success', 良: 'primary', 中: 'warning', 待提高: 'danger' }[g] || 'info'; }
+
+/* ---------- Excel ---------- */
+function cellStr(cell) {
+  if (cell == null) return '';
+  let v = cell.value;
+  if (v && typeof v === 'object') v = v.text ?? v.result ?? v;
+  return v == null ? '' : String(v).trim();
+}
+function cellNum(cell) {
+  const s = cellStr(cell);
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function cellBool(cell, yesValues = ['是', 'true', '1', 'y', 'yes']) {
+  const s = cellStr(cell).toLowerCase();
+  return s ? yesValues.includes(s) : false;
+}
+
+async function downloadTemplate() {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('学生名单');
+  ws.addRow(TEMPLATE_COLS.map(c => c.title));
+  ws.getRow(1).font = { bold: true };
+  ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E8F5' } };
+  ws.addRow(['20251001', '示例学生', '男', '2012-01-01', '', '', '是', '', '', '150', '4.8', '4.9', '否', '良', '', '']);
+  TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
+  const buf = await wb.xlsx.writeBuffer();
+  saveBlob(new Blob([buf]), '学生导入模板.xlsx');
+}
+
+async function onFileChange(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0];
+    const rows = [];
+    const fails = [];
+    ws.eachRow((row, rn) => {
+      if (rn === 1) return; // 表头
+      const cells = row.cells;
+      const r = {
+        _row: rn,
+        school_no: cellStr(cells[1]),
+        name: cellStr(cells[2]),
+        gender: cellStr(cells[3]) || '男',
+        birth_date: cellStr(cells[4]),
+        phone: cellStr(cells[5]),
+        parent_phone: cellStr(cells[6]),
+        is_boarding: cellBool(cells[7]),
+        interest_duty: cellStr(cells[8]),
+        health_note: cellStr(cells[9]),
+        height_cm: cellNum(cells[10]),
+        vision_left: cellNum(cells[11]),
+        vision_right: cellNum(cells[12]),
+        is_myopia: cellBool(cells[13]),
+        grade_level: cellStr(cells[14]),
+        seat_note: cellStr(cells[15]),
+        remark: cellStr(cells[16]),
+      };
+      if (!r.name) { fails.push({ row: rn, reason: '姓名为空' }); return; }
+      rows.push(r);
+    });
+    parsed.value = rows;
+    parsedFail.value = fails;
+    importVisible.value = true;
+  } catch (err) {
+    ElMessage.error('文件解析失败：' + err.message);
+  }
+}
+
+async function doImport() {
+  if (!store.currentClassId) return ElMessage.warning('请先创建班级');
+  importing.value = true;
+  try {
+    const r = await api.students.import({ class_id: store.currentClassId, students: parsed.value });
+    const failMsgs = r.fail.map(f => `第${f.row}行${f.name ? '「' + f.name + '」' : ''}：${f.reason}`).join('；');
+    ElMessage.success(`导入成功 ${r.success.length} 人` + (r.fail.length ? `，失败 ${r.fail.length} 人` : ''));
+    if (r.fail.length) ElMessage.warning(failMsgs.slice(0, 200));
+    importVisible.value = false;
+    load();
+  } catch (e) {
+    ElMessage.error(e.message);
+  } finally {
+    importing.value = false;
+  }
+}
+
+async function exportExcel() {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('学生名单');
+  ws.addRow(TEMPLATE_COLS.map(c => c.title));
+  ws.getRow(1).font = { bold: true };
+  for (const s of list.value) {
+    ws.addRow([
+      s.school_no, s.name, s.gender, s.birth_date, s.phone, s.parent_phone,
+      s.is_boarding ? '是' : '否', s.interest_duty, s.health_note, s.height_cm,
+      s.vision_left, s.vision_right, s.is_myopia ? '是' : '否', s.grade_level, s.seat_note, s.remark,
+    ]);
+  }
+  TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
+  const buf = await wb.xlsx.writeBuffer();
+  saveBlob(new Blob([buf]), `学生名单-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+
+<style scoped>
+.vision-bad { color: #f56c6c; font-weight: 600; }
+:deep(.el-table__row) { cursor: pointer; }
+</style>

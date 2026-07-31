@@ -1,0 +1,22 @@
+import { createRouter, createWebHashHistory } from 'vue-router';
+import Overview from './views/Overview.vue';
+import Students from './views/Students.vue';
+import Seats from './views/Seats.vue';
+import Documents from './views/Documents.vue';
+import Duties from './views/Duties.vue';
+import Leaders from './views/Leaders.vue';
+import Classes from './views/Classes.vue';
+
+export default createRouter({
+  history: createWebHashHistory(),
+  routes: [
+    { path: '/', redirect: '/overview' },
+    { path: '/overview', component: Overview, meta: { title: '概览首页' } },
+    { path: '/students', component: Students, meta: { title: '学生管理' } },
+    { path: '/seats', component: Seats, meta: { title: '座位管理' } },
+    { path: '/documents', component: Documents, meta: { title: '文档管理' } },
+    { path: '/duties', component: Duties, meta: { title: '值日管理' } },
+    { path: '/leaders', component: Leaders, meta: { title: '班委学委' } },
+    { path: '/classes', component: Classes, meta: { title: '班级管理' } },
+  ],
+});
