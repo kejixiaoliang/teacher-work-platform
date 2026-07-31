@@ -77,7 +77,7 @@ const heightOption = computed(() => {
     grid: { left: 40, right: 16, top: 20, bottom: 28 },
     xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 12 } },
     yAxis: { type: 'value', minInterval: 1 },
-    series: [{ type: 'bar', data, barWidth: '55%', itemStyle: { color: '#3ec6a8', borderRadius: [6, 6, 0, 0] } }],
+    series: [{ type: 'bar', data, barWidth: '55%', itemStyle: { color: '#f35b3f', borderRadius: [6, 6, 0, 0] } }],
   };
 });
 
@@ -94,8 +94,8 @@ const visionOption = computed(() => {
       type: 'pie', radius: ['45%', '68%'], center: ['50%', '45%'],
       label: { show: false },
       data: [
-        { name: '近视', value: myopia, itemStyle: { color: '#f5a623' } },
-        { name: '未近视', value: normal, itemStyle: { color: '#3ec6a8' } },
+        { name: '近视', value: myopia, itemStyle: { color: '#f2c84b' } },
+        { name: '未近视', value: normal, itemStyle: { color: '#8bd6af' } },
       ],
     }],
     graphic: [{ type: 'text', left: 'center', top: '38%', style: { text: `平均视力 ${avg.toFixed(1)}`, fontSize: 14, fontWeight: 700, fill: '#33403c' } }],
@@ -109,7 +109,7 @@ const gradeOption = computed(() => {
     if (g && g in map) map[g]++;
     else map['未录入']++;
   }
-  const colors = { 优: '#3ec6a8', 良: '#67c23a', 中: '#f5a623', 待提高: '#f56c6c', 未录入: '#c0c4cc' };
+  const colors = { 优: '#8bd6af', 良: '#8bd6af', 中: '#f2c84b', 待提高: '#d64541', 未录入: '#d9cbb0' };
   return {
     tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
     legend: { bottom: 0 },
@@ -131,8 +131,8 @@ const genderOption = computed(() => {
       type: 'pie', radius: '60%', center: ['50%', '45%'],
       label: { formatter: '{b}\n{d}%' },
       data: [
-        { name: '男生', value: male, itemStyle: { color: '#55b3f0' } },
-        { name: '女生', value: female, itemStyle: { color: '#f58b9f' } },
+        { name: '男生', value: male, itemStyle: { color: '#f35b3f' } },
+        { name: '女生', value: female, itemStyle: { color: '#f2c84b' } },
       ],
     }],
   };
@@ -147,8 +147,8 @@ const boardingOption = computed(() => {
       type: 'pie', radius: '60%', center: ['50%', '45%'],
       label: { formatter: '{b}\n{d}%' },
       data: [
-        { name: '住宿', value: boarding, itemStyle: { color: '#9b8cf5' } },
-        { name: '走读', value: students.value.length - boarding, itemStyle: { color: '#f0c46c' } },
+        { name: '住宿', value: boarding, itemStyle: { color: '#8bd6af' } },
+        { name: '走读', value: students.value.length - boarding, itemStyle: { color: '#f2c84b' } },
       ],
     }],
   };
@@ -184,14 +184,16 @@ async function load() {
 <style scoped>
 .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .stat-card {
-  background: linear-gradient(135deg, #f0faf6, #e6f9f5);
-  border: 1px solid #d5f0e6; border-radius: 12px; padding: 14px; text-align: center;
+  background: #fff;
+  border: 3px solid var(--ink); border-radius: 14px; padding: 14px; text-align: center;
+  box-shadow: var(--shadow-xs);
 }
-.stat-num { font-size: 26px; font-weight: 800; color: #2f8f7a; }
-.stat-label { font-size: 12px; color: #6b8a7e; margin-top: 4px; }
-.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.stat-num { font-size: 26px; font-weight: 900; color: var(--tomato); }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 700; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
 .chart-card {
-  background: #fff; border: 1px solid #eef7f3; border-radius: 12px; padding: 14px;
+  background: var(--paper-soft); border: 4px solid var(--ink); border-radius: 18px; padding: 14px;
+  box-shadow: var(--shadow-sm);
 }
-.chart-title { font-size: 14px; font-weight: 700; color: #33403c; margin-bottom: 8px; }
+.chart-title { font-size: 14px; font-weight: 900; color: var(--ink); margin-bottom: 8px; }
 </style>

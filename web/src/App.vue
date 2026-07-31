@@ -1,12 +1,13 @@
 <template>
   <el-container class="layout">
-    <el-aside width="200px" class="sidebar no-print">
+    <el-aside width="210px" class="sidebar no-print">
       <div class="logo">
-        <span class="logo-emoji">🌿</span>
+        <span class="logo-emoji">📝</span>
         <div class="logo-text">
           <b>教师工作台</b>
           <small>班主任的好帮手</small>
         </div>
+        <span class="logo-pin">班级实验本</span>
       </div>
       <el-menu ref="menuRef" :default-active="$route.path" router class="nav-menu">
         <el-menu-item-group title="常用">
@@ -119,91 +120,127 @@ async function onClassChange(id) {
 <style scoped>
 .layout { height: 100vh; }
 
-/* ---------- 侧边栏：白底 + 薄荷绿胶囊菜单 ---------- */
+/* ---------- 侧边栏：奶油纸 + 墨线 ---------- */
 .sidebar {
-  background: #fff;
+  background: var(--paper-soft);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #e6f4ee;
-  box-shadow: 2px 0 12px rgba(62, 198, 168, .05);
+  border-right: 4px solid var(--ink);
 }
 .logo {
+  position: relative;
   display: flex; align-items: center; gap: 10px;
-  padding: 18px 14px 14px;
+  padding: 16px 14px 14px;
+  margin: 14px 12px 6px;
+  background: #fff;
+  border: 4px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  transform: rotate(-1deg);
 }
-.logo-emoji { font-size: 28px; line-height: 1; }
-.logo-text b { display: block; font-size: 16px; color: #2f8f7a; letter-spacing: .5px; }
-.logo-text small { font-size: 11px; color: #9dbcb1; }
+.logo-emoji {
+  font-size: 26px; line-height: 1;
+  background: var(--mustard);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.logo-text b { display: block; font-size: 16px; color: var(--ink); letter-spacing: .5px; }
+.logo-text small { font-size: 11px; color: var(--muted); }
+.logo-pin {
+  position: absolute; right: -10px; top: -12px;
+  background: var(--tomato-deep);
+  color: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px; font-weight: 900;
+  box-shadow: 2px 2px 0 var(--ink);
+  transform: rotate(3deg);
+  letter-spacing: .5px;
+}
 
-.nav-menu { border-right: none; padding: 0 10px; }
+.nav-menu { border-right: none; padding: 0 10px; background: transparent; }
 .nav-menu :deep(.el-menu-item) {
   height: 42px;
   line-height: 42px;
-  border-radius: 10px;
-  margin: 3px 0;
-  color: #5c6f68;
+  border-radius: 12px;
+  margin: 4px 0;
+  color: #403932;
   font-size: 14px;
+  font-weight: 700;
 }
-.nav-menu :deep(.el-menu-item:hover) { background: #f0faf6; color: #2f8f7a; }
+.nav-menu :deep(.el-menu-item:hover) { background: #fff; color: var(--tomato); }
 .nav-menu :deep(.el-menu-item.is-active) {
-  background: linear-gradient(90deg, #3ec6a8, #55d4b6);
-  color: #fff;
-  font-weight: 600;
-  box-shadow: 0 3px 8px rgba(62, 198, 168, .35);
+  background: var(--mustard);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  font-weight: 900;
+  box-shadow: 3px 3px 0 var(--ink);
 }
-.nav-menu :deep(.el-menu-item.is-active .el-icon) { color: #fff; }
+.nav-menu :deep(.el-menu-item.is-active .el-icon) { color: var(--tomato); }
 .nav-menu :deep(.el-menu-item .el-icon) { font-size: 18px; }
 .nav-menu :deep(.menu-bottom) {
   margin-top: 8px;
-  border-top: 1px dashed #e0f0e9;
-  border-radius: 0 0 10px 10px;
+  border-top: 3px dashed #d9cbb0;
+  border-radius: 0 0 12px 12px;
 }
 .nav-menu :deep(.el-menu-item-group__title) {
-  font-size: 11px; color: #a8c3b9;
+  font-size: 11px; color: var(--muted);
   padding: 14px 12px 4px;
+  letter-spacing: 1.5px;
+  font-weight: 800;
 }
 
 .sidebar-footer {
   margin-top: auto;
   padding: 12px;
   font-size: 11px;
-  color: #a8c3b9;
+  color: var(--muted);
   text-align: center;
-  border-top: 1px dashed #e0f0e9;
+  border-top: 3px dashed #d9cbb0;
+  font-weight: 700;
 }
 
-/* ---------- 顶栏 ---------- */
+/* ---------- 顶栏：白纸 + 墨线 ---------- */
 .topbar {
-  background: #fff;
+  background: var(--paper-soft);
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; row-gap: 8px;
   min-height: 60px; height: auto !important;
   padding: 8px 18px;
-  box-shadow: 0 2px 8px rgba(62, 198, 168, .06);
+  border-bottom: 4px solid var(--ink);
   z-index: 5;
 }
 .page-title {
   display: flex; align-items: center; gap: 8px;
-  font-size: 17px; font-weight: 700; color: #2f3e39;
+  font-size: 17px; font-weight: 900; color: var(--ink);
 }
 .title-dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: linear-gradient(135deg, #3ec6a8, #7ee0c8);
-  box-shadow: 0 0 6px rgba(62, 198, 168, .5);
+  width: 14px; height: 14px; border-radius: 5px;
+  background: var(--tomato);
+  border: 3px solid var(--ink);
+  transform: rotate(12deg);
+  box-shadow: 2px 2px 0 var(--ink);
 }
 .topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .class-tag {
-  background: #e6f9f5; color: #2f8f7a;
-  border-radius: 20px; padding: 4px 14px; font-size: 13px; font-weight: 600;
+  background: var(--mint); color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 999px; padding: 3px 14px; font-size: 13px; font-weight: 900;
+  box-shadow: 2px 2px 0 var(--ink);
 }
 
-/* ---------- 主区 ---------- */
+/* ---------- 主区：奶油纸网格 ---------- */
 .main-area {
-  background:
-    radial-gradient(circle at 85% 10%, rgba(62, 198, 168, .08), transparent 40%),
-    radial-gradient(circle at 10% 90%, rgba(126, 224, 200, .06), transparent 40%),
-    #effaf5;
-  padding: 18px;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(rgba(32, 27, 23, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32, 27, 23, .045) 1px, transparent 1px);
+  background-size: 30px 30px;
+  padding: 20px;
   overflow: auto;
 }
 </style>

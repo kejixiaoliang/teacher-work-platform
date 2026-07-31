@@ -271,8 +271,8 @@ const trendOption = computed(() => ({
   yAxis: { type: 'value', name: '总分' },
   series: [{
     type: 'line', data: trendPoints.value.map(p => p.total), smooth: true,
-    lineStyle: { width: 3, color: '#3ec6a8' }, itemStyle: { color: '#3ec6a8' },
-    areaStyle: { color: 'rgba(62,198,168,.15)' },
+    lineStyle: { width: 3, color: '#f35b3f' }, itemStyle: { color: '#f35b3f' },
+    areaStyle: { color: 'rgba(243,91,63,.15)' },
     markPoint: {
       data: trendPoints.value.length
         ? [{ type: 'max', name: '最高' }, { type: 'min', name: '最低' }]
@@ -286,24 +286,26 @@ const trendOption = computed(() => ({
 .scores-workspace { display: flex; gap: 14px; align-items: flex-start; }
 .exam-list {
   width: 230px; flex-shrink: 0;
-  background: #fbfefd; border: 1px solid #e8f5ef; border-radius: 12px; padding: 10px;
+  background: var(--paper-soft); border: 4px solid var(--ink); border-radius: 16px; padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
+  box-shadow: var(--shadow-sm);
 }
 .exam-item {
-  border: 1px solid #e8f5ef; border-radius: 10px; padding: 10px 12px; cursor: pointer;
+  border: 3px solid transparent; border-radius: 12px; padding: 10px 12px; cursor: pointer;
   transition: all .15s; background: #fff;
 }
-.exam-item:hover { border-color: #3ec6a8; }
-.exam-item.active { border-color: #3ec6a8; background: #e6f9f5; }
-.exam-name { font-weight: 700; font-size: 14px; color: #33403c; }
+.exam-item:hover { border-color: var(--tomato); transform: translateX(2px); }
+.exam-item.active { border-color: var(--ink); background: var(--mustard); box-shadow: var(--shadow-xs); }
+.exam-name { font-weight: 900; font-size: 14px; color: var(--ink); }
 .exam-head { display: flex; justify-content: space-between; align-items: center; }
-.exam-meta { font-size: 11px; color: #98a6a0; margin-top: 3px; }
+.exam-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .exam-content { flex: 1; min-width: 0; }
-.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 14px; }
 .stat-card {
-  background: linear-gradient(135deg, #f0faf6, #e6f9f5);
-  border: 1px solid #d5f0e6; border-radius: 10px; padding: 10px 14px;
+  background: #fff;
+  border: 3px solid var(--ink); border-radius: 14px; padding: 10px 14px;
+  box-shadow: var(--shadow-xs);
 }
-.sc-subject { font-weight: 700; color: #2f8f7a; margin-bottom: 4px; }
-.sc-row { font-size: 12px; color: #5c6f68; }
+.sc-subject { font-weight: 900; color: var(--tomato); margin-bottom: 4px; }
+.sc-row { font-size: 12px; color: var(--muted); }
 </style>

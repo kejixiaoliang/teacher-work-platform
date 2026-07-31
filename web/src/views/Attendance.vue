@@ -132,5 +132,5 @@ async function loadStats() {
 </script>
 
 <style scoped>
-.bad { color: #f56c6c; font-weight: 700; }
+.bad { color: var(--el-color-danger); font-weight: 700; }
 </style>

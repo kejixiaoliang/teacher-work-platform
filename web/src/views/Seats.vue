@@ -620,24 +620,25 @@ onBeforeRouteLeave(async () => {
 .seats-workspace { padding: 0; display: flex; flex-direction: column; }
 .ws-top {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 18px; border-bottom: 1px solid #eef7f3; flex-wrap: wrap; gap: 10px;
+  padding: 14px 18px; border-bottom: 3px dashed #d9cbb0; flex-wrap: wrap; gap: 10px;
 }
 .ws-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.stat-num { color: #2f8f7a; font-size: 16px; }
+.stat-num { color: var(--tomato); font-size: 16px; font-weight: 900; }
 .ws-body { display: flex; min-height: 72vh; }
 
 /* 左侧面板 */
 .ws-panel {
   width: 250px; flex-shrink: 0;
-  border-right: 1px solid #eef7f3;
+  border-right: 3px dashed #d9cbb0;
   padding: 14px; display: flex; flex-direction: column; gap: 12px;
-  background: #fbfefd; overflow-y: auto; max-height: calc(100vh - 120px);
+  background: var(--paper-soft); overflow-y: auto; max-height: calc(100vh - 120px);
   position: sticky; top: 0;
 }
 .panel-sec {
-  background: #fff; border: 1px solid #e8f5ef; border-radius: 10px; padding: 12px;
+  background: #fff; border: 4px solid var(--ink); border-radius: 14px; padding: 12px;
+  box-shadow: var(--shadow-xs);
 }
-.panel-sec-title { font-size: 13px; font-weight: 700; color: #2f8f7a; margin-bottom: 10px; }
+.panel-sec-title { font-size: 13px; font-weight: 900; color: var(--tomato); margin-bottom: 10px; }
 .panel-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
 .panel-row.col { flex-direction: column; align-items: flex-start; gap: 10px; }
 .panel-main-btn { width: 100%; margin-top: 12px; }
@@ -654,10 +655,11 @@ onBeforeRouteLeave(async () => {
 /* ============ 座位网格 ============ */
 .podium {
   width: 250px; margin: 4px auto 18px; text-align: center;
-  background: linear-gradient(90deg, #3ec6a8, #57d4bc);
-  color: #fff; font-weight: 700; font-size: 15px; letter-spacing: 6px;
-  border-radius: 999px; padding: 10px 0;
-  box-shadow: 0 4px 12px rgba(62, 198, 168, .35);
+  background: var(--mustard);
+  border: 4px solid var(--ink);
+  color: var(--ink); font-weight: 900; font-size: 15px; letter-spacing: 6px;
+  border-radius: 999px; padding: 6px 0;
+  box-shadow: var(--shadow-sm);
 }
 .seat-grid { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .row { display: flex; gap: 10px; }
@@ -668,35 +670,37 @@ onBeforeRouteLeave(async () => {
 .hist-wrap.aisle { margin-left: 18px; }
 
 .seat {
-  border: 2px solid #e2eee8; border-radius: 12px; padding: 8px 4px 7px;
+  border: 3px solid var(--ink); border-radius: 12px; padding: 8px 4px 7px;
   text-align: center; cursor: pointer; background: #fff;
   transition: transform .12s, box-shadow .12s, border-color .12s;
   user-select: none; min-height: 64px;
   display: flex; flex-direction: column; justify-content: center; gap: 3px;
 }
-.seat:hover { transform: translateY(-2px); box-shadow: 0 5px 14px rgba(62, 198, 168, .2); }
-.seat.boy { background: #f0fbf7; border-color: #bfe8da; }
-.seat.girl { background: #fdf3f4; border-color: #f3c9ce; }
-.seat.locked { border-color: #f0b95c; background: #fffaf0; }
+.seat:hover { transform: translateY(-2px); box-shadow: var(--shadow-xs); }
+.seat.boy { background: #e7f8f3; border-color: var(--mint); }
+.seat.girl { background: #fdeeea; border-color: var(--tomato); }
+.seat.locked { border-color: var(--mustard); background: var(--paper); }
 .seat.empty {
-  border-style: dashed; border-color: #d8e7e0; background: #f7fbf9;
+  border-style: dashed; border-color: #b0a48d; background: #f6efe1;
 }
 .seat.empty:hover { transform: none; box-shadow: none; cursor: default; }
-.seat.selected { outline: 3px solid #3ec6a8; outline-offset: 1px; }
-.seat.drag-over { background: #d9f5ee !important; border-color: #3ec6a8; outline: 2px dashed #3ec6a8; }
+.seat.selected { outline: 3px solid var(--tomato); outline-offset: 1px; }
+.seat.drag-over { background: var(--mustard) !important; border-color: var(--mustard); outline: 3px dashed var(--tomato); }
 
 .s-name {
-  font-weight: 700; font-size: 15px; line-height: 1.3; color: #33403c;
+  font-weight: 800; font-size: 15px; line-height: 1.3; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .s-meta { display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap; min-height: 20px; }
 .chip {
-  font-size: 11px; color: #3f6b5e; background: #e6f9f5;
+  font-size: 11px; color: var(--ink); background: var(--mint);
+  border: 2px solid var(--ink);
   border-radius: 999px; padding: 1px 8px; line-height: 1.6; white-space: nowrap;
+  font-weight: 800;
 }
-.chip-warn { background: #fff3e0; color: #c77700; }
-.chip-lock { background: #fff7e6; color: #b8822e; }
-.empty-text { color: #b9ccc3; font-weight: 400; font-size: 13px; }
+.chip-warn { background: var(--mustard); color: var(--ink); }
+.chip-lock { background: var(--mustard); color: var(--ink); }
+.empty-text { color: #b0a48d; font-weight: 400; font-size: 13px; }
 
 /* 打印：卡片定宽、去装饰 */
 @media print {
@@ -714,11 +718,11 @@ onBeforeRouteLeave(async () => {
 .seat-dlg-info { display: flex; align-items: center; }
 .seat-dlg-place { display: flex; gap: 10px; align-items: center; }
 .ctx-menu {
-  position: fixed; z-index: 3000; background: #fff; border-radius: 10px;
-  box-shadow: 0 6px 20px rgba(31, 80, 66, .16); padding: 4px 0; min-width: 150px;
-  border: 1px solid #e0f0e9;
+  position: fixed; z-index: 3000; background: #fff; border-radius: 14px;
+  box-shadow: var(--shadow-sm); padding: 4px 0; min-width: 150px;
+  border: 4px solid var(--ink);
 }
-.ctx-title { padding: 8px 16px; font-weight: 700; font-size: 13px; border-bottom: 1px solid #eef7f3; color: #2f8f7a; }
-.ctx-item { padding: 9px 16px; font-size: 13px; cursor: pointer; }
-.ctx-item:hover { background: #f0faf6; color: #2f8f7a; }
+.ctx-title { padding: 8px 16px; font-weight: 900; font-size: 13px; border-bottom: 3px dashed #d9cbb0; color: var(--tomato); }
+.ctx-item { padding: 9px 16px; font-size: 13px; cursor: pointer; font-weight: 700; }
+.ctx-item:hover { background: var(--mustard); color: var(--ink); }
 </style>

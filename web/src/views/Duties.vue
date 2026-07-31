@@ -258,21 +258,24 @@ function printRoster() {
 <style scoped>
 .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .group-card {
-  border: 1px solid #e0f0e9; border-radius: 12px; padding: 14px;
-  background: #fbfefd; transition: box-shadow .15s;
+  border: 4px solid var(--ink); border-radius: 16px; padding: 14px;
+  background: #fff; transition: box-shadow .15s, transform .15s;
+  box-shadow: var(--shadow-sm);
 }
-.group-card:hover { box-shadow: 0 3px 12px rgba(62, 198, 168, .12); }
+.group-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
 .group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .group-badge {
-  background: linear-gradient(90deg, #3ec6a8, #55d4b6); color: #fff;
-  border-radius: 20px; padding: 3px 14px; font-size: 13px; font-weight: 600;
+  background: var(--mustard); border: 3px solid var(--ink); color: var(--ink);
+  border-radius: 999px; padding: 2px 14px; font-size: 13px; font-weight: 900;
+  box-shadow: var(--shadow-xs);
 }
 .group-members { display: flex; flex-wrap: wrap; gap: 6px; }
 .current-group {
-  padding: 14px; background: #f3fbf8; border-radius: 12px; border: 1px solid #c7f1e8;
+  padding: 14px; background: var(--paper); border-radius: 16px; border: 4px solid var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 .name-chip {
-  display: inline-block; background: #fff; border: 1px solid #3ec6a8; color: #2f8f7a;
-  border-radius: 20px; padding: 2px 12px; margin-left: 8px; font-size: 13px;
+  display: inline-block; background: #fff; border: 3px solid var(--mint); color: var(--ink);
+  border-radius: 999px; padding: 1px 12px; margin-left: 8px; font-size: 13px; font-weight: 800;
 }
 </style>

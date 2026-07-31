@@ -572,6 +572,6 @@ function saveBlob(blob, name) {
 </script>
 
 <style scoped>
-.vision-bad { color: #f56c6c; font-weight: 600; }
+.vision-bad { color: var(--el-color-danger); font-weight: 600; }
 :deep(.el-table__row) { cursor: pointer; }
 </style>

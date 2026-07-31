@@ -282,42 +282,46 @@ onBeforeUnmount(() => {
 <style scoped>
 .doc-layout { display: flex; gap: 14px; }
 .doc-sidebar {
-  width: 170px; background: #fff; border-radius: 8px; padding: 10px 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.06); flex-shrink: 0; height: fit-content;
+  width: 170px; background: var(--paper-soft); border: 4px solid var(--ink); border-radius: 16px; padding: 10px 6px;
+  box-shadow: var(--shadow-sm); flex-shrink: 0; height: fit-content;
 }
 .side-item {
-  padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; color: #606266;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size: 14px; color: var(--muted);
+  font-weight: 700;
 }
-.side-item:hover { background: #f0faf6; }
-.side-item.active { background: #e6f9f5; color: #2f8f7a; font-weight: 600; }
-.side-title { padding: 12px 12px 4px; font-size: 12px; color: #c0c4cc; }
+.side-item:hover { background: #fff; color: var(--tomato); }
+.side-item.active { background: var(--mustard); color: var(--ink); font-weight: 900; border: 3px solid var(--ink); box-shadow: var(--shadow-xs); }
+.side-title { padding: 12px 12px 4px; font-size: 12px; color: var(--muted); }
 .doc-main { flex: 1; min-width: 0; }
 .drop-zone {
-  border: 2px dashed #dcdfe6; border-radius: 8px; padding: 18px; text-align: center;
-  color: #909399; display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 3px dashed var(--ink); border-radius: 16px; padding: 18px; text-align: center;
+  color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px;
   margin-bottom: 14px; cursor: pointer; transition: all .2s;
+  background: rgba(255, 249, 234, .7);
+  font-weight: 700;
 }
-.drop-zone.dragging { border-color: #3ec6a8; background: #e6f9f5; color: #2f8f7a; }
+.drop-zone.dragging { border-color: var(--tomato); background: var(--paper); color: var(--tomato); }
 .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .file-card {
-  border: 1px solid #ebeef5; border-radius: 8px; padding: 12px; cursor: pointer;
-  transition: box-shadow .15s; background: #fff;
+  border: 4px solid var(--ink); border-radius: 14px; padding: 12px; cursor: pointer;
+  transition: box-shadow .15s, transform .15s; background: #fff;
+  box-shadow: var(--shadow-sm);
 }
-.file-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+.file-card:hover { box-shadow: var(--shadow); transform: translateY(-2px) rotate(-.3deg); }
 .file-icon { font-size: 34px; text-align: center; }
 .file-name {
-  font-size: 13px; font-weight: 600; margin: 8px 0 4px; text-align: center;
+  font-size: 13px; font-weight: 900; margin: 8px 0 4px; text-align: center; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.file-meta { font-size: 11px; color: #909399; text-align: center; display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.file-meta { font-size: 11px; color: var(--muted); text-align: center; display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .file-ops { display: flex; justify-content: center; gap: 2px; margin-top: 6px; flex-wrap: wrap; }
 .empty { padding: 30px 0; }
 .upload-list { margin-top: 10px; max-height: 180px; overflow: auto; }
 .upload-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 13px; }
 .preview-body { text-align: center; }
 .text-preview {
-  text-align: left; background: #f7f8fa; border-radius: 6px; padding: 14px;
+  text-align: left; background: var(--paper); border-radius: 6px; padding: 14px;
   max-height: 72vh; overflow: auto; white-space: pre-wrap; font-size: 13px;
 }
-.no-preview { padding: 60px 0; color: #909399; }
+.no-preview { padding: 60px 0; color: var(--el-text-color-secondary); }
 </style>
