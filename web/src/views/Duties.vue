@@ -23,16 +23,20 @@
               <span class="group-badge">第 {{ g.no }} 组</span>
               <span class="text-muted">({{ g.members.length }} 人)</span>
               <div class="spacer"></div>
-              <el-button class="grp-btn" size="small" @click="openWeekDays(g.no)">星期</el-button>
-              <el-button class="grp-btn" size="small" @click="openAddMembers(g.no)">加人</el-button>
-              <el-button class="grp-btn grp-btn-del" size="small" @click="removeGroup(g.no)">删组</el-button>
+              <el-tag v-if="g.weekDays" type="warning" effect="light" size="small" round>
+                值日：{{ weekDaysLabel(g.weekDays) }}
+              </el-tag>
             </div>
-            <div v-if="g.weekDays" class="week-days-badge">值日：{{ weekDaysLabel(g.weekDays) }}</div>
             <div class="group-members">
               <el-tag v-for="m in g.members" :key="m.id" closable size="default"
                       :type="m.gender === '女' ? 'danger' : 'warning'"
                       @close="removeMember(m)">{{ m.student_name }}</el-tag>
               <span v-if="!g.members.length" class="text-muted">空组</span>
+            </div>
+            <div class="group-actions">
+              <el-button class="grp-btn" size="small" :icon="Calendar" @click="openWeekDays(g.no)">值日星期</el-button>
+              <el-button class="grp-btn" size="small" :icon="Plus" @click="openAddMembers(g.no)">加人</el-button>
+              <el-button class="grp-btn grp-btn-del" size="small" :icon="Delete" @click="removeGroup(g.no)">删组</el-button>
             </div>
           </div>
         </div>
@@ -40,11 +44,13 @@
 
       <!-- ============ 值日表 ============ -->
       <el-tab-pane label="值日表" name="roster">
-        <div class="toolbar">
-          <span>当前是开学第</span>
-          <el-input-number v-model="week" :min="1" :max="25" size="default" />
-          <span>周</span>
-          <el-tag v-if="groupCount" type="warning" size="large" style="margin-left:10px">
+        <div class="toolbar roster-toolbar">
+          <div class="roster-week">
+            <span>当前是开学第</span>
+            <el-input-number v-model="week" :min="1" :max="25" size="default" />
+            <span>周</span>
+          </div>
+          <el-tag v-if="groupCount" type="warning" size="large">
             本周值日 → 第 {{ currentGroupNo }} 组
           </el-tag>
           <div class="spacer"></div>
@@ -125,7 +131,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, User, Printer, MagicStick } from '@element-plus/icons-vue';
+import { Plus, User, Printer, MagicStick, Calendar, Delete } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
@@ -334,27 +340,32 @@ function printRoster() {
 </script>
 
 <style scoped>
-.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
 .group-card {
   border: 3px solid var(--ink); border-radius: 16px; padding: 14px;
   background: #fff; transition: box-shadow .15s, transform .15s;
   box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column;
 }
 .group-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
-.group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .group-badge {
   background: var(--mustard); border: 3px solid var(--ink); color: var(--ink);
   border-radius: 999px; padding: 2px 14px; font-size: 13px; font-weight: 900;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-xs); white-space: nowrap;
 }
 /* 组卡操作按钮：清晰胶囊，不与底色融合（样式见全局 style.css） */
-.group-members { display: flex; flex-wrap: wrap; gap: 6px; }
-/* 值日星期徽标（C 组） */
-.week-days-badge {
-  display: inline-block; background: var(--peach); border: 2px solid var(--ink);
-  border-radius: 8px; padding: 1px 10px; margin-bottom: 8px;
-  font-size: 12px; font-weight: 800; color: var(--ink);
+.group-members { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+/* 组卡底部操作条：按钮不再挤在头部，避免溢出卡片 */
+.group-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 2px dashed var(--ink-soft, rgba(32,27,23,.25));
 }
+.group-actions .grp-btn { margin-left: 0 !important; flex: 1; min-width: 0; }
+/* 值日表工具栏：周次选择区紧凑分组 */
+.roster-toolbar { align-items: center; }
+.roster-week { display: inline-flex; align-items: center; gap: 8px; }
 .current-group {
   padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);
   box-shadow: var(--shadow-sm);

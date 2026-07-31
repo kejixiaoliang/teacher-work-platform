@@ -260,6 +260,9 @@ body {
 .row-btn-edit:hover { background: var(--mint); color: var(--ink); }
 .row-btn-del { border-color: var(--tomato); color: var(--tomato); }
 .row-btn-del:hover { background: var(--tomato); color: #fff; }
+/* 操作列按钮组：居中、等距，避免贴边（Leaders/SubjectLeaders 等） */
+.op-group { display: inline-flex; gap: 8px; justify-content: center; }
+.op-group .row-btn { margin: 0 !important; }
 .mini-btn {
   margin: 0 0 0 4px !important;
   border-radius: 999px;

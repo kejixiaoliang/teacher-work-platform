@@ -21,11 +21,13 @@
         <template #default="{ row }"><b>{{ row.student_name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="80" />
-      <el-table-column prop="remark" label="备注" show-overflow-tooltip />
-      <el-table-column label="操作" width="140">
+      <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+      <el-table-column label="操作" width="180" align="center">
         <template #default="{ row }">
-          <el-button class="row-btn" size="small" @click="openSubject(row)">编辑</el-button>
-          <el-button class="row-btn row-btn-del" size="small" @click="removeDuty(row)">解除</el-button>
+          <div class="op-group">
+            <el-button class="row-btn" size="small" @click="openSubject(row)">编辑</el-button>
+            <el-button class="row-btn row-btn-del" size="small" @click="removeDuty(row)">解除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
