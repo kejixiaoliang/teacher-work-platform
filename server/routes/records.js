@@ -33,6 +33,21 @@ router.delete('/:id/records/:rid', (req, res) => {
   res.json({ ok: true });
 });
 
+router.put('/:id/records/:rid', (req, res) => {
+  if (!hasStudent(req.params.id, res)) return;
+  const row = db.prepare('SELECT * FROM student_records WHERE id = ? AND student_id = ?').get(Number(req.params.rid), Number(req.params.id));
+  if (!row) return res.json({ ok: false, error: '记录不存在' });
+  const { type, content, date, remark } = req.body || {};
+  db.prepare('UPDATE student_records SET type=?, content=?, date=?, remark=? WHERE id=?').run(
+    type !== undefined ? type : row.type,
+    content !== undefined ? String(content).trim() : row.content,
+    date !== undefined ? date : row.date,
+    remark !== undefined ? remark : row.remark,
+    row.id
+  );
+  res.json({ ok: true });
+});
+
 /* ============ 家校沟通 ============ */
 router.get('/:id/contacts', (req, res) => {
   if (!hasStudent(req.params.id, res)) return;
@@ -54,6 +69,22 @@ router.post('/:id/contacts', (req, res) => {
 
 router.delete('/:id/contacts/:cid', (req, res) => {
   db.prepare('DELETE FROM contacts WHERE id = ? AND student_id = ?').run(Number(req.params.cid), Number(req.params.id));
+  res.json({ ok: true });
+});
+
+router.put('/:id/contacts/:cid', (req, res) => {
+  if (!hasStudent(req.params.id, res)) return;
+  const row = db.prepare('SELECT * FROM contacts WHERE id = ? AND student_id = ?').get(Number(req.params.cid), Number(req.params.id));
+  if (!row) return res.json({ ok: false, error: '沟通记录不存在' });
+  const { date, method, topic, result, remark } = req.body || {};
+  db.prepare('UPDATE contacts SET date=?, method=?, topic=?, result=?, remark=? WHERE id=?').run(
+    date !== undefined ? date : row.date,
+    method !== undefined ? method : row.method,
+    topic !== undefined ? topic : row.topic,
+    result !== undefined ? result : row.result,
+    remark !== undefined ? remark : row.remark,
+    row.id
+  );
   res.json({ ok: true });
 });
 

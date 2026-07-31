@@ -1,38 +1,114 @@
-/* ============ 薄荷绿校园主题 ============ */
+/* ============ 小亮实验室风格（xiaoliang-html-ppt-skill / xiaoliang-content-lab） ============
+   暖纸背景 + 4px 手绘粗线框 + 实色错位投影 + 贴纸/胶囊标签 + 圆形编号
+   色板：奶油纸 #fff4dc / 墨黑 #201b17 / 番茄 #f35b3f / 芥末 #f2c84b / 薄荷 #8bd6af / 桃 #f3ad83
+   避免：蓝紫渐变、深色赛博面板、玻璃拟态、通用 SaaS 首屏感 */
+
 :root {
-  --el-color-primary: #3ec6a8;
-  --el-color-primary-light-3: #68d3ba;
-  --el-color-primary-light-5: #8de0cd;
-  --el-color-primary-light-7: #b3ece0;
-  --el-color-primary-light-8: #c7f1e8;
-  --el-color-primary-light-9: #e6f9f5;
-  --el-color-primary-dark-2: #32a68c;
-  --el-color-success: #67c23a;
-  --el-color-warning: #f5a623;
-  --el-color-danger: #f56c6c;
-  --el-color-info: #909399;
-  --el-border-radius-base: 8px;
-  --el-border-radius-round: 20px;
+  /* —— 小亮实验室设计系统变量 —— */
+  --paper: #fff4dc;
+  --paper-soft: #fff9ea;
+  --ink: #201b17;
+  --muted: #685f55;
+  --tomato: #f35b3f;
+  --tomato-deep: #d64541;
+  --mustard: #f2c84b;
+  --mint: #8bd6af;
+  --sky: #93c9d8;
+  --peach: #f3ad83;
+  --green: #a9d66f;
+  --line: 4px solid var(--ink);
+  --shadow: 9px 9px 0 var(--ink);
+  --shadow-sm: 5px 5px 0 var(--ink);
+  --shadow-xs: 3px 3px 0 var(--ink);
+  --radius: 20px;
+  --radius-lg: 24px;
+
+  /* —— Element Plus 主题变量：番茄红主色 —— */
+  --el-color-primary: #f35b3f;
+  --el-color-primary-light-3: #f57e68;
+  --el-color-primary-light-5: #f8a18f;
+  --el-color-primary-light-7: #fac4b7;
+  --el-color-primary-light-8: #fbd6cc;
+  --el-color-primary-light-9: #fdeae5;
+  --el-color-primary-dark-2: #c24932;
+  /* 成功=薄荷 / 警告=芥末 / 危险=番茄深色 / 信息=暖灰 */
+  --el-color-success: #8bd6af;
+  --el-color-success-light-3: #a2dfbf;
+  --el-color-success-light-5: #b9e8d0;
+  --el-color-success-light-7: #d0f0e0;
+  --el-color-success-light-8: #dcf5e8;
+  --el-color-success-light-9: #edfaf4;
+  --el-color-success-dark-2: #6fab8c;
+  --el-color-warning: #f2c84b;
+  --el-color-warning-light-3: #f5d36f;
+  --el-color-warning-light-5: #f8de93;
+  --el-color-warning-light-7: #fae9b7;
+  --el-color-warning-light-8: #fcefc9;
+  --el-color-warning-light-9: #fef8e8;
+  --el-color-warning-dark-2: #c2a03c;
+  --el-color-danger: #d64541;
+  --el-color-danger-light-3: #e0706c;
+  --el-color-danger-light-5: #ea9a97;
+  --el-color-danger-light-7: #f3c3c1;
+  --el-color-danger-light-8: #f7d6d5;
+  --el-color-danger-light-9: #fbebeb;
+  --el-color-danger-dark-2: #ab3734;
+  --el-color-error: #d64541;
+  --el-color-error-light-3: #e0706c;
+  --el-color-error-light-5: #ea9a97;
+  --el-color-error-light-7: #f3c3c1;
+  --el-color-error-light-8: #f7d6d5;
+  --el-color-error-light-9: #fbebeb;
+  --el-color-error-dark-2: #ab3734;
+  --el-color-info: #685f55;
+  --el-color-info-light-3: #877f77;
+  --el-color-info-light-5: #a59f99;
+  --el-color-info-light-7: #c4bfba;
+  --el-color-info-light-8: #d3cfcb;
+  --el-color-info-light-9: #efedeb;
+  --el-color-info-dark-2: #534c44;
+
+  --el-border-radius-base: 12px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+  --el-text-color-primary: #201b17;
+  --el-text-color-regular: #403932;
+  --el-text-color-secondary: #685f55;
+  --el-text-color-placeholder: #9c9186;
+  --el-border-color: #d9cbb0;
+  --el-border-color-light: #e4d8c2;
+  --el-border-color-lighter: #eee4d1;
+  --el-border-color-extra-light: #f5eddd;
+  --el-fill-color-light: #faf1dd;
+  --el-fill-color-lighter: #fdf8ec;
+  --el-fill-color-blank: #fffdf4;
 }
 
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
+
 body {
-  font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
-  background: #effaf5;
-  color: #33403c;
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  /* 奶油纸 + 笔记本网格纹理 */
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(rgba(32, 27, 23, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(32, 27, 23, .045) 1px, transparent 1px);
+  background-size: 30px 30px;
 }
 
-/* 通用卡片：大圆角 + 柔和阴影 + 悬浮微动效 */
+/* ---------- 手绘卡片：白色衬纸 + 4px 墨线 + 实色错位投影 ---------- */
 .page-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 2px 10px rgba(62, 198, 168, .08), 0 1px 3px rgba(0,0,0,.04);
-  border: 1px solid rgba(62, 198, 168, .10);
+  background: var(--paper-soft);
+  border: var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
 }
 
+/* ---------- 工具栏 ---------- */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -40,43 +116,199 @@ body {
   align-items: center;
   margin-bottom: 14px;
 }
-/* spacer 用 auto 外边距而非 flex:1，避免换行后占满整行 */
 .toolbar .spacer { margin-left: auto; }
-.text-muted { color: #7c8c86; font-size: 13px; }
+.text-muted { color: var(--muted); font-size: 13px; }
 
-/* ============ 页面骨架（统一页头规范） ============ */
+/* ---------- 页头：芥末贴纸标题（平正不旋转，保证整齐） ---------- */
 .page-head {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
 }
 .page-head-title {
-  margin: 0; font-size: 19px; font-weight: 700; color: #2f3e39;
-  display: flex; align-items: center; gap: 8px;
+  margin: 0; font-size: 20px; font-weight: 900; color: var(--ink);
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--mustard);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 7px 16px;
+  box-shadow: var(--shadow-xs);
 }
-.page-head-desc { margin: 5px 0 0; color: #7c8c86; font-size: 13px; }
+.page-head-desc { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .page-head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
-/* 输入控件统一圆角 */
-.el-input__wrapper, .el-select__wrapper, .el-textarea__inner { border-radius: 8px; }
-.el-input-number { border-radius: 8px; }
+/* ---------- 按钮：贴纸立体感（2px 墨边 + 小实影） ---------- */
+.el-button {
+  border-radius: 12px;
+  border-width: 2px;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.el-button--primary,
+.el-button--success,
+.el-button--warning,
+.el-button--danger,
+.el-button--info {
+  box-shadow: var(--shadow-xs);
+  border-color: var(--ink);
+}
+.el-button--primary { background: var(--tomato-deep); color: #fff; }
+.el-button--primary:hover { background: #b53a36; color: #fff; }
+.el-button--success { background: var(--mint); color: var(--ink); }
+.el-button--success:hover { background: #7cc9a2; color: var(--ink); }
+.el-button--warning { background: var(--mustard); color: var(--ink); }
+.el-button--warning:hover { background: #e6b93c; color: var(--ink); }
+.el-button--danger { background: var(--tomato-deep); color: #fff; }
+.el-button--danger:hover { background: #b53a36; color: #fff; }
+.el-button--info { background: var(--paper); color: var(--ink); }
+.el-button--info:hover { background: #f0dfb8; color: var(--ink); }
+.el-button--primary:active,
+.el-button--success:active,
+.el-button--warning:active,
+.el-button--danger:active,
+.el-button--info:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+/* 次要按钮：白底墨边贴纸 */
+.el-button--default {
+  background: #fff;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.el-button--default:hover { background: var(--paper); border-color: var(--ink); color: var(--ink); }
 
-/* 主内容区最大宽度，超宽屏居中不拉伸 */
-.main-area-inner { max-width: 1200px; margin: 0 auto; }
+/* ---------- 输入控件：白底墨边 ---------- */
+.el-input__wrapper, .el-select__wrapper, .el-textarea__inner {
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px var(--ink) inset;
+  background: #fff;
+}
+.el-input__wrapper:hover, .el-select__wrapper:hover { box-shadow: 0 0 0 2px var(--muted) inset; }
+.el-input__wrapper.is-focus, .el-select__wrapper.is-focused,
+.el-input__wrapper.is-focus:hover, .el-select__wrapper.is-focused:hover {
+  box-shadow: 0 0 0 2px var(--tomato) inset;
+}
+.el-textarea__inner { box-shadow: 0 0 0 2px var(--ink) inset; }
+.el-textarea__inner:focus { box-shadow: 0 0 0 2px var(--tomato) inset; }
+.el-input-number { border-radius: 12px; }
 
-/* 标题小标点 */
+/* ---------- 主内容区 ---------- */
+.main-area-inner { max-width: 1240px; margin: 0 auto; }
 
-/* 表格圆角 */
-.el-table { border-radius: 10px; overflow: hidden; }
-.el-table th.el-table__cell { background: #f3fbf8 !important; color: #3f6b5e; }
+/* ---------- 表格：白纸 + 细墨边 + 芥末表头 ---------- */
+.el-table {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  background: #fff;
+}
+.el-table th.el-table__cell {
+  background: var(--mustard) !important;
+  color: var(--ink);
+  font-weight: 900;
+  border-bottom: 2px solid var(--ink);
+}
+.el-table td.el-table__cell { border-bottom: 1px solid #e8dcc3; }
+.el-table tr:hover > td.el-table__cell { background: var(--paper) !important; }
+.el-table__inner-wrapper::before { display: none; }
 
-/* 按钮圆润 */
-.el-button { border-radius: 8px; }
+/* ---------- 标签：白底墨边胶囊 ---------- */
+.el-tag {
+  border-radius: 999px;
+  font-weight: 800;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+}
+.el-tag--primary { background: #fff; color: var(--tomato); border-color: var(--ink); }
+.el-tag--success { background: var(--mint); color: var(--ink); }
+.el-tag--warning { background: var(--mustard); color: var(--ink); }
+.el-tag--danger { background: #fff; color: var(--el-color-danger); border-color: var(--ink); }
+.el-tag--info { background: var(--paper); color: var(--muted); }
 
-/* 弹窗圆角 */
-.el-dialog { border-radius: 14px; }
-.el-drawer { border-radius: 14px 0 0 14px; }
+/* ---------- 弹窗/抽屉：白纸 + 墨线 + 实色投影 ---------- */
+.el-dialog {
+  border-radius: var(--radius-lg);
+  border: var(--line);
+  box-shadow: var(--shadow-sm);
+  background: var(--paper-soft);
+}
+.el-dialog__title { font-weight: 900; }
+.el-drawer { border-radius: 20px 0 0 20px; border: 3px solid var(--ink); border-right: none; }
+.el-message-box {
+  border-radius: 20px;
+  border: var(--line);
+  box-shadow: var(--shadow-sm);
+  background: var(--paper-soft);
+}
+.el-popper.is-light { border-radius: 12px; border: 2px solid var(--ink); }
+.el-select__popper.el-popper.is-light { border: 2px solid var(--ink); }
 
-/* 打印：只打印座位网格 */
+/* ---------- 行内操作胶囊按钮（全站统一，替代各页重复定义） ---------- */
+.row-btn {
+  margin: 0 4px 0 0 !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 12px;
+  height: auto;
+}
+.row-btn:hover { background: var(--mustard); color: var(--ink); }
+.row-btn-edit { border-color: var(--mint); color: #2e6b55; }
+.row-btn-edit:hover { background: var(--mint); color: var(--ink); }
+.row-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.row-btn-del:hover { background: var(--tomato); color: #fff; }
+.mini-btn {
+  margin: 0 0 0 4px !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 2px 8px;
+  height: auto;
+  font-size: 12px;
+}
+.mini-btn:hover { background: var(--mustard); color: var(--ink); }
+.mini-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.mini-btn-del:hover { background: var(--tomato); color: #fff; }
+.grp-btn {
+  margin-left: 6px !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 4px 12px;
+  height: auto;
+}
+.grp-btn:hover { background: var(--mustard); color: var(--ink); }
+.grp-btn-del { border-color: var(--tomato); color: var(--tomato); }
+.grp-btn-del:hover { background: var(--tomato); color: #fff; }
+.op-btn {
+  margin: 0 !important;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 2px 10px;
+  height: auto;
+  font-size: 12px;
+}
+.op-btn:hover { background: var(--mustard); color: var(--ink); }
+.op-del { border-color: var(--tomato); color: var(--tomato); }
+.op-del:hover { background: var(--tomato); color: #fff; }
+
+/* ---------- 菜单（Element 默认风格兜底） ---------- */
+.el-menu { border-right: none; }
+
+/* ---------- 加载遮罩 ---------- */
+.el-loading-mask { background-color: rgba(255, 244, 220, .75); }
+
+/* ---------- 打印：只打印内容 ---------- */
 @media print {
   .no-print, .sidebar, .topbar { display: none !important; }
   .page-card { box-shadow: none; border: none; padding: 0; }

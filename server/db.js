@@ -17,19 +17,6 @@ if (!clsCols.includes('aisle_mode')) {
   db.exec('ALTER TABLE classes ADD COLUMN aisle_mode INTEGER DEFAULT 1');
 }
 
-// 常用查询索引（P2-16）
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);
-  CREATE INDEX IF NOT EXISTS idx_documents_class ON documents(class_id);
-  CREATE INDEX IF NOT EXISTS idx_duties_class ON duties(class_id);
-  CREATE INDEX IF NOT EXISTS idx_seat_layouts_class ON seat_layouts(class_id);
-  CREATE INDEX IF NOT EXISTS idx_metrics_student ON student_metrics_history(student_id);
-  CREATE INDEX IF NOT EXISTS idx_records_student ON student_records(student_id);
-  CREATE INDEX IF NOT EXISTS idx_contacts_student ON contacts(student_id);
-  CREATE INDEX IF NOT EXISTS idx_scores_exam ON exam_scores(exam_id);
-  CREATE INDEX IF NOT EXISTS idx_attendance_class_date ON attendance(class_id, date);
-`);
-
 db.exec(`
 CREATE TABLE IF NOT EXISTS classes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,6 +124,11 @@ CREATE TABLE IF NOT EXISTS exams (
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
+-- 迁移：清理同班同名重复考试（保留每组最新一条，成绩随级联删除），随后建唯一索引
+DELETE FROM exams WHERE id NOT IN (
+  SELECT MAX(id) FROM exams GROUP BY class_id, name
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_class_name ON exams(class_id, name);
 
 CREATE TABLE IF NOT EXISTS exam_scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,6 +169,34 @@ CREATE TABLE IF NOT EXISTS contacts (
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
+
+CREATE TABLE IF NOT EXISTS leaves (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT '事假',
+  start_date TEXT NOT NULL DEFAULT '',
+  end_date TEXT NOT NULL DEFAULT '',
+  days REAL DEFAULT 1,
+  reason TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT '已批准',
+  remark TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_leaves_class ON leaves(class_id);
+CREATE INDEX IF NOT EXISTS idx_leaves_student ON leaves(student_id);
+CREATE INDEX IF NOT EXISTS idx_leaves_class_dates ON leaves(class_id, start_date, end_date);
+
+-- 常用查询索引（P2-16）：必须在所有建表之后，否则全新库会报 no such table
+CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);
+CREATE INDEX IF NOT EXISTS idx_documents_class ON documents(class_id);
+CREATE INDEX IF NOT EXISTS idx_duties_class ON duties(class_id);
+CREATE INDEX IF NOT EXISTS idx_seat_layouts_class ON seat_layouts(class_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_student ON student_metrics_history(student_id);
+CREATE INDEX IF NOT EXISTS idx_records_student ON student_records(student_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_student ON contacts(student_id);
+CREATE INDEX IF NOT EXISTS idx_scores_exam ON exam_scores(exam_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_class_date ON attendance(class_id, date);
 `);
 
 /** 首次启动时写入示例班级 + 示例学生，方便演示排座。表非空则跳过。 */

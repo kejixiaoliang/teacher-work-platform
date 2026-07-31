@@ -2,42 +2,41 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">班委学委</h2>
-        <p class="page-head-desc">选任固定班委（班长、学习委员、卫生委员…），同一职务一人担任</p>
+        <h2 class="page-head-title">课代表选择</h2>
+        <p class="page-head-desc">为各科选任课代表（同一科目仅一人，可与班委兼任）</p>
       </div>
       <div class="page-head-actions">
-        <el-button :icon="MagicStick" @click="presetLeaders">一键预设班委</el-button>
-        <el-button type="primary" :icon="Plus" @click="openLeader()">选任班委</el-button>
+        <el-button :icon="MagicStick" @click="presetSubjectLeaders">一键预设课代表</el-button>
+        <el-button type="primary" :icon="Plus" @click="openSubject()">选任课代表</el-button>
       </div>
     </div>
 
-    <el-table :data="leaders" stripe v-loading="loading">
-      <el-table-column label="职务" width="150">
+    <el-table :data="subjectLeaders" stripe v-loading="loading">
+      <el-table-column label="科目" width="160">
         <template #default="{ row }">
-          <el-tag size="large" type="success" effect="light" round>{{ row.role }}</el-tag>
+          <el-tag size="large" type="warning" effect="light" round>{{ row.role.replace('课代表', '') }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="student_name" label="学生" width="140" show-overflow-tooltip>
+      <el-table-column prop="student_name" label="课代表" width="140" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.student_name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="80" />
       <el-table-column prop="remark" label="备注" show-overflow-tooltip />
       <el-table-column label="操作" width="140">
         <template #default="{ row }">
-          <el-button class="row-btn" size="small" @click="openLeader(row)">编辑</el-button>
+          <el-button class="row-btn" size="small" @click="openSubject(row)">编辑</el-button>
           <el-button class="row-btn row-btn-del" size="small" @click="removeDuty(row)">解除</el-button>
         </template>
       </el-table-column>
     </el-table>
-    <el-empty v-if="!leaders.length" description="还没有设置班委，点右上角「选任班委」" :image-size="60" />
+    <el-empty v-if="!subjectLeaders.length" description="还没有选任课代表，点右上角「选任课代表」或「一键预设课代表」" :image-size="60" />
 
     <!-- 选任弹窗 -->
-    <el-dialog v-model="leaderVisible" :title="leaderForm.id ? '编辑班委' : '选任班委'" width="440px">
+    <el-dialog v-model="leaderVisible" :title="leaderForm.id ? '编辑课代表' : '选任课代表'" width="440px">
       <el-form label-width="80px">
-        <el-form-item label="职务">
-          <el-select v-model="leaderForm.role" filterable allow-create default-first-option style="width:210px"
-                     placeholder="选择或输入新职务">
-            <el-option v-for="r in LEADER_ROLES" :key="r" :value="r" :label="r" />
+        <el-form-item label="科目">
+          <el-select v-model="leaderForm.role" style="width:210px" placeholder="选择科目">
+            <el-option v-for="r in SUBJECT_ROLES" :key="r" :value="r" :label="r" />
           </el-select>
         </el-form-item>
         <el-form-item label="学生">
@@ -49,7 +48,7 @@
       </el-form>
       <template #footer>
         <el-button @click="leaderVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveLeader">保存</el-button>
+        <el-button type="primary" @click="saveSubject">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -65,7 +64,7 @@ import { useSeqLoad } from '../composables/useSeqLoad.js';
 
 const { seq, isStale } = useSeqLoad();
 
-const LEADER_ROLES = ['班长', '副班长', '学习委员', '卫生委员', '体育委员', '文艺委员', '纪律委员', '生活委员', '宣传委员'];
+const SUBJECT_ROLES = ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
 
 const duties = ref([]);
 const students = ref([]);
@@ -73,7 +72,7 @@ const loading = ref(false);
 const leaderVisible = ref(false);
 const leaderForm = ref({ id: null, role: '', student_id: null, remark: '' });
 
-const leaders = computed(() => duties.value.filter(d => d.role !== '值日生' && !d.role.endsWith('课代表')));
+const subjectLeaders = computed(() => duties.value.filter(d => d.role.endsWith('课代表')));
 
 watch(() => store.currentClassId, load);
 onMounted(load);
@@ -95,15 +94,15 @@ async function load() {
   }
 }
 
-function openLeader(row) {
+function openSubject(row) {
   leaderForm.value = row
     ? { id: row.id, role: row.role, student_id: row.student_id, remark: row.remark || '' }
     : { id: null, role: '', student_id: null, remark: '' };
   leaderVisible.value = true;
 }
 
-async function saveLeader() {
-  if (!leaderForm.value.role) return ElMessage.warning('请选择职务');
+async function saveSubject() {
+  if (!leaderForm.value.role) return ElMessage.warning('请选择科目');
   if (!leaderForm.value.student_id) return ElMessage.warning('请选择学生');
   try {
     if (leaderForm.value.id) {
@@ -130,21 +129,21 @@ async function removeDuty(row) {
   }
 }
 
-/** 一键预设班委：按名单顺序补齐常见职务空缺（每人最多一个职务） */
-async function presetLeaders() {
+/** 一键预设课代表：按名单顺序为各科补齐课代表（可兼任班委） */
+async function presetSubjectLeaders() {
   if (!store.currentClassId) return;
   const ok = await ElMessageBox.confirm(
-    '将按学生名单顺序自动选任常见职务（班长/副班长/学习委员/卫生委员/体育委员/文艺委员/纪律委员/生活委员/宣传委员）。已有人担任的职务跳过，每人最多一个职务。继续？',
-    '一键预设班委', { type: 'warning', confirmButtonText: '生成' }
+    '将为语文/数学/英语/物理/化学/生物/政治/历史/地理各选一位课代表（按名单顺序分配，同一科目仅一人，可与班委兼任）。已有课代表的科目跳过。继续？',
+    '一键预设课代表', { type: 'warning', confirmButtonText: '生成' }
   ).catch(() => false);
   if (!ok) return;
   try {
-    const r = await api.duties.presetLeaders({ class_id: store.currentClassId });
+    const r = await api.duties.presetSubjectLeaders({ class_id: store.currentClassId });
     load();
     if (r.added.length) {
-      ElMessage.success(`已选任 ${r.added.length} 个职务：${r.added.map(a => `${a.role}→${a.name}`).join('、')}`);
+      ElMessage.success(`已选任 ${r.added.length} 个课代表：${r.added.map(a => `${a.role}→${a.name}`).join('、')}`);
     } else {
-      ElMessage.info('常见职务都已有合适人选，无需补充');
+      ElMessage.info('各科课代表都已有人选，无需补充');
     }
   } catch (e) {
     ElMessage.error(e.message);

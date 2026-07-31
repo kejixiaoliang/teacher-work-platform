@@ -34,6 +34,9 @@ router.post('/', (req, res) => {
   if (!class_id || !student_id || !role) return res.json({ ok: false, error: '班级/学生/角色不能为空' });
   const stu = db.prepare('SELECT id, name FROM students WHERE id = ? AND deleted_at IS NULL').get(Number(student_id));
   if (!stu) return res.json({ ok: false, error: '学生不存在' });
+  // 归属校验：学生必须属于该班级，避免跨班分配职务
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(Number(student_id), Number(class_id));
+  if (!owner) return res.json({ ok: false, error: '学生不属于当前班级' });
   if (role !== '值日生') {
     const dup = db.prepare('SELECT student_id FROM duties WHERE class_id = ? AND role = ?').get(Number(class_id), role);
     if (dup) {
@@ -61,6 +64,10 @@ router.post('/batch', (req, res) => {
     return res.json({ ok: false, error: '参数不完整' });
   }
   const isDuty = role === '值日生';
+  // 本班在读学生白名单（归属校验，防跨班/已删除学生写入）
+  const validIds = new Set(db.prepare(`
+    SELECT id FROM students WHERE class_id = ? AND deleted_at IS NULL
+  `).all(Number(class_id)).map(r => r.id));
   // 已入任何值日组的学生
   const inAnyGroup = new Set(db.prepare(`
     SELECT student_id FROM duties WHERE class_id = ? AND role = '值日生'
@@ -79,6 +86,10 @@ router.post('/batch', (req, res) => {
       const id = Number(sid);
       if (seen.has(id)) continue;
       seen.add(id);
+      if (!validIds.has(id)) {
+        skipped.push({ name: nameOf.get(id) || '', reason: '不属于当前班级' });
+        continue;
+      }
       if (isDuty && inAnyGroup.has(id)) {
         skipped.push({ name: nameOf.get(id) || '', reason: '已在其他值日组' });
         continue;
@@ -128,8 +139,7 @@ router.post('/auto-group', (req, res) => {
 });
 
 // 一键预设班委：补齐常见职务空缺（每人最多一个职务）
-router.post('/preset-leaders', (req, res) => {
-  const { class_id } = req.body || {};
+router.post('/preset-leaders', (req, res) => {  const { class_id } = req.body || {};
   if (!class_id) return res.json({ ok: false, error: '缺少班级' });
   const existingRoles = new Set(db.prepare(`
     SELECT role FROM duties WHERE class_id = ? AND role <> '值日生'
@@ -169,6 +179,42 @@ router.post('/preset-leaders', (req, res) => {
   res.json({ ok: true, data: { added, skipped, totalRoles: PRESET_ROLES.length } });
 });
 
+// 一键预设课代表：为各科补齐课代表（同一人可兼任班委/多科，但每科仅一人）
+const SUBJECT_LEADER_ROLES = ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
+
+router.post('/preset-subject-leaders', (req, res) => {
+  const { class_id } = req.body || {};
+  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  const existingRoles = new Set(db.prepare(`
+    SELECT role FROM duties WHERE class_id = ? AND role LIKE '%课代表'
+  `).all(Number(class_id)).map(r => r.role));
+  const candidates = db.prepare(`
+    SELECT id, name FROM students
+    WHERE class_id = ? AND deleted_at IS NULL AND status = '在读'
+    ORDER BY CAST(school_no AS INTEGER), school_no, id
+  `).all(Number(class_id));
+  if (!candidates.length) return res.json({ ok: false, error: '班级没有在读学生' });
+
+  const ins = db.prepare(`
+    INSERT INTO duties (class_id, student_id, role) VALUES (?, ?, ?)
+  `);
+  const added = [];
+  let skipped = 0;
+  const tx = db.transaction(() => {
+    let ci = 0;
+    for (const role of SUBJECT_LEADER_ROLES) {
+      if (existingRoles.has(role)) { skipped++; continue; }
+      // 每个科目从名单顺序取一位（可身兼数科，所以不排除已任职者）
+      const stu = candidates[ci++ % candidates.length];
+      ins.run(Number(class_id), stu.id, role);
+      existingRoles.add(role);
+      added.push({ role, name: stu.name });
+    }
+  });
+  tx();
+  res.json({ ok: true, data: { added, skipped, totalRoles: SUBJECT_LEADER_ROLES.length } });
+});
+
 // 更新（同样做班干部职务唯一 + 值日生一人一组校验，排除自身）
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -177,6 +223,9 @@ router.put('/:id', (req, res) => {
   const b = req.body || {};
   const role = b.role || row.role;
   const studentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
+  // 归属校验：学生必须属于记录所属班级
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(studentId, row.class_id);
+  if (!owner) return res.json({ ok: false, error: '学生不属于该班级' });
   if (role !== '值日生') {
     const dup = db.prepare('SELECT student_id FROM duties WHERE class_id = ? AND role = ? AND id <> ?')
       .get(row.class_id, role, id);

@@ -1,8 +1,8 @@
 <template>
-  <div class="page-card">
+  <div class="page-card" v-loading="loading">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">🧹 值日管理</h2>
+        <h2 class="page-head-title">值日管理</h2>
         <p class="page-head-desc">把学生分成若干组，按周轮换值日，可打印值日表</p>
       </div>
     </div>
@@ -12,7 +12,7 @@
         <div class="toolbar">
           <span class="text-muted">把学生分成 N 组，每周轮换一组；<b>每人只在一个组</b>，保证周期内每周人员不重复</span>
           <div class="spacer"></div>
-          <el-button type="primary" @click="openAutoGroup">⚡ 一键自动分组</el-button>
+          <el-button type="primary" :icon="MagicStick" @click="openAutoGroup">一键自动分组</el-button>
           <el-button :icon="Plus" @click="addGroup">新增组</el-button>
           <el-button :icon="User" @click="openAddMembers()">往某组加人</el-button>
         </div>
@@ -23,12 +23,12 @@
               <span class="group-badge">第 {{ g.no }} 组</span>
               <span class="text-muted">({{ g.members.length }} 人)</span>
               <div class="spacer"></div>
-              <el-button link size="small" type="primary" @click="openAddMembers(g.no)">加人</el-button>
-              <el-button link size="small" type="danger" @click="removeGroup(g.no)">删组</el-button>
+              <el-button class="grp-btn" size="small" @click="openAddMembers(g.no)">加人</el-button>
+              <el-button class="grp-btn grp-btn-del" size="small" @click="removeGroup(g.no)">删组</el-button>
             </div>
             <div class="group-members">
               <el-tag v-for="m in g.members" :key="m.id" closable size="default"
-                      :type="m.gender === '女' ? 'danger' : 'primary'"
+                      :type="m.gender === '女' ? 'danger' : 'warning'"
                       @close="removeMember(m)">{{ m.student_name }}</el-tag>
               <span v-if="!g.members.length" class="text-muted">空组</span>
             </div>
@@ -86,7 +86,7 @@
     </el-dialog>
 
     <!-- 自动分组弹窗 -->
-    <el-dialog v-model="autoGroupVisible" title="⚡ 一键自动分组" width="440px">
+    <el-dialog v-model="autoGroupVisible" title="一键自动分组" width="440px">
       <el-alert type="info" :closable="false" style="margin-bottom:12px"
                 title="按名单顺序把全班在读学生平均分成 N 组；每个学生只在一个组，组间不重复。将重置现有值日分组。" />
       <el-form label-width="80px">
@@ -106,13 +106,17 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, User, Printer } from '@element-plus/icons-vue';
+import { Plus, User, Printer, MagicStick } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+const { seq, isStale } = useSeqLoad();
 
 const tab = ref('groups');
 const duties = ref([]);
 const students = ref([]);
+const loading = ref(false);
 const week = ref(Number(localStorage.getItem('duty-week') || 1));
 
 const memberVisible = ref(false);
@@ -151,11 +155,18 @@ onMounted(load);
 
 async function load() {
   if (!store.currentClassId) { duties.value = []; return; }
+  const mySeq = seq();
+  loading.value = true;
   try {
-    duties.value = await api.duties.list({ class_id: store.currentClassId });
-    students.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const d = await api.duties.list({ class_id: store.currentClassId });
+    const st = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (isStale(mySeq)) return;
+    duties.value = d;
+    students.value = st;
   } catch (e) {
     ElMessage.error('数据加载失败：' + e.message);
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -224,8 +235,12 @@ async function runAutoGroup() {
 async function removeMember(m) {
   const ok = await ElMessageBox.confirm(`把「${m.student_name}」移出第 ${m.group_no} 组？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.duties.remove(m.id);
-  load();
+  try {
+    await api.duties.remove(m.id);
+    load();
+  } catch (e) {
+    ElMessage.error('移出失败：' + e.message);
+  }
 }
 
 /* ---------- 打印值日表 ---------- */
@@ -258,21 +273,25 @@ function printRoster() {
 <style scoped>
 .group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .group-card {
-  border: 1px solid #e0f0e9; border-radius: 12px; padding: 14px;
-  background: #fbfefd; transition: box-shadow .15s;
+  border: 3px solid var(--ink); border-radius: 16px; padding: 14px;
+  background: #fff; transition: box-shadow .15s, transform .15s;
+  box-shadow: var(--shadow-sm);
 }
-.group-card:hover { box-shadow: 0 3px 12px rgba(62, 198, 168, .12); }
+.group-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
 .group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .group-badge {
-  background: linear-gradient(90deg, #3ec6a8, #55d4b6); color: #fff;
-  border-radius: 20px; padding: 3px 14px; font-size: 13px; font-weight: 600;
+  background: var(--mustard); border: 3px solid var(--ink); color: var(--ink);
+  border-radius: 999px; padding: 2px 14px; font-size: 13px; font-weight: 900;
+  box-shadow: var(--shadow-xs);
 }
+/* 组卡操作按钮：清晰胶囊，不与底色融合（样式见全局 style.css） */
 .group-members { display: flex; flex-wrap: wrap; gap: 6px; }
 .current-group {
-  padding: 14px; background: #f3fbf8; border-radius: 12px; border: 1px solid #c7f1e8;
+  padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 .name-chip {
-  display: inline-block; background: #fff; border: 1px solid #3ec6a8; color: #2f8f7a;
-  border-radius: 20px; padding: 2px 12px; margin-left: 8px; font-size: 13px;
+  display: inline-block; background: #fff; border: 3px solid var(--mint); color: var(--ink);
+  border-radius: 999px; padding: 1px 12px; margin-left: 8px; font-size: 13px; font-weight: 800;
 }
 </style>

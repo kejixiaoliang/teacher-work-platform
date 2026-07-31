@@ -18,7 +18,12 @@ watch(() => store.currentClassId, id => {
 });
 
 export async function loadClasses() {
-  store.classes = await api.classes.list();
+  try {
+    store.classes = await api.classes.list();
+  } catch (e) {
+    // 启动失败兜底：保留空列表，避免应用崩溃（后续页面会各自提示）
+    store.classes = [];
+  }
   if (!store.currentClassId || !store.classes.some(c => c.id === store.currentClassId)) {
     store.currentClassId = store.classes.length ? store.classes[0].id : null;
   }

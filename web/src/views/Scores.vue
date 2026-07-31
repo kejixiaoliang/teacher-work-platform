@@ -2,10 +2,11 @@
   <div class="page-card">
     <div class="page-head">
       <div>
-        <h2 class="page-head-title">📝 成绩管理</h2>
+        <h2 class="page-head-title">成绩管理</h2>
         <p class="page-head-desc">创建考试、录入成绩、查看排名统计与学生进步趋势</p>
       </div>
       <div class="page-head-actions">
+        <el-button @click="loadDemoScores" :loading="demoLoading">载入示例成绩</el-button>
         <el-button type="primary" :icon="Plus" @click="openExamDialog()">新建考试</el-button>
       </div>
     </div>
@@ -17,7 +18,7 @@
              @click="selectExam(e)">
           <div class="exam-head">
             <span class="exam-name">{{ e.name }}</span>
-            <el-button link type="danger" size="small" @click.stop="removeExam(e)">删</el-button>
+            <el-button class="mini-btn mini-btn-del" size="small" @click.stop="removeExam(e)">删</el-button>
           </div>
           <div class="exam-meta">{{ e.date || '未定日期' }} · {{ e.subjects.length }} 科 · 已录 {{ e.scored_count }} 人</div>
         </div>
@@ -35,6 +36,7 @@
               <div class="toolbar">
                 <span class="text-muted">直接点击数字编辑，改完点「保存成绩」（{{ currentExam.name }}）</span>
                 <div class="spacer"></div>
+                <el-button :icon="Upload" @click="openScoreImport">导入 Excel</el-button>
                 <el-button type="success" :disabled="!scoreDirty" @click="saveScores">保存成绩</el-button>
               </div>
               <el-table :data="scoreRows" size="small" border max-height="520">
@@ -109,16 +111,41 @@
         <el-button type="primary" @click="saveExam">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 成绩导入预览 -->
+    <el-dialog v-model="scoreImportVisible" title="导入成绩预览" width="640px">
+      <el-alert type="info" :closable="false" style="margin-bottom:10px"
+                :title="`解析到 ${scoreImportRows.length} 行成绩`" />
+      <p class="text-muted" style="margin-top:0">Excel 第一行应为表头（学号/姓名 + 科目名），按学号或姓名匹配学生。</p>
+      <el-table :data="scoreImportRows" size="small" max-height="320" border>
+        <el-table-column prop="student_name" label="学生" width="100" />
+        <el-table-column prop="subject" label="科目" width="90" />
+        <el-table-column prop="score" label="成绩" width="80" />
+        <el-table-column prop="note" label="提示" min-width="140" />
+      </el-table>
+      <template #footer>
+        <el-button @click="scoreImportVisible = false">取消</el-button>
+        <el-button type="primary" :loading="scoreImporting" @click="doScoreImport">确认导入</el-button>
+      </template>
+    </el-dialog>
+    <input ref="scoreFileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onScoreFileChange" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Upload } from '@element-plus/icons-vue';
+import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import EChart from '../components/EChart.vue';
+import { useSeqLoad } from '../composables/useSeqLoad.js';
+
+// 每个数据域独立计数器，避免并发 load 相互作废
+const examsSeq = useSeqLoad();
+const studentsSeq = useSeqLoad();
 
 const COMMON_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '政治', '历史', '地理'];
 
@@ -139,9 +166,160 @@ const trendPoints = ref([]);
 
 const examDialogVisible = ref(false);
 const examForm = ref({ id: null, name: '', date: '', subjects: [] });
+const demoLoading = ref(false);
 
-watch(() => store.currentClassId, () => {
-  // 切班级：重置所有状态 + 重载考试与学生（P0-1）
+/* ---------- 成绩 Excel 导入 ---------- */
+const scoreFileInput = ref(null);
+const scoreImportVisible = ref(false);
+const scoreImporting = ref(false);
+const scoreImportRows = ref([]);   // [{studentId, subject, score, note, student_name}]
+
+function openScoreImport() {
+  if (!currentExam.value) return ElMessage.warning('请先选择或创建考试');
+  scoreFileInput.value?.click();
+}
+
+async function onScoreFileChange(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!currentExam.value) return ElMessage.warning('请先选择考试');
+  try {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0];
+    if (!ws || ws.rowCount < 2) return ElMessage.warning('Excel 中没有数据');
+    // 表头：第 1 行；按名称定位学号/姓名列与科目列
+    const header = [];
+    ws.getRow(1).eachCell((cell, col) => { header[col - 1] = String(cell.text ?? '').trim(); });
+    const stuMap = new Map(allStudents.value.map(s => [String(s.school_no || ''), s]));
+    const nameMap = new Map(allStudents.value.map(s => [s.name, s]));
+    const ID_HEADERS = ['学号', '姓名', '名字', '学生', 'number', 'name', '姓名学号'];
+    let noCol = -1, nameCol = -1;
+    const subIdx = new Map(); // 科目名 -> 列号（1-based）
+    header.forEach((h, i) => {
+      const col = i + 1;
+      if (!h) return;
+      if (h === '学号' || h.toLowerCase() === 'number' || h.toLowerCase() === 'no') noCol = col;
+      else if (h === '姓名' || h === '名字' || h === '学生' || h.toLowerCase() === 'name') nameCol = col;
+      else if (!ID_HEADERS.includes(h)) subIdx.set(h, col);
+    });
+    if (noCol === -1 && nameCol === -1) return ElMessage.warning('未找到学号/姓名列（表头请包含「学号」或「姓名」）');
+    if (!subIdx.size) return ElMessage.warning('未找到科目列（请把各科成绩放在学号/姓名右侧的列中）');
+    const rows = [];
+    ws.eachRow((row, rn) => {
+      if (rn === 1) return;
+      const no = String(row.getCell(noCol).text ?? row.getCell(noCol).value ?? '').trim();
+      const nm = String(row.getCell(nameCol).text ?? row.getCell(nameCol).value ?? '').trim();
+      const stu = (noCol !== -1 && stuMap.get(no)) || (nm ? nameMap.get(nm) : null);
+      const label = no || nm || `第${rn}行`;
+      for (const [sub, col] of subIdx) {
+        const cell = row.getCell(col);
+        const v = cell.value;
+        if (v === undefined || v === null || v === '') continue;
+        const n = Number(v);
+        if (!Number.isFinite(n)) {
+          rows.push({ studentId: stu?.id ?? null, subject: sub, score: null, student_name: stu?.name || label, note: `「${v}」非数字` });
+          continue;
+        }
+        rows.push({ studentId: stu?.id ?? null, subject: sub, score: n, student_name: stu?.name || label, note: stu ? '' : '未匹配到学生' });
+      }
+    });
+    if (!rows.length) return ElMessage.warning('未解析到有效成绩');
+    scoreImportRows.value = rows;
+    scoreImportVisible.value = true;
+  } catch (err) {
+    ElMessage.error('文件解析失败：' + err.message);
+  }
+}
+
+async function doScoreImport() {
+  if (!currentExam.value) return;
+  const valid = scoreImportRows.value.filter(r => r.studentId != null && r.score != null);
+  if (!valid.length) return ElMessage.warning('没有可导入的有效成绩（请检查学号/姓名匹配）');
+  scoreImporting.value = true;
+  try {
+    const r = await api.scores.save({ examId: currentExam.value.id, rows: valid.map(x => ({ studentId: x.studentId, subject: x.subject, score: x.score })) });
+    ElMessage.success(`已导入 ${r.count} 条成绩` + (valid.length !== scoreImportRows.value.length ? `，跳过 ${scoreImportRows.value.length - valid.length} 条无效` : ''));
+    scoreImportVisible.value = false;
+    selectExam(currentExam.value); // 刷新录入矩阵与统计
+  } catch (e) {
+    ElMessage.error(e.message);
+  } finally {
+    scoreImporting.value = false;
+  }
+}
+
+/* ---------- 载入示例成绩：一键生成预设考试+全班成绩，方便查看效果 ---------- */
+const DEMO_EXAM_NAME = '示例·期中考试';
+const DEMO_SUBJECTS = ['语文', '数学', '英语', '物理', '化学'];
+
+async function loadDemoScores() {
+  if (!store.currentClassId) return ElMessage.warning('请先创建班级');
+  // 切班级时 exams 可能还是旧班数据（loadExams 异步未完成），按 class_id 过滤当前班的示例考试
+  const demo = exams.value.find(e => e.name === DEMO_EXAM_NAME && e.class_id === store.currentClassId);
+  if (demo) {
+    const ok = await selectExam(demo);
+    if (!ok) return;
+    tab.value = 'analysis';
+    return ElMessage.info('示例考试已存在，已为你切换到「排名与统计」');
+  }
+  if (!allStudents.value.length) await loadStudents();
+  const students = allStudents.value;
+  if (!students.length) return ElMessage.warning('班级里还没有学生，请先到「学生管理」添加或导入');
+  demoLoading.value = true;
+  try {
+    // 1) 创建示例考试（本地日期，避免 UTC 差一天）
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const r = await api.scores.createExam({
+      class_id: store.currentClassId,
+      name: DEMO_EXAM_NAME,
+      date: localDate,
+      subjects: DEMO_SUBJECTS,
+    });
+    // 2) 每个学生一个固定“能力值”，各科成绩 = 能力分 + 科目偏移 + 小波动
+    const rows = [];
+    const base = 100; // 满分
+    for (const s of students) {
+      const ability = 0.5 + ((s.id * 37) % 45) / 100; // 0.50 ~ 0.94，伪随机但稳定
+      for (const sub of DEMO_SUBJECTS) {
+        const offset = sub === '数学' ? 0 : sub === '英语' ? -3 : sub === '物理' ? 2 : 5;
+        const noise = ((s.id * 13 + DEMO_SUBJECTS.indexOf(sub) * 7) % 11) - 5; // -5 ~ 5
+        const score = Math.round(Math.min(base, Math.max(30, ability * base + offset + noise)));
+        rows.push({ studentId: s.id, subject: sub, score });
+      }
+    }
+    await api.scores.save({ examId: r.id, rows });
+    ElMessage.success(`已生成示例考试「${DEMO_EXAM_NAME}」：${students.length} 名学生 × ${DEMO_SUBJECTS.length} 科`);
+    await loadExams();
+    const exam = exams.value.find(e => e.name === DEMO_EXAM_NAME && e.class_id === store.currentClassId);
+    if (exam) {
+      await selectExam(exam);
+      tab.value = 'analysis';
+    }
+  } catch (e) {
+    ElMessage.error('示例成绩生成失败：' + e.message);
+  } finally {
+    demoLoading.value = false;
+  }
+}
+
+// 回滚标志：取消切班回滚时抑制二次确认
+let restoringClass = false;
+
+watch(() => store.currentClassId, async (newId, oldId) => {
+  if (restoringClass) { restoringClass = false; return; }
+  // 切班级：未保存成绩先确认（P0-1），确认后重置状态 + 重载
+  if (scoreDirty.value && oldId != null) {
+    const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，切换班级将丢失。确定切换吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+    if (!ok) {
+      // 取消：回滚班级选择（不重复弹确认）
+      restoringClass = true;
+      store.currentClassId = oldId;
+      return;
+    }
+  }
   currentExam.value = null;
   tab.value = 'entry';
   scoreMatrix.value = {};
@@ -150,26 +328,47 @@ watch(() => store.currentClassId, () => {
   ranking.value = [];
   trendStudentId.value = null;
   trendPoints.value = [];
+  allStudents.value = [];
+  scoreDirty.value = false;
   loadExams();
   loadStudents();
 });
 
+// 离开页面（路由切换）前拦截未保存成绩
+onBeforeRouteLeave(async () => {
+  if (!scoreDirty.value) return true;
+  const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，离开将丢失。确定离开吗？', '未保存提示', { type: 'warning' }).catch(() => false);
+  return ok;
+});
+// 刷新/关闭浏览器前兜底
+function beforeUnloadGuard(e) {
+  if (scoreDirty.value) { e.preventDefault(); e.returnValue = ''; }
+}
+window.addEventListener('beforeunload', beforeUnloadGuard);
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+
 async function loadExams() {
   if (!store.currentClassId) { exams.value = []; currentExam.value = null; return; }
+  const mySeq = examsSeq.seq();
   loading.value = true;
   try {
-    exams.value = await api.scores.exams(store.currentClassId);
+    const data = await api.scores.exams(store.currentClassId);
+    if (examsSeq.isStale(mySeq)) return;
+    exams.value = data;
     if (exams.value.length && !currentExam.value) selectExam(exams.value[0]);
   } catch (e) {
     ElMessage.error('考试列表加载失败：' + e.message);
   } finally {
-    loading.value = false;
+    if (!examsSeq.isStale(mySeq)) loading.value = false;
   }
 }
 async function loadStudents() {
   if (!store.currentClassId) { allStudents.value = []; return; }
+  const mySeq = studentsSeq.seq();
   try {
-    allStudents.value = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    const data = await api.students.list({ class_id: store.currentClassId, status: '在读' });
+    if (studentsSeq.isStale(mySeq)) return;
+    allStudents.value = data;
   } catch (e) {
     ElMessage.error('学生列表加载失败：' + e.message);
   }
@@ -179,7 +378,7 @@ async function selectExam(e) {
   // 未保存成绩切换确认（P1-7）
   if (scoreDirty.value) {
     const ok = await ElMessageBox.confirm('当前考试有未保存的成绩，切换将丢失。确定切换吗？', '未保存提示', { type: 'warning' }).catch(() => false);
-    if (!ok) return;
+    if (!ok) return false;
   }
   currentExam.value = e;
   tab.value = 'entry';
@@ -193,16 +392,20 @@ async function selectExam(e) {
   }
   try {
     const rows = await api.scores.list(e.id);
+    // 竞态防护：等待期间用户可能已切到其他考试，丢弃过期响应
+    if (currentExam.value?.id !== e.id) return false;
     for (const r of rows) {
       if (scoreMatrix.value[r.student_id]) scoreMatrix.value[r.student_id][r.subject] = r.score;
     }
     // 分析数据
     const an = await api.scores.analysis(e.id);
+    if (currentExam.value?.id !== e.id) return false;
     subjectStats.value = an.subjectStats;
     ranking.value = an.ranking;
   } catch (err) {
     ElMessage.error(err.message);
   }
+  return true;
 }
 
 async function saveScores() {
@@ -249,9 +452,13 @@ async function saveExam() {
 async function removeExam(e) {
   const ok = await ElMessageBox.confirm(`删除「${e.name}」及其全部成绩？`, '删除考试', { type: 'warning' }).catch(() => false);
   if (!ok) return;
-  await api.scores.removeExam(e.id);
-  if (currentExam.value?.id === e.id) currentExam.value = null;
-  loadExams();
+  try {
+    await api.scores.removeExam(e.id);
+    if (currentExam.value?.id === e.id) currentExam.value = null;
+    loadExams();
+  } catch (err) {
+    ElMessage.error('删除失败：' + err.message);
+  }
 }
 
 /* ---------- 趋势 ---------- */
@@ -271,8 +478,8 @@ const trendOption = computed(() => ({
   yAxis: { type: 'value', name: '总分' },
   series: [{
     type: 'line', data: trendPoints.value.map(p => p.total), smooth: true,
-    lineStyle: { width: 3, color: '#3ec6a8' }, itemStyle: { color: '#3ec6a8' },
-    areaStyle: { color: 'rgba(62,198,168,.15)' },
+    lineStyle: { width: 3, color: '#f35b3f' }, itemStyle: { color: '#f35b3f' },
+    areaStyle: { color: 'rgba(243,91,63,.15)' },
     markPoint: {
       data: trendPoints.value.length
         ? [{ type: 'max', name: '最高' }, { type: 'min', name: '最低' }]
@@ -286,24 +493,37 @@ const trendOption = computed(() => ({
 .scores-workspace { display: flex; gap: 14px; align-items: flex-start; }
 .exam-list {
   width: 230px; flex-shrink: 0;
-  background: #fbfefd; border: 1px solid #e8f5ef; border-radius: 12px; padding: 10px;
+  background: var(--paper-soft); border: 3px solid var(--ink); border-radius: 16px; padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
+  box-shadow: var(--shadow-sm);
 }
 .exam-item {
-  border: 1px solid #e8f5ef; border-radius: 10px; padding: 10px 12px; cursor: pointer;
+  border: 3px solid transparent; border-radius: 12px; padding: 10px 12px; cursor: pointer;
   transition: all .15s; background: #fff;
 }
-.exam-item:hover { border-color: #3ec6a8; }
-.exam-item.active { border-color: #3ec6a8; background: #e6f9f5; }
-.exam-name { font-weight: 700; font-size: 14px; color: #33403c; }
+.exam-item:hover { border-color: var(--tomato); transform: translateX(2px); }
+.exam-item.active { border-color: var(--ink); background: var(--mustard); box-shadow: var(--shadow-xs); }
+.exam-name { font-weight: 900; font-size: 14px; color: var(--ink); }
 .exam-head { display: flex; justify-content: space-between; align-items: center; }
-.exam-meta { font-size: 11px; color: #98a6a0; margin-top: 3px; }
+.exam-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
 .exam-content { flex: 1; min-width: 0; }
-.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 14px; }
 .stat-card {
-  background: linear-gradient(135deg, #f0faf6, #e6f9f5);
-  border: 1px solid #d5f0e6; border-radius: 10px; padding: 10px 14px;
+  background: #fff;
+  border: 3px solid var(--ink); border-radius: 14px; padding: 10px 14px;
+  box-shadow: var(--shadow-xs);
 }
-.sc-subject { font-weight: 700; color: #2f8f7a; margin-bottom: 4px; }
-.sc-row { font-size: 12px; color: #5c6f68; }
+.sc-subject { font-weight: 900; color: var(--tomato); margin-bottom: 4px; }
+.sc-row { font-size: 12px; color: var(--muted); }
+
+/* ---------- 响应式：窄屏考试列表置顶 ---------- */
+@media (max-width: 900px) {
+  .scores-workspace { flex-direction: column; }
+  .exam-list {
+    width: 100%; flex-shrink: 1;
+    flex-direction: row; flex-wrap: wrap;
+    align-items: center;
+  }
+  .exam-item { flex: 1 1 200px; }
+}
 </style>
