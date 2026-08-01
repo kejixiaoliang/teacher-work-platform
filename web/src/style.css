@@ -260,6 +260,8 @@ body {
 .row-btn-edit:hover { background: var(--mint); color: var(--ink); }
 .row-btn-del { border-color: var(--tomato); color: var(--tomato); }
 .row-btn-del:hover { background: var(--tomato); color: #fff; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.row-actions .row-btn { margin-right: 0 !important; }
 .mini-btn {
   margin: 0 0 0 4px !important;
   border-radius: 999px;

@@ -3,11 +3,13 @@ import db from '../db.js';
 
 const router = Router();
 const STATUSES = ['出勤', '迟到', '请假', '缺勤'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // 某日登记（含未登记学生，默认出勤）
 router.get('/', (req, res) => {
   const { class_id, date } = req.query;
   if (!class_id || !date) return res.json({ ok: false, error: '缺少班级或日期' });
+  if (!DATE_RE.test(String(date))) return res.status(400).json({ ok: false, error: '日期格式应为 YYYY-MM-DD' });
   const students = db.prepare(`
     SELECT id, name, school_no FROM students
     WHERE class_id = ? AND deleted_at IS NULL AND status = '在读' ORDER BY CAST(school_no AS INTEGER), school_no, id
@@ -28,6 +30,7 @@ router.get('/', (req, res) => {
 router.put('/', (req, res) => {
   const { classId, date, rows } = req.body || {};
   if (!classId || !date || !Array.isArray(rows)) return res.json({ ok: false, error: '参数不完整' });
+  if (!DATE_RE.test(String(date))) return res.status(400).json({ ok: false, error: '日期格式应为 YYYY-MM-DD' });
   // 校验学生属于该班且在册（软删除学生不能写入考勤）
   const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ? AND deleted_at IS NULL').all(Number(classId)).map(r => r.id));
   const upsert = db.prepare(`

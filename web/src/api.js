@@ -67,9 +67,19 @@ export const api = {
   documents: {
     list: q => request('GET', '/api/documents' + toQuery(q)),
     upload: async formData => {
-      const r = await fetch('/api/documents', { method: 'POST', body: formData });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      let r;
+      try {
+        r = await fetch('/api/documents', { method: 'POST', body: formData, signal: ctrl.signal });
+      } catch (e) {
+        if (e.name === 'AbortError') throw new Error('上传超时，请重试');
+        throw new Error('网络错误：' + e.message);
+      } finally {
+        clearTimeout(timer);
+      }
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j?.ok) throw new Error((j && j.error) || '上传失败');
+      if (!r.ok || !j?.ok) throw new Error((j && j.error) || `上传失败（${r.status}）`);
       return j.data;
     },
     update: (id, d) => request('PUT', `/api/documents/${id}`, d),
