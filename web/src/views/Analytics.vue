@@ -18,7 +18,7 @@
 
     <!-- 图表区 -->
     <div class="chart-grid">
-      <div class="chart-card chart-wide">
+      <div class="chart-card chart-wide" v-if="false">
         <div class="chart-title">学期历史对比（来自「学期存档」快照）</div>
         <EChart v-if="historyRows.length" :option="historyOption" height="300px" />
         <el-empty v-else description="还没有学期存档数据，到首页「数据管理 → 学期存档」录入" :image-size="60" />
@@ -47,7 +47,7 @@
 
     <el-empty v-if="!students.length" description="当前班级还没有在读学生，先去「学生管理」添加或导入" :image-size="90" style="margin-top:20px" />
 
-    <p class="text-muted" style="margin-top:12px">数据来源：学生档案当前值；身高/视力/近视率跨学期对比来自「学期存档」历史快照。</p>
+    <p class="text-muted" style="margin-top:12px">数据来源：当前班级在读学生档案。</p>
   </div>
 </template>
 
@@ -203,7 +203,7 @@ watch(() => store.currentClassId, load);
 onMounted(load);
 
 async function load() {
-  if (!store.currentClassId) { students.value = []; historyRows.value = []; return; }
+  if (!store.currentClassId) { students.value = []; return; }
   const mySeq = seq();
   loading.value = true;
   try {
