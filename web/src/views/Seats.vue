@@ -388,10 +388,21 @@ const seatedIds = computed(() => new Set(Object.values(grid).map(s => s.studentI
 const unseatedStudents = computed(() => students.value.filter(s => !seatedIds.value.has(s.id)));
 
 function selectSeat(r, c) {
-  selectedKey.value = keyOf(r, c);
-  if (mode.value === 'manual') {
-    seatDlg.value = { row: r, col: c, key: keyOf(r, c), studentId: null };
+  const targetKey = keyOf(r, c);
+  if (mode.value !== 'manual') { selectedKey.value = targetKey; return; }
+  const sourceKey = selectedKey.value;
+  const source = sourceKey ? grid[sourceKey] : null;
+  const target = grid[targetKey];
+  if (sourceKey && sourceKey !== targetKey && source?.studentId) {
+    moveSeat(sourceKey, targetKey);
+    return;
+  }
+  selectedKey.value = targetKey;
+  if (!target?.studentId) {
+    seatDlg.value = { row: r, col: c, key: targetKey, studentId: null };
     seatDialogVisible.value = true;
+  } else {
+    ElMessage.info('已选中该学生，请点击目标座位完成移动或交换');
   }
 }
 function placeStudent() {
@@ -468,6 +479,18 @@ function onDragStart(e, r, c) {
   e.dataTransfer.setData('text/plain', keyOf(r, c));
   e.dataTransfer.effectAllowed = 'move';
 }
+function moveSeat(sourceKey, targetKey) {
+  const source = grid[sourceKey];
+  const target = grid[targetKey];
+  if (!source || !target || !source.studentId || sourceKey === targetKey) return;
+  if (source.locked || target.locked) return ElMessage.warning('锁定座位不可拖拽/拖入');
+  const targetWasEmpty = !target.studentId;
+  const fields = ['studentId', 'name', 'gender', 'height_cm', 'vision_left', 'vision_right', 'is_myopia', 'grade_level'];
+  for (const field of fields) [source[field], target[field]] = [target[field], source[field]];
+  selectedKey.value = targetKey;
+  dirty.value = true;
+  ElMessage.success(targetWasEmpty ? '已移动到空座，记得保存布局' : '已交换座位，记得保存布局');
+}
 function onDrop(e, r, c) {
   dragOver.value = null;
   const sourceKey = e.dataTransfer.getData('text/plain');
@@ -477,11 +500,7 @@ function onDrop(e, r, c) {
   const b = grid[targetKey];
   if (!a || !b) return;
   if (a.locked || b.locked) return ElMessage.warning('锁定座位不可拖拽/拖入');
-  const fields = ['studentId', 'name', 'gender', 'height_cm', 'vision_left', 'vision_right', 'is_myopia', 'grade_level'];
-  for (const f of fields) {
-    const t = a[f]; a[f] = b[f]; b[f] = t;
-  }
-  dirty.value = true;
+  moveSeat(sourceKey, targetKey);
 }
 
 /* ---------- 自动排座 ---------- */
