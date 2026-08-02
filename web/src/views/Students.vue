@@ -89,7 +89,7 @@
           <span v-else class="text-muted">正常</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column label="操作" width="150">
         <template #default="{ row }">
           <template v-if="!trashed">
             <el-button class="row-btn" size="small" @click.stop="openDetail(row)">详情</el-button>

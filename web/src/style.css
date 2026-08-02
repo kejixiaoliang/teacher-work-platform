@@ -211,6 +211,7 @@ body {
 .el-table td.el-table__cell { border-bottom: 1px solid #e8dcc3; }
 .el-table tr:hover > td.el-table__cell { background: var(--paper) !important; }
 .el-table__inner-wrapper::before { display: none; }
+.students-table { width: 100%; }
 
 /* ---------- 标签：白底墨边胶囊 ---------- */
 .el-tag {
