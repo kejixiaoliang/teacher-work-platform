@@ -247,6 +247,7 @@
               <el-table-column prop="recorded_at" label="记录时间" width="130">
                 <template #default="{ row }">{{ (row.recorded_at || '').slice(0, 16).replace('T', ' ') }}</template>
               </el-table-column>
+              <el-table-column prop="source" label="来源" width="110" />
             </el-table>
           </el-tab-pane>
 

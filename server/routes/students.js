@@ -83,7 +83,7 @@ router.put('/:id', (req, res) => {
   }
   const sets = FIELDS.map(k => `${k} = @${k}`).join(', ');
   const followUpChanged = b.follow_up_status !== undefined || b.follow_up_note !== undefined;
-  db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run({
+  const values = {
     ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] === undefined ? row[k] : (b[k] == null ? null : b[k]) }), {}),
     name: b.name === undefined ? row.name : (b.name == null ? row.name : String(b.name).trim()),
     school_no: b.school_no === undefined ? row.school_no : (b.school_no == null ? null : String(b.school_no).trim()),
@@ -95,7 +95,22 @@ router.put('/:id', (req, res) => {
     follow_up_note: b.follow_up_note === undefined ? row.follow_up_note : (b.follow_up_note || ''),
     follow_up_updated_at: followUpChanged ? new Date().toISOString() : row.follow_up_updated_at,
     id,
+  };
+  const healthChanged = ['height_cm', 'vision_left', 'vision_right', 'is_myopia']
+    .some(k => Number(values[k]) !== Number(row[k]));
+  const tx = db.transaction(() => {
+    db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run(values);
+    if (healthChanged) {
+      const cls = db.prepare('SELECT academic_year, term FROM classes WHERE id = ?').get(row.class_id);
+      const term = [cls?.academic_year, cls?.term].filter(Boolean).join(' ');
+      db.prepare(`
+        INSERT INTO student_metrics_history
+          (student_id, term, height_cm, vision_left, vision_right, grade_level, is_myopia, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '学生信息编辑')
+      `).run(id, term, values.height_cm, values.vision_left, values.vision_right, values.grade_level, values.is_myopia ? 1 : 0);
+    }
   });
+  tx();
   res.json({ ok: true });
 });
 

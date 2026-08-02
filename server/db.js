@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS student_metrics_history (
   vision_right REAL,
   grade_level TEXT DEFAULT '',
   is_myopia INTEGER DEFAULT 0,
+  source TEXT DEFAULT '学期存档',
   recorded_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
@@ -227,6 +228,12 @@ function migrate() {
     if (!studentCols.includes('follow_up_updated_at')) db.exec('ALTER TABLE students ADD COLUMN follow_up_updated_at TEXT');
     db.pragma('user_version = 2');
     console.log('[migrate] 学生跟进字段迁移完成 → user_version 2');
+  }
+  if (db.pragma('user_version', { simple: true }) < 3) {
+    const metricCols = db.prepare('PRAGMA table_info(student_metrics_history)').all().map(c => c.name);
+    if (!metricCols.includes('source')) db.exec("ALTER TABLE student_metrics_history ADD COLUMN source TEXT DEFAULT '学期存档'");
+    db.pragma('user_version = 3');
+    console.log('[migrate] 健康快照来源字段迁移完成 → user_version 3');
   }
 }
 migrate();
