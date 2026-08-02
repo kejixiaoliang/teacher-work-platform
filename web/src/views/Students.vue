@@ -47,13 +47,13 @@
               @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
       <template #empty><el-empty description="暂无学生，点右上角「新增学生」或导入 Excel" :image-size="60" /></template>
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="school_no" label="学号" width="82" show-overflow-tooltip />
-      <el-table-column prop="name" label="姓名" width="76" show-overflow-tooltip>
+      <el-table-column prop="school_no" label="学号" min-width="96" show-overflow-tooltip />
+      <el-table-column prop="name" label="姓名" min-width="84" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="60" />
       <el-table-column prop="height_cm" label="身高(cm)" width="85" />
-      <el-table-column label="视力" width="92">
+      <el-table-column label="视力" min-width="102">
         <template #default="{ row }">
           <span :class="{ 'vision-bad': row.vision_left != null && row.vision_left < 4.8 }">{{ fmtVision(row.vision_left) }}</span>
           /
@@ -63,33 +63,33 @@
       <el-table-column label="近视" width="60">
         <template #default="{ row }"><el-tag v-if="row.is_myopia" size="small" type="warning">是</el-tag></template>
       </el-table-column>
-      <el-table-column prop="grade_level" label="成绩" width="80">
+      <el-table-column prop="grade_level" label="成绩" min-width="74">
         <template #default="{ row }">
           <el-tag v-if="row.grade_level" size="small" :type="gradeType(row.grade_level)">{{ row.grade_level }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="住宿" width="60">
+      <el-table-column label="住宿" width="70">
         <template #default="{ row }"><el-tag v-if="row.is_boarding" size="small" round>住宿</el-tag></template>
       </el-table-column>
-      <el-table-column prop="parent_phone" label="家长电话" min-width="118" show-overflow-tooltip>
+      <el-table-column prop="parent_phone" label="家长电话" min-width="132" show-overflow-tooltip>
         <template #default="{ row }">{{ row.parent_phone || row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="interest_duty" label="职务/特长" min-width="150" show-overflow-tooltip>
+      <el-table-column prop="interest_duty" label="职务/特长" min-width="144" show-overflow-tooltip>
         <template #default="{ row }">{{ row.interest_duty || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="70">
+      <el-table-column prop="status" label="状态" min-width="70">
         <template #default="{ row }">
           <el-tag v-if="row.status !== '在读'" size="small" type="info">{{ row.status }}</el-tag>
           <span v-else class="text-muted">在读</span>
         </template>
       </el-table-column>
-      <el-table-column prop="follow_up_status" label="跟进" width="80">
+      <el-table-column prop="follow_up_status" label="跟进" min-width="78">
         <template #default="{ row }">
           <el-tag v-if="row.follow_up_status && row.follow_up_status !== '正常'" size="small" type="warning">{{ row.follow_up_status }}</el-tag>
           <span v-else class="text-muted">正常</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150">
+      <el-table-column label="操作" width="142">
         <template #default="{ row }">
           <template v-if="!trashed">
             <el-button class="row-btn" size="small" @click.stop="openDetail(row)">详情</el-button>
@@ -246,7 +246,7 @@
             </div>
             <div v-if="metrics.length" class="archive-list metric-list">
               <article v-for="m in metrics" :key="m.id" class="archive-row metric-row">
-                <div class="archive-kind"><b>{{ metricTerm(m.term) }}</b><small>{{ metricTime(m.recorded_at) }}</small></div>
+                <div class="archive-kind"><b>{{ metricTerm(m) }}</b><small>{{ metricTime(m.recorded_at) }}</small></div>
                 <div class="metric-data">
                   <span><small>身高</small><b>{{ m.height_cm ?? '—' }}<i>cm</i></b></span>
                   <span><small>视力</small><b>{{ fmtVision(m.vision_left) }}/{{ fmtVision(m.vision_right) }}</b></span>
@@ -520,12 +520,16 @@ function openDetail(row) {
 }
 function timelineLabel(type) { return { record: '成长记录', contact: '家校沟通', metrics: '健康快照' }[type] || '档案'; }
 function timelineType(type) { return { record: 'warning', contact: 'info', metrics: 'success' }[type] || ''; }
-function metricTerm(term) {
-  const normalized = String(term || '').replace(/\?/g, '').trim();
-  if (/^[上下]$/.test(normalized) && currentClass.value?.academic_year) {
-    return `${currentClass.value.academic_year} ${normalized}`;
-  }
-  return normalized || '日常测量';
+function metricTerm(metric) {
+  const normalized = String(metric?.term || '').replace(/\?/g, '').replace(/\s+/g, ' ').trim();
+  const archivedYear = metrics.value
+    .map(item => String(item.term || '').match(/\b\d{4}-\d{4}\b/)?.[0])
+    .find(Boolean) || '';
+  const academicYear = metric?.class_academic_year || archivedYear || currentClass.value?.academic_year || '';
+  const classTerm = metric?.class_term || currentClass.value?.term || '';
+  if (/^[上下]$/.test(normalized)) return [academicYear, normalized].filter(Boolean).join(' ') || normalized;
+  if (/^\d{4}-\d{4}$/.test(normalized) && /^[上下]$/.test(classTerm)) return `${normalized} ${classTerm}`;
+  return normalized || [academicYear, classTerm].filter(Boolean).join(' ') || '日常测量';
 }
 function metricTime(time) { return (time || '').slice(0, 16).replace('T', ' ') || '刚刚记录'; }
 function openMetricEntry() {

@@ -21,6 +21,18 @@ function sameMetricValue(before, after) {
   return Number(before) === Number(after);
 }
 
+function resolveMetricTerm(studentId, classId) {
+  const cls = db.prepare('SELECT academic_year, term FROM classes WHERE id = ?').get(classId);
+  const archived = db.prepare(`
+    SELECT term FROM student_metrics_history
+    WHERE student_id = ? AND term GLOB '????-????*'
+    ORDER BY recorded_at DESC, id DESC LIMIT 1
+  `).get(studentId);
+  const archivedYear = String(archived?.term || '').match(/\b\d{4}-\d{4}\b/)?.[0] || '';
+  const academicYear = String(cls?.academic_year || '').trim() || archivedYear;
+  return [academicYear, cls?.term].filter(Boolean).join(' ') || academicYear || '日常测量';
+}
+
 // 列表（默认当前班+在读+未删除；trashed=1 查回收站）
 router.get('/', (req, res) => {
   const { class_id, keyword, gender, status, myopia, boarding, follow_up_status, trashed } = req.query;
@@ -108,8 +120,7 @@ router.put('/:id', (req, res) => {
   const tx = db.transaction(() => {
     db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run(values);
     if (healthChanged) {
-      const cls = db.prepare('SELECT academic_year, term FROM classes WHERE id = ?').get(row.class_id);
-      const term = [cls?.academic_year, cls?.term].filter(Boolean).join(' ') || '日常测量';
+      const term = resolveMetricTerm(id, row.class_id);
       const source = b.metric_source === '手动测量' ? '手动测量' : '学生信息编辑';
       db.prepare(`
         INSERT INTO student_metrics_history
@@ -249,7 +260,19 @@ router.post('/archive', (req, res) => {
 // 某学生历史指标
 router.get('/:id/metrics', (req, res) => {
   const rows = db.prepare(`
-    SELECT * FROM student_metrics_history WHERE student_id = ? ORDER BY recorded_at DESC
+    SELECT m.*,
+      COALESCE(NULLIF(c.academic_year, ''), (
+        SELECT substr(m2.term, 1, 9)
+        FROM student_metrics_history m2
+        WHERE m2.student_id = m.student_id AND m2.term GLOB '????-????*'
+        ORDER BY m2.recorded_at DESC, m2.id DESC LIMIT 1
+      )) AS class_academic_year,
+      c.term AS class_term
+    FROM student_metrics_history m
+    JOIN students s ON s.id = m.student_id
+    LEFT JOIN classes c ON c.id = s.class_id
+    WHERE m.student_id = ?
+    ORDER BY m.recorded_at DESC, m.id DESC
   `).all(Number(req.params.id));
   res.json({ ok: true, data: rows });
 });
