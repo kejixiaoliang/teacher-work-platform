@@ -17,7 +17,7 @@ function pickStudent(row) {
 
 // 列表（默认当前班+在读+未删除；trashed=1 查回收站）
 router.get('/', (req, res) => {
-  const { class_id, keyword, gender, status, myopia, boarding, trashed } = req.query;
+  const { class_id, keyword, gender, status, myopia, boarding, follow_up_status, trashed } = req.query;
   const conds = [];
   const params = {};
   if (trashed === '1') {
@@ -32,6 +32,7 @@ router.get('/', (req, res) => {
   if (myopia === '0') conds.push('s.is_myopia = 0');
   if (boarding === '1') conds.push('s.is_boarding = 1');
   if (boarding === '0') conds.push('s.is_boarding = 0');
+  if (follow_up_status) { conds.push('s.follow_up_status = @follow_up_status'); params.follow_up_status = follow_up_status; }
   if (keyword) {
     conds.push('(s.name LIKE @kw OR s.school_no LIKE @kw)');
     params.kw = `%${keyword}%`;

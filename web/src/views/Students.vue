@@ -29,6 +29,9 @@
       <el-select v-model="query.boarding" placeholder="住宿" clearable style="width:90px" @change="load">
         <el-option label="是" value="1" /><el-option label="否" value="0" />
       </el-select>
+      <el-select v-model="query.follow_up_status" placeholder="跟进状态" clearable style="width:110px" @change="load">
+        <el-option label="需关注" value="需关注" /><el-option label="跟进中" value="跟进中" /><el-option label="已处理" value="已处理" /><el-option label="正常" value="正常" />
+      </el-select>
       <div class="spacer"></div>
       <el-button :icon="Download" @click="downloadTemplate">下载导入模板</el-button>
       <el-button v-if="!trashed" :icon="Delete" type="danger" plain @click="batchDelete"
@@ -388,7 +391,7 @@ const list = ref([]);
 const selected = ref([]);
 const trashed = ref(false);
 const fileInput = ref(null);
-const query = reactive({ keyword: '', gender: '', status: '', myopia: '', boarding: '' });
+const query = reactive({ keyword: '', gender: '', status: '', myopia: '', boarding: '', follow_up_status: '' });
 
 /* 前端分页：大列表不一次性渲染全部行 */
 const PAGE_SIZE = 50;
