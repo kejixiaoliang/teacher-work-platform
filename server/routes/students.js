@@ -81,7 +81,7 @@ router.put('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM students WHERE id = ?').get(id);
   if (!row) return res.json({ ok: false, error: '学生不存在' });
   const b = req.body || {};
-  if (b.name !== undefined && !String(b.name || '').trim()) return res.json({ ok: false, error: '姓名不能为空' });
+  if (b.name === undefined || (b.name && !String(b.name).trim())) return res.json({ ok: false, error: '姓名不能为空' });
   if (b.school_no && String(b.school_no).trim() !== row.school_no) {
     const dup = db.prepare('SELECT id FROM students WHERE school_no = ? AND deleted_at IS NULL AND id <> ?')
       .get(String(b.school_no).trim(), id);
