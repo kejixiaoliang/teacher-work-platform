@@ -5,7 +5,7 @@ const router = Router();
 
 const FIELDS = ['school_no','name','gender','birth_date','phone','parent_phone','is_boarding',
   'interest_duty','health_note','height_cm','vision_left','vision_right','is_myopia',
-  'grade_level','seat_note','status','remark'];
+  'grade_level','seat_note','status','follow_up_status','follow_up_note','follow_up_updated_at','remark'];
 
 function pickStudent(row) {
   if (!row) return null;
@@ -81,6 +81,7 @@ router.put('/:id', (req, res) => {
     if (dup) return res.json({ ok: false, error: `学号 ${b.school_no} 已被使用` });
   }
   const sets = FIELDS.map(k => `${k} = @${k}`).join(', ');
+  const followUpChanged = b.follow_up_status !== undefined || b.follow_up_note !== undefined;
   db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run({
     ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] === undefined ? row[k] : (b[k] == null ? null : b[k]) }), {}),
     name: b.name === undefined ? row.name : (b.name == null ? row.name : String(b.name).trim()),
@@ -89,6 +90,9 @@ router.put('/:id', (req, res) => {
     status: b.status === undefined || b.status == null ? row.status : b.status,
     is_boarding: b.is_boarding !== undefined ? (b.is_boarding ? 1 : 0) : row.is_boarding,
     is_myopia: b.is_myopia !== undefined ? (b.is_myopia ? 1 : 0) : row.is_myopia,
+    follow_up_status: b.follow_up_status === undefined ? row.follow_up_status : (b.follow_up_status || '正常'),
+    follow_up_note: b.follow_up_note === undefined ? row.follow_up_note : (b.follow_up_note || ''),
+    follow_up_updated_at: followUpChanged ? new Date().toISOString() : row.follow_up_updated_at,
     id,
   });
   res.json({ ok: true });

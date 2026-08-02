@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS students (
   grade_level TEXT DEFAULT '',
   seat_note TEXT DEFAULT '',
   status TEXT DEFAULT '在读',
+  follow_up_status TEXT DEFAULT '正常',
+  follow_up_note TEXT DEFAULT '',
+  follow_up_updated_at TEXT,
   remark TEXT DEFAULT '',
   deleted_at TEXT,
   created_at TEXT DEFAULT (datetime('now','localtime')),
@@ -216,6 +219,14 @@ function migrate() {
     `);
     db.pragma('user_version = 1');
     console.log('[migrate] 数据库迁移完成 → user_version 1');
+  }
+  if (db.pragma('user_version', { simple: true }) < 2) {
+    const studentCols = db.prepare('PRAGMA table_info(students)').all().map(c => c.name);
+    if (!studentCols.includes('follow_up_status')) db.exec("ALTER TABLE students ADD COLUMN follow_up_status TEXT DEFAULT '正常'");
+    if (!studentCols.includes('follow_up_note')) db.exec("ALTER TABLE students ADD COLUMN follow_up_note TEXT DEFAULT ''");
+    if (!studentCols.includes('follow_up_updated_at')) db.exec('ALTER TABLE students ADD COLUMN follow_up_updated_at TEXT');
+    db.pragma('user_version = 2');
+    console.log('[migrate] 学生跟进字段迁移完成 → user_version 2');
   }
 }
 migrate();

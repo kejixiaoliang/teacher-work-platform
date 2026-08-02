@@ -80,6 +80,12 @@
           <span v-else class="text-muted">在读</span>
         </template>
       </el-table-column>
+      <el-table-column prop="follow_up_status" label="跟进" width="80">
+        <template #default="{ row }">
+          <el-tag v-if="row.follow_up_status && row.follow_up_status !== '正常'" size="small" type="warning">{{ row.follow_up_status }}</el-tag>
+          <span v-else class="text-muted">正常</span>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <template v-if="!trashed">
@@ -119,6 +125,12 @@
                 <el-option label="在读" value="在读" /><el-option label="转出" value="转出" /><el-option label="休学" value="休学" />
               </el-select>
             </el-form-item>
+            <el-form-item label="跟进状态">
+              <el-select v-model="form.follow_up_status" style="width:140px">
+                <el-option label="正常" value="正常" /><el-option label="需关注" value="需关注" /><el-option label="跟进中" value="跟进中" /><el-option label="已处理" value="已处理" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="跟进备注"><el-input v-model="form.follow_up_note" type="textarea" :rows="2" placeholder="记录需要持续关注或下一步处理事项" /></el-form-item>
           </el-tab-pane>
           <el-tab-pane label="健康与排座">
             <el-form-item label="身高(cm)"><el-input-number v-model="form.height_cm" :min="80" :max="230" /></el-form-item>
@@ -207,6 +219,7 @@
               <el-descriptions-item label="性别">{{ detail.gender }}</el-descriptions-item>
               <el-descriptions-item label="成绩">{{ detail.grade_level || '—' }}</el-descriptions-item>
               <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
+              <el-descriptions-item label="跟进状态">{{ detail.follow_up_status || '正常' }}</el-descriptions-item>
               <el-descriptions-item label="住宿">{{ detail.is_boarding ? '是' : '否' }}</el-descriptions-item>
               <el-descriptions-item label="近视">{{ detail.is_myopia ? '是' : '否' }}</el-descriptions-item>
               <el-descriptions-item label="出生日期">{{ detail.birth_date || '—' }}</el-descriptions-item>
@@ -216,6 +229,7 @@
               <el-descriptions-item label="健康状况" :span="2">{{ detail.health_note || '—' }}</el-descriptions-item>
               <el-descriptions-item label="座位需求" :span="2">{{ detail.seat_note || '—' }}</el-descriptions-item>
               <el-descriptions-item label="备注" :span="2">{{ detail.remark || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="跟进备注" :span="2">{{ detail.follow_up_note || '—' }}</el-descriptions-item>
             </el-descriptions>
           </el-tab-pane>
 
@@ -415,7 +429,7 @@ function emptyForm() {
   return {
     id: null, school_no: '', name: '', gender: '男', birth_date: '', phone: '', parent_phone: '',
     is_boarding: false, interest_duty: '', health_note: '', height_cm: null, vision_left: null,
-    vision_right: null, is_myopia: false, grade_level: '', seat_note: '', status: '在读', remark: '',
+    vision_right: null, is_myopia: false, grade_level: '', seat_note: '', status: '在读', follow_up_status: '正常', follow_up_note: '', follow_up_updated_at: null, remark: '',
   };
 }
 
