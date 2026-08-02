@@ -240,22 +240,22 @@
             <div class="profile-section-head metric-history-head">
               <div>
                 <b>体征变化记录</b>
-                <p>保存编辑时，身高、左右视力或近视状态发生变化会自动存档；“学期存档”会记录全班当期数据。</p>
+                <p>共 {{ metrics.length }} 次记录；手动测量、资料编辑和学期存档都会保留在这里。</p>
               </div>
-              <el-tag type="success" effect="plain" round>自动存档</el-tag>
+              <el-button size="small" type="primary" @click="openMetricEntry">记录测量</el-button>
             </div>
-            <el-table class="metric-history-table" :data="metrics" size="small" border>
-              <el-table-column prop="term" label="学期" />
-              <el-table-column prop="height_cm" label="身高" />
-              <el-table-column label="视力">
-                <template #default="{ row }">{{ fmtVision(row.vision_left) }}/{{ fmtVision(row.vision_right) }}</template>
-              </el-table-column>
-              <el-table-column prop="grade_level" label="成绩" />
-              <el-table-column prop="recorded_at" label="记录时间" width="130">
-                <template #default="{ row }">{{ (row.recorded_at || '').slice(0, 16).replace('T', ' ') }}</template>
-              </el-table-column>
-              <el-table-column prop="source" label="来源" width="110" />
-            </el-table>
+            <div v-if="metrics.length" class="archive-list metric-list">
+              <article v-for="m in metrics" :key="m.id" class="archive-row metric-row">
+                <div class="archive-kind"><b>{{ metricTerm(m.term) }}</b><small>{{ metricTime(m.recorded_at) }}</small></div>
+                <div class="metric-data">
+                  <span><small>身高</small><b>{{ m.height_cm ?? '—' }}<i>cm</i></b></span>
+                  <span><small>视力</small><b>{{ fmtVision(m.vision_left) }}/{{ fmtVision(m.vision_right) }}</b></span>
+                  <span><small>近视</small><b>{{ m.is_myopia ? '是' : '否' }}</b></span>
+                </div>
+                <div class="archive-meta"><el-tag size="small" effect="plain" round>{{ m.source || '学期存档' }}</el-tag><span v-if="m.grade_level">成绩：{{ m.grade_level }}</span></div>
+              </article>
+            </div>
+            <el-empty v-else description="暂无体征记录，点击“记录测量”新增第一条" :image-size="50" />
           </el-tab-pane>
 
           <el-tab-pane label="成长档案" name="records">
@@ -311,6 +311,20 @@
         </el-tabs>
       </template>
     </el-drawer>
+
+    <el-dialog v-model="metricDialogVisible" title="记录本次测量" width="420px">
+      <p class="metric-dialog-note">保存后会立即更新学生档案，并新增一条“手动测量”历史记录。</p>
+      <el-form label-width="74px">
+        <el-form-item label="身高"><el-input-number v-model="metricForm.height_cm" :min="0" :max="250" :precision="1" style="width:100%" /></el-form-item>
+        <el-form-item label="左眼视力"><el-input-number v-model="metricForm.vision_left" :min="0" :max="6" :precision="1" :step="0.1" style="width:100%" /></el-form-item>
+        <el-form-item label="右眼视力"><el-input-number v-model="metricForm.vision_right" :min="0" :max="6" :precision="1" :step="0.1" style="width:100%" /></el-form-item>
+        <el-form-item label="近视"><el-switch v-model="metricForm.is_myopia" active-text="是" inactive-text="否" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="metricDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveMetricEntry">保存测量</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 成长记录弹窗 -->
     <el-dialog v-model="recordDialogVisible" :title="recordForm.id ? '编辑成长记录' : '添加成长记录'" width="440px">
@@ -434,6 +448,8 @@ const filteredTimeline = computed(() => timelineFilter.value === 'all'
 const detailTab = ref('info');
 const records = ref([]);
 const contacts = ref([]);
+const metricDialogVisible = ref(false);
+const metricForm = ref({ height_cm: null, vision_left: null, vision_right: null, is_myopia: false });
 const recordDialogVisible = ref(false);
 const recordForm = ref({ id: null, type: '表现', content: '', date: '', remark: '' });
 const contactDialogVisible = ref(false);
@@ -477,6 +493,7 @@ watch(() => store.currentClassId, () => {
   editVisible.value = false;
   recordDialogVisible.value = false;
   contactDialogVisible.value = false;
+  metricDialogVisible.value = false;
 });
 
 watch(() => store.currentClassId, load);
@@ -503,6 +520,32 @@ function openDetail(row) {
 }
 function timelineLabel(type) { return { record: '成长记录', contact: '家校沟通', metrics: '健康快照' }[type] || '档案'; }
 function timelineType(type) { return { record: 'warning', contact: 'info', metrics: 'success' }[type] || ''; }
+function metricTerm(term) {
+  const normalized = String(term || '').replace(/\?/g, '').trim();
+  return normalized || '日常测量';
+}
+function metricTime(time) { return (time || '').slice(0, 16).replace('T', ' ') || '刚刚记录'; }
+function openMetricEntry() {
+  metricForm.value = {
+    height_cm: detail.value.height_cm ?? null,
+    vision_left: detail.value.vision_left ?? null,
+    vision_right: detail.value.vision_right ?? null,
+    is_myopia: Boolean(detail.value.is_myopia),
+  };
+  metricDialogVisible.value = true;
+}
+async function saveMetricEntry() {
+  try {
+    const result = await api.students.update(detail.value.id, { ...metricForm.value, metric_source: '手动测量' });
+    if (!result?.healthSnapshotCreated) return ElMessage.info('体征数据未变化，无需重复存档');
+    detail.value = { ...detail.value, ...metricForm.value };
+    metricDialogVisible.value = false;
+    metrics.value = await api.students.metrics(detail.value.id);
+    timeline.value = await api.records.timeline(detail.value.id);
+    await load();
+    ElMessage.success('测量已保存，并已写入历史');
+  } catch (e) { ElMessage.error('保存测量失败：' + e.message); }
+}
 function recType(t) {
   return { 奖励: 'success', 批评: 'danger', 评语: 'primary', 表现: 'warning', 其他: 'info' }[t] || 'info';
 }
@@ -788,35 +831,51 @@ function saveBlob(blob, name) {
 .hs-bad { color: var(--tomato-deep); }
 .profile-section-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-  background: #fffaf0;
-  border: 1px solid #e4d4b7;
-  border-left: 4px solid var(--mustard);
-  border-radius: 12px;
+  padding: 0 0 12px;
+  margin-bottom: 6px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #e4d4b7;
 }
-.profile-section-head b { font-size: 14px; }
+.profile-section-head b { font-size: 15px; }
 .profile-section-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
-.metric-history-head { border-left-color: #72cda0; }
-.metric-history-table { border-radius: 12px; overflow: hidden; }
-.record-list { display: grid; gap: 10px; }
+.metric-history-head { align-items:flex-start; }
+.archive-list, .record-list { background:#fff; border:1px solid #e6d8bf; border-radius:12px; overflow:hidden; }
+.record-list { display:block; }
 .record-item {
-  padding: 13px 14px 10px;
-  background: #fff;
-  border: 1px solid #eadfca;
-  border-radius: 12px;
-  box-shadow: 0 2px 0 rgba(32, 27, 23, .05);
+  position:relative;
+  display:grid;
+  grid-template-columns:78px minmax(0, 1fr) 88px;
+  gap:12px;
+  align-items:start;
+  padding:14px 15px;
+  background:transparent;
+  border:none;
+  border-bottom:1px solid #eee3d0;
 }
+.record-item:last-child, .archive-row:last-child { border-bottom:none; }
 .record-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rec-content { margin-top: 8px; color: var(--ink); line-height: 1.6; }
+.record-card-head .rec-meta { display:block; position:absolute; right:15px; top:14px; }
+.rec-content { margin:0; color:var(--ink); line-height:1.6; font-size:13px; }
 .rec-meta, .rec-remark { color: var(--muted); font-size: 12px; }
 .rec-remark { margin-top: 6px; }
-.record-card-actions { display: flex; justify-content: flex-end; gap: 2px; margin-top: 6px; }
+.record-card-actions { display:flex; flex-direction:column; align-items:flex-end; gap:5px; margin:0; padding-top:23px; }
 .record-card-actions .el-button { margin-left: 0; font-weight: 700; }
 .danger-link { color: var(--tomato); }
+.archive-row { padding:14px 15px; border-bottom:1px solid #eee3d0; }
+.archive-kind { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.archive-kind b { font-size:14px; }
+.archive-kind small { color:var(--muted); font-size:11px; }
+.metric-data { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:11px; }
+.metric-data span { padding:7px 8px; background:#f4faf4; border-radius:7px; }
+.metric-data small { display:block; color:var(--muted); font-size:10px; }
+.metric-data b { display:block; margin-top:2px; font-size:14px; }
+.metric-data i { margin-left:1px; font-size:10px; color:var(--muted); font-style:normal; }
+.archive-meta { display:flex; align-items:center; gap:8px; margin-top:9px; color:var(--muted); font-size:12px; }
+.metric-dialog-note { margin:0 0 15px; padding:9px 11px; color:#56705e; background:#f0faef; border-left:3px solid #72cda0; border-radius:5px; font-size:12px; line-height:1.55; }
 .timeline-list { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px; }
 .timeline-item { display: flex; gap: 10px; position: relative; }
 .timeline-dot { flex: 0 0 10px; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--tomato); border: 2px solid var(--ink); }
@@ -826,5 +885,7 @@ function saveBlob(blob, name) {
 @media (max-width: 620px) {
   .profile-section-head { padding: 12px; gap: 10px; }
   :deep(.profile-tabs .el-tabs__item) { padding: 0 9px; font-size: 13px; }
+  .record-item { grid-template-columns:70px minmax(0, 1fr) 64px; gap:8px; padding:12px 10px; }
+  .record-card-head .rec-meta { right:10px; top:12px; }
 }
 </style>

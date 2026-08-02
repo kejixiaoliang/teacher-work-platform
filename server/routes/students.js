@@ -81,7 +81,7 @@ router.put('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM students WHERE id = ?').get(id);
   if (!row) return res.json({ ok: false, error: '学生不存在' });
   const b = req.body || {};
-  if (b.name === undefined || (b.name && !String(b.name).trim())) return res.json({ ok: false, error: '姓名不能为空' });
+  if (b.name !== undefined && !String(b.name || '').trim()) return res.json({ ok: false, error: '姓名不能为空' });
   if (b.school_no && String(b.school_no).trim() !== row.school_no) {
     const dup = db.prepare('SELECT id FROM students WHERE school_no = ? AND deleted_at IS NULL AND id <> ?')
       .get(String(b.school_no).trim(), id);
@@ -109,12 +109,13 @@ router.put('/:id', (req, res) => {
     db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run(values);
     if (healthChanged) {
       const cls = db.prepare('SELECT academic_year, term FROM classes WHERE id = ?').get(row.class_id);
-      const term = [cls?.academic_year, cls?.term].filter(Boolean).join(' ');
+      const term = [cls?.academic_year, cls?.term].filter(Boolean).join(' ') || '日常测量';
+      const source = b.metric_source === '手动测量' ? '手动测量' : '学生信息编辑';
       db.prepare(`
         INSERT INTO student_metrics_history
           (student_id, term, height_cm, vision_left, vision_right, grade_level, is_myopia, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, '学生信息编辑')
-      `).run(id, term, values.height_cm, values.vision_left, values.vision_right, values.grade_level, values.is_myopia ? 1 : 0);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, term, values.height_cm, values.vision_left, values.vision_right, values.grade_level, values.is_myopia ? 1 : 0, source);
     }
   });
   tx();

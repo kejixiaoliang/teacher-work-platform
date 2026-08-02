@@ -4,7 +4,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
+// 测试或便携运行时可指定独立数据目录，默认仍使用项目内 data 目录。
+const dataDir = process.env.TEACHER_WORK_DATA_DIR
+  ? path.resolve(process.env.TEACHER_WORK_DATA_DIR)
+  : path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const dbFile = path.join(dataDir, 'teacher.db');
