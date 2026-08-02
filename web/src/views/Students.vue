@@ -393,7 +393,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Plus, Download, Upload, Files, Delete, DeleteFilled, RefreshLeft } from '@element-plus/icons-vue';
 import ExcelJS from 'exceljs';
 import { api } from '../api.js';
-import { store } from '../store.js';
+import { store, currentClass } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
@@ -522,6 +522,9 @@ function timelineLabel(type) { return { record: '成长记录', contact: '家校
 function timelineType(type) { return { record: 'warning', contact: 'info', metrics: 'success' }[type] || ''; }
 function metricTerm(term) {
   const normalized = String(term || '').replace(/\?/g, '').trim();
+  if (/^[上下]$/.test(normalized) && currentClass.value?.academic_year) {
+    return `${currentClass.value.academic_year} ${normalized}`;
+  }
   return normalized || '日常测量';
 }
 function metricTime(time) { return (time || '').slice(0, 16).replace('T', ' ') || '刚刚记录'; }
@@ -536,7 +539,11 @@ function openMetricEntry() {
 }
 async function saveMetricEntry() {
   try {
-    const result = await api.students.update(detail.value.id, { ...metricForm.value, metric_source: '手动测量' });
+    const result = await api.students.update(detail.value.id, {
+      ...detail.value,
+      ...metricForm.value,
+      metric_source: '手动测量',
+    });
     if (!result?.healthSnapshotCreated) return ElMessage.info('体征数据未变化，无需重复存档');
     detail.value = { ...detail.value, ...metricForm.value };
     metricDialogVisible.value = false;
