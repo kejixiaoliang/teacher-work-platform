@@ -17,10 +17,23 @@ router.get('/', (req, res) => {
   const records = db.prepare(`
     SELECT student_id, status, remark FROM attendance WHERE class_id = ? AND date = ?
   `).all(Number(class_id), String(date));
+  const leaveRows = db.prepare(`
+    SELECT student_id, type, start_date, end_date, reason
+    FROM leaves
+    WHERE class_id = ? AND status = '已批准'
+      AND start_date <= ? AND COALESCE(NULLIF(end_date, ''), start_date) >= ?
+  `).all(Number(class_id), String(date), String(date));
   const recMap = new Map(records.map(r => [r.student_id, r]));
+  const leaveMap = new Map(leaveRows.map(r => [r.student_id, r]));
   const rows = students.map(s => {
     const r = recMap.get(s.id);
-    return { studentId: s.id, name: s.name, schoolNo: s.school_no, status: r ? r.status : '出勤', remark: r ? r.remark || '' : '' };
+    const leave = leaveMap.get(s.id);
+    return {
+      studentId: s.id, name: s.name, schoolNo: s.school_no,
+      status: r ? r.status : (leave ? '请假' : '出勤'),
+      remark: r ? r.remark || '' : '',
+      leaveInfo: leave ? { type: leave.type, startDate: leave.start_date, endDate: leave.end_date || leave.start_date, reason: leave.reason } : null,
+    };
   });
   const registeredCount = db.prepare('SELECT COUNT(*) AS c FROM attendance WHERE class_id = ? AND date = ?').get(Number(class_id), String(date)).c;
   res.json({ ok: true, data: { date, rows, registeredCount } });

@@ -14,6 +14,8 @@
           <el-date-picker v-model="date" type="date" value-format="YYYY-MM-DD" :clearable="false"
                           style="width:160px" @change="onDateChange" />
           <span class="text-muted">共 {{ rows.length }} 人 · 已登记 {{ savedCount }} 人</span>
+          <el-alert v-if="leaveRows.length" type="warning" :closable="false" class="attendance-leave-alert"
+                    :title="`今日有 ${leaveRows.length} 名学生请假，已自动标记为请假，请确认后保存`" />
           <div class="spacer"></div>
           <el-button plain :disabled="!rows.length" @click="markAllPresent">一键全部出勤</el-button>
           <el-button type="success" :disabled="!dirty" @click="saveDaily">保存今日考勤</el-button>
@@ -25,6 +27,9 @@
           </el-table-column>
           <el-table-column label="状态" width="320">
             <template #default="{ row }">
+              <el-tag v-if="row.leaveInfo" type="warning" size="small" round class="leave-tag">
+                {{ row.leaveInfo.type }}
+              </el-tag>
               <el-radio-group v-model="row.status" size="small" @change="dirty = true">
                 <el-radio-button value="出勤">出勤</el-radio-button>
                 <el-radio-button value="迟到">迟到</el-radio-button>
@@ -69,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
@@ -94,6 +99,7 @@ function localMonth() {
 const date = ref(localToday());
 const month = ref(localMonth());
 const rows = ref([]);
+const leaveRows = computed(() => rows.value.filter(row => row.leaveInfo));
 const dirty = ref(false);
 const loading = ref(false);
 const savedCount = ref(0);
@@ -216,5 +222,7 @@ async function loadStats() {
 </script>
 
 <style scoped>
+.attendance-leave-alert { width: auto; flex: 1 1 360px; min-width: 280px; padding: 6px 10px; }
+.leave-tag { margin-right: 6px; vertical-align: middle; }
 .bad { color: var(--el-color-danger); font-weight: 700; }
 </style>
