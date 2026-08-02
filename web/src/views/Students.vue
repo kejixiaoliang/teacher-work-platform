@@ -71,10 +71,10 @@
       <el-table-column label="住宿" width="60">
         <template #default="{ row }"><el-tag v-if="row.is_boarding" size="small" round>住宿</el-tag></template>
       </el-table-column>
-      <el-table-column prop="parent_phone" label="家长电话" width="94" show-overflow-tooltip>
+      <el-table-column prop="parent_phone" label="家长电话" min-width="118" show-overflow-tooltip>
         <template #default="{ row }">{{ row.parent_phone || row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="interest_duty" label="职务/特长" width="86" show-overflow-tooltip>
+      <el-table-column prop="interest_duty" label="职务/特长" min-width="150" show-overflow-tooltip>
         <template #default="{ row }">{{ row.interest_duty || '—' }}</template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="70">
