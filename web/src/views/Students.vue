@@ -43,17 +43,17 @@
       <input ref="fileInput" type="file" accept=".xlsx,.xls" style="display:none" @change="onFileChange" />
     </div>
 
-    <el-table :data="pagedList" stripe @selection-change="onSelection"
+    <el-table class="students-table" :data="pagedList" stripe @selection-change="onSelection"
               @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
       <template #empty><el-empty description="暂无学生，点右上角「新增学生」或导入 Excel" :image-size="60" /></template>
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="school_no" label="学号" min-width="90" show-overflow-tooltip />
-      <el-table-column prop="name" label="姓名" min-width="90" show-overflow-tooltip>
+      <el-table-column prop="school_no" label="学号" width="82" show-overflow-tooltip />
+      <el-table-column prop="name" label="姓名" width="76" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.name }}</b></template>
       </el-table-column>
       <el-table-column prop="gender" label="性别" width="60" />
       <el-table-column prop="height_cm" label="身高(cm)" width="85" />
-      <el-table-column label="视力" width="110">
+      <el-table-column label="视力" width="92">
         <template #default="{ row }">
           <span :class="{ 'vision-bad': row.vision_left != null && row.vision_left < 4.8 }">{{ fmtVision(row.vision_left) }}</span>
           /
@@ -71,10 +71,10 @@
       <el-table-column label="住宿" width="60">
         <template #default="{ row }"><el-tag v-if="row.is_boarding" size="small" round>住宿</el-tag></template>
       </el-table-column>
-      <el-table-column prop="parent_phone" label="家长电话" min-width="120" show-overflow-tooltip>
+      <el-table-column prop="parent_phone" label="家长电话" width="94" show-overflow-tooltip>
         <template #default="{ row }">{{ row.parent_phone || row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="interest_duty" label="职务/特长" min-width="110" show-overflow-tooltip>
+      <el-table-column prop="interest_duty" label="职务/特长" width="86" show-overflow-tooltip>
         <template #default="{ row }">{{ row.interest_duty || '—' }}</template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="70">
@@ -89,7 +89,7 @@
           <span v-else class="text-muted">正常</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <template v-if="!trashed">
             <el-button class="row-btn" size="small" @click.stop="openDetail(row)">详情</el-button>

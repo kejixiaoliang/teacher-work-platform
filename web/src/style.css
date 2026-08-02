@@ -193,7 +193,7 @@ body {
 .el-input-number { border-radius: 12px; }
 
 /* ---------- 主内容区 ---------- */
-.main-area-inner { max-width: 1240px; margin: 0 auto; }
+.main-area-inner { width: min(1600px, 100%); max-width: none; margin: 0 auto; }
 
 /* ---------- 表格：白纸 + 细墨边 + 芥末表头 ---------- */
 .el-table {
