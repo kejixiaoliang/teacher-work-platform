@@ -15,6 +15,7 @@ const Leaves = () => import('./views/Leaves.vue');
 const Contacts = () => import('./views/Contacts.vue');
 const Classes = () => import('./views/Classes.vue');
 const Guide = () => import('./views/Guide.vue');
+const Changelog = () => import('./views/Changelog.vue');
 
 export default createRouter({
   history: createWebHashHistory(),
@@ -34,5 +35,6 @@ export default createRouter({
     { path: '/contacts', component: Contacts, meta: { title: '家校沟通' } },
     { path: '/classes', component: Classes, meta: { title: '班级设置' } },
     { path: '/guide', component: Guide, meta: { title: '使用指南' } },
+    { path: '/changelog', component: Changelog, meta: { title: '版本更新' } },
   ],
 });
