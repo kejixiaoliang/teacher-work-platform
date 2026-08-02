@@ -174,6 +174,33 @@
         </div>
 
         <el-tabs v-model="detailTab">
+          <el-tab-pane label="档案时间线" name="timeline">
+            <div class="toolbar" style="margin-bottom:8px">
+              <span class="text-muted">按时间查看学生的重要变化</span>
+              <div class="spacer"></div>
+              <el-select v-model="timelineFilter" size="small" style="width:120px">
+                <el-option label="全部记录" value="all" />
+                <el-option label="成长记录" value="record" />
+                <el-option label="家校沟通" value="contact" />
+                <el-option label="健康快照" value="metrics" />
+              </el-select>
+            </div>
+            <el-empty v-if="!filteredTimeline.length" description="暂无匹配的档案记录" :image-size="50" />
+            <div v-else class="timeline-list">
+              <div v-for="item in filteredTimeline" :key="`${item.source_type}-${item.source_id}`" class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-main">
+                  <div class="timeline-head">
+                    <el-tag size="small" round :type="timelineType(item.source_type)">{{ timelineLabel(item.source_type) }}</el-tag>
+                    <b>{{ item.title || '记录' }}</b>
+                    <span class="text-muted">{{ item.date || '未填写日期' }}</span>
+                  </div>
+                  <div>{{ item.content || '—' }}</div>
+                  <div v-if="item.remark" class="text-muted">{{ item.remark }}</div>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
           <el-tab-pane label="基本信息" name="info">
             <el-descriptions :column="2" border size="small">
               <el-descriptions-item label="学号">{{ detail.school_no || '—' }}</el-descriptions-item>
@@ -362,6 +389,11 @@ const form = ref(emptyForm());
 const detailVisible = ref(false);
 const detail = ref({});
 const metrics = ref([]);
+const timeline = ref([]);
+const timelineFilter = ref('all');
+const filteredTimeline = computed(() => timelineFilter.value === 'all'
+  ? timeline.value
+  : timeline.value.filter(item => item.source_type === timelineFilter.value));
 const detailTab = ref('info');
 const records = ref([]);
 const contacts = ref([]);
@@ -424,12 +456,16 @@ function onSelection(rows) { selected.value = rows.map(r => r.id); }
 function openDetail(row) {
   detail.value = row;
   detailTab.value = 'info';
+  timelineFilter.value = 'all';
   detailVisible.value = true;
   const mySeq = detailSeq.seq();
   api.students.metrics(row.id).then(m => { if (!detailSeq.isStale(mySeq)) metrics.value = m; }).catch(() => {});
   api.records.list(row.id).then(r => { if (!detailSeq.isStale(mySeq)) records.value = r; }).catch(() => {});
   api.records.contacts(row.id).then(c => { if (!detailSeq.isStale(mySeq)) contacts.value = c; }).catch(() => {});
+  api.records.timeline(row.id).then(t => { if (!detailSeq.isStale(mySeq)) timeline.value = t; }).catch(() => {});
 }
+function timelineLabel(type) { return { record: '成长记录', contact: '家校沟通', metrics: '健康快照' }[type] || '档案'; }
+function timelineType(type) { return { record: 'warning', contact: 'info', metrics: 'success' }[type] || ''; }
 function recType(t) {
   return { 奖励: 'success', 批评: 'danger', 评语: 'primary', 表现: 'warning', 其他: 'info' }[t] || 'info';
 }
@@ -702,4 +738,10 @@ function saveBlob(blob, name) {
 .hs-value { font-size: 16px; font-weight: 900; color: var(--ink); }
 .hs-value small { font-size: 10px; font-weight: 700; margin-left: 1px; }
 .hs-bad { color: var(--tomato-deep); }
+.timeline-list { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px; }
+.timeline-item { display: flex; gap: 10px; position: relative; }
+.timeline-dot { flex: 0 0 10px; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--tomato); border: 2px solid var(--ink); }
+.timeline-main { flex: 1; border-bottom: 1px solid var(--line-color); padding-bottom: 10px; font-size: 13px; line-height: 1.6; }
+.timeline-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.timeline-head .text-muted { margin-left: auto; font-size: 12px; }
 </style>

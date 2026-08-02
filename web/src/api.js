@@ -131,6 +131,7 @@ export const api = {
   },
   records: {
     list: id => request('GET', `/api/students/${id}/records`),
+    timeline: id => request('GET', `/api/students/${id}/timeline`),
     create: (id, d) => request('POST', `/api/students/${id}/records`, d),
     update: (id, rid, d) => request('PUT', `/api/students/${id}/records/${rid}`, d),
     remove: (id, rid) => request('DELETE', `/api/students/${id}/records/${rid}`),

@@ -9,6 +9,36 @@ function hasStudent(id, res) {
   return true;
 }
 
+// 学生统一档案时间线：只读聚合现有成长记录、家校沟通和健康快照。
+router.get('/:id/timeline', (req, res) => {
+  const id = Number(req.params.id);
+  if (!hasStudent(id, res)) return;
+  const rows = db.prepare(`
+    SELECT source_type, source_id, date, title, content, remark
+    FROM (
+      SELECT 'record' AS source_type, id AS source_id, date,
+        type AS title, content, remark
+      FROM student_records WHERE student_id = ?
+      UNION ALL
+      SELECT 'contact' AS source_type, id AS source_id, date,
+        method AS title,
+        CASE WHEN topic <> '' AND result <> '' THEN topic || '：' || result
+             ELSE COALESCE(NULLIF(topic, ''), result) END AS content,
+        remark
+      FROM contacts WHERE student_id = ?
+      UNION ALL
+      SELECT 'metrics' AS source_type, id AS source_id, recorded_at AS date,
+        '健康快照' AS title,
+        '身高 ' || COALESCE(height_cm || 'cm', '—') || '；视力 ' ||
+          COALESCE(vision_left || '/' || vision_right, '—') AS content,
+        term AS remark
+      FROM student_metrics_history WHERE student_id = ?
+    )
+    ORDER BY date DESC, source_id DESC
+  `).all(id, id, id);
+  res.json({ ok: true, data: rows });
+});
+
 /* ============ 成长档案 ============ */
 router.get('/:id/records', (req, res) => {
   if (!hasStudent(req.params.id, res)) return;
