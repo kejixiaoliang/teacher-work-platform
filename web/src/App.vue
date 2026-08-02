@@ -55,6 +55,9 @@
         <el-menu-item index="/classes" class="menu-bottom">
           <el-icon><Setting /></el-icon><span>班级设置</span>
         </el-menu-item>
+        <el-menu-item index="/guide">
+          <el-icon><InfoFilled /></el-icon><span>使用指南</span>
+        </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">数据仅存本机</div>
     </el-aside>
@@ -141,7 +144,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   Search, Notebook, Reading, Clock, ChatDotRound, HomeFilled, User, Grid,
-  TrendCharts, DocumentChecked, Finished, FolderOpened, Calendar, UserFilled, Setting,
+  TrendCharts, DocumentChecked, Finished, FolderOpened, Calendar, UserFilled, Setting, InfoFilled,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from './api.js';

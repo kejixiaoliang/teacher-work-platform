@@ -162,7 +162,7 @@
     </el-dialog>
 
     <!-- 详情抽屉 -->
-    <el-drawer v-model="detailVisible" :title="detail.name" size="560px">
+    <el-drawer v-model="detailVisible" :title="detail.name" size="560px" class="student-drawer">
       <template v-if="detail.id">
         <!-- 健康概览：身高/视力一眼可见 -->
         <div class="health-strip">
@@ -188,7 +188,7 @@
           </div>
         </div>
 
-        <el-tabs v-model="detailTab">
+        <el-tabs v-model="detailTab" class="profile-tabs">
           <el-tab-pane label="档案时间线" name="timeline">
             <div class="toolbar" style="margin-bottom:8px">
               <span class="text-muted">按时间查看学生的重要变化</span>
@@ -237,7 +237,14 @@
           </el-tab-pane>
 
           <el-tab-pane label="身高视力历史" name="metrics">
-            <el-table :data="metrics" size="small" border>
+            <div class="profile-section-head metric-history-head">
+              <div>
+                <b>体征变化记录</b>
+                <p>保存编辑时，身高、左右视力或近视状态发生变化会自动存档；“学期存档”会记录全班当期数据。</p>
+              </div>
+              <el-tag type="success" effect="plain" round>自动存档</el-tag>
+            </div>
+            <el-table class="metric-history-table" :data="metrics" size="small" border>
               <el-table-column prop="term" label="学期" />
               <el-table-column prop="height_cm" label="身高" />
               <el-table-column label="视力">
@@ -252,39 +259,51 @@
           </el-tab-pane>
 
           <el-tab-pane label="成长档案" name="records">
-            <div class="toolbar" style="margin-bottom:8px">
-              <span class="text-muted">奖励 / 批评 / 评语 / 表现记录</span>
-              <div class="spacer"></div>
+            <div class="profile-section-head">
+              <div>
+                <b>成长记录</b>
+                <p>奖励、批评、评语和日常表现，按时间沉淀为学生档案。</p>
+              </div>
               <el-button size="small" type="primary" @click="openRecord()">添加记录</el-button>
             </div>
             <div v-if="records.length" class="record-list">
               <div v-for="r in records" :key="r.id" class="record-item">
-                <el-tag size="small" :type="recType(r.type)" round>{{ r.type }}</el-tag>
+                <div class="record-card-head">
+                  <el-tag size="small" :type="recType(r.type)" round>{{ r.type }}</el-tag>
+                  <span class="rec-meta">{{ r.date || '未填写日期' }}</span>
+                </div>
                 <div class="rec-content">{{ r.content }}</div>
-                <div class="rec-meta">{{ r.date || '—' }}</div>
-                <el-button class="mini-btn" size="small" @click="openRecord(r)">编</el-button>
-                <el-button class="mini-btn mini-btn-del" size="small" @click="removeRecord(r)">删</el-button>
+                <div class="record-card-actions">
+                  <el-button link size="small" @click="openRecord(r)">编辑</el-button>
+                  <el-button link class="danger-link" size="small" @click="removeRecord(r)">删除</el-button>
+                </div>
               </div>
             </div>
             <el-empty v-else description="暂无成长记录" :image-size="50" />
           </el-tab-pane>
 
           <el-tab-pane label="家校沟通" name="contacts">
-            <div class="toolbar" style="margin-bottom:8px">
-              <span class="text-muted">家访 / 电话 / 微信沟通台账</span>
-              <div class="spacer"></div>
+            <div class="profile-section-head">
+              <div>
+                <b>家校沟通台账</b>
+                <p>家访、电话和微信沟通的事由、反馈与后续情况。</p>
+              </div>
               <el-button size="small" type="primary" @click="openContact()">添加沟通</el-button>
             </div>
             <div v-if="contacts.length" class="record-list">
               <div v-for="c in contacts" :key="c.id" class="record-item">
-                <el-tag size="small" type="info" round>{{ c.method || '—' }}</el-tag>
+                <div class="record-card-head">
+                  <el-tag size="small" type="info" round>{{ c.method || '未填写方式' }}</el-tag>
+                  <span class="rec-meta">{{ c.date || '未填写日期' }}</span>
+                </div>
                 <div class="rec-content">
                   <div><b>{{ c.topic || '（未填事由）' }}</b></div>
                   <div class="text-muted" v-if="c.result">{{ c.result }}</div>
                 </div>
-                <div class="rec-meta">{{ c.date || '—' }}</div>
-                <el-button class="mini-btn" size="small" @click="openContact(c)">编</el-button>
-                <el-button class="mini-btn mini-btn-del" size="small" @click="removeContact(c)">删</el-button>
+                <div class="record-card-actions">
+                  <el-button link size="small" @click="openContact(c)">编辑</el-button>
+                  <el-button link class="danger-link" size="small" @click="removeContact(c)">删除</el-button>
+                </div>
               </div>
             </div>
             <el-empty v-else description="暂无沟通记录" :image-size="50" />
@@ -553,11 +572,17 @@ async function saveEdit() {
   if (!form.value.name || !form.value.name.trim()) return ElMessage.warning('请填写姓名');
   const f = { ...form.value, is_boarding: form.value.is_boarding ? 1 : 0, is_myopia: form.value.is_myopia ? 1 : 0 };
   try {
-    if (f.id) await api.students.update(f.id, f);
-    else await api.students.create({ ...f, class_id: store.currentClassId });
-    ElMessage.success('已保存');
+    const result = f.id
+      ? await api.students.update(f.id, f)
+      : await api.students.create({ ...f, class_id: store.currentClassId });
+    ElMessage.success(result?.healthSnapshotCreated ? '已保存，体征变化已自动存档' : '已保存');
     editVisible.value = false;
-    load();
+    await load();
+    if (f.id && detailVisible.value && detail.value.id === f.id) {
+      detail.value = { ...detail.value, ...f };
+      metrics.value = await api.students.metrics(f.id);
+      timeline.value = await api.records.timeline(f.id);
+    }
   } catch (e) { ElMessage.error(e.message); }
 }
 
@@ -736,6 +761,11 @@ function saveBlob(blob, name) {
 :deep(.el-drawer__body) { padding-top: 8px; }
 :deep(.el-descriptions) { margin-bottom: 8px; }
 :deep(.el-descriptions__label) { font-weight: 800; color: var(--muted); }
+:deep(.student-drawer .el-drawer__header) { margin-bottom: 6px; padding-bottom: 12px; border-bottom: 1px solid #e8dcc5; }
+:deep(.profile-tabs > .el-tabs__header) { margin: 0 0 16px; }
+:deep(.profile-tabs .el-tabs__nav-wrap::after) { background: #e4d4b7; }
+:deep(.profile-tabs .el-tabs__item) { height: 42px; font-weight: 800; padding: 0 13px; }
+:deep(.profile-tabs .el-tabs__active-bar) { height: 3px; border-radius: 3px; }
 
 /* 健康概览条：身高/视力一眼可见 */
 .health-strip {
@@ -756,10 +786,45 @@ function saveBlob(blob, name) {
 .hs-value { font-size: 16px; font-weight: 900; color: var(--ink); }
 .hs-value small { font-size: 10px; font-weight: 700; margin-left: 1px; }
 .hs-bad { color: var(--tomato-deep); }
+.profile-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: #fffaf0;
+  border: 1px solid #e4d4b7;
+  border-left: 4px solid var(--mustard);
+  border-radius: 12px;
+}
+.profile-section-head b { font-size: 14px; }
+.profile-section-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.metric-history-head { border-left-color: #72cda0; }
+.metric-history-table { border-radius: 12px; overflow: hidden; }
+.record-list { display: grid; gap: 10px; }
+.record-item {
+  padding: 13px 14px 10px;
+  background: #fff;
+  border: 1px solid #eadfca;
+  border-radius: 12px;
+  box-shadow: 0 2px 0 rgba(32, 27, 23, .05);
+}
+.record-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rec-content { margin-top: 8px; color: var(--ink); line-height: 1.6; }
+.rec-meta, .rec-remark { color: var(--muted); font-size: 12px; }
+.rec-remark { margin-top: 6px; }
+.record-card-actions { display: flex; justify-content: flex-end; gap: 2px; margin-top: 6px; }
+.record-card-actions .el-button { margin-left: 0; font-weight: 700; }
+.danger-link { color: var(--tomato); }
 .timeline-list { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px; }
 .timeline-item { display: flex; gap: 10px; position: relative; }
 .timeline-dot { flex: 0 0 10px; width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: var(--tomato); border: 2px solid var(--ink); }
 .timeline-main { flex: 1; border-bottom: 1px solid var(--line-color); padding-bottom: 10px; font-size: 13px; line-height: 1.6; }
 .timeline-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .timeline-head .text-muted { margin-left: auto; font-size: 12px; }
+@media (max-width: 620px) {
+  .profile-section-head { padding: 12px; gap: 10px; }
+  :deep(.profile-tabs .el-tabs__item) { padding: 0 9px; font-size: 13px; }
+}
 </style>

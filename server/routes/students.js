@@ -15,6 +15,12 @@ function pickStudent(row) {
   return o;
 }
 
+function sameMetricValue(before, after) {
+  const empty = value => value === null || value === undefined || value === '';
+  if (empty(before) || empty(after)) return empty(before) && empty(after);
+  return Number(before) === Number(after);
+}
+
 // 列表（默认当前班+在读+未删除；trashed=1 查回收站）
 router.get('/', (req, res) => {
   const { class_id, keyword, gender, status, myopia, boarding, follow_up_status, trashed } = req.query;
@@ -96,8 +102,9 @@ router.put('/:id', (req, res) => {
     follow_up_updated_at: followUpChanged ? new Date().toISOString() : row.follow_up_updated_at,
     id,
   };
+  // 只有实际体征变化才新增快照：空值与 0 需区分，避免把未填写误判为未变化。
   const healthChanged = ['height_cm', 'vision_left', 'vision_right', 'is_myopia']
-    .some(k => Number(values[k]) !== Number(row[k]));
+    .some(k => !sameMetricValue(row[k], values[k]));
   const tx = db.transaction(() => {
     db.prepare(`UPDATE students SET ${sets}, updated_at=datetime('now','localtime') WHERE id=@id`).run(values);
     if (healthChanged) {
@@ -111,7 +118,7 @@ router.put('/:id', (req, res) => {
     }
   });
   tx();
-  res.json({ ok: true });
+  res.json({ ok: true, data: { healthSnapshotCreated: healthChanged } });
 });
 
 // 软删除（进回收站，同时清空其座位，避免"幽灵座位"）
