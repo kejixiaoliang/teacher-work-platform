@@ -105,6 +105,18 @@ router.get('/alerts', (req, res) => {
     alerts.push({ type: 'birthday', level: 'info', studentName: r.name, text: `${monthStr}-${day} 生日` });
   }
 
+  /* 6) 班主任跟进提醒：学生被标记为需关注或跟进中 */
+  const followUps = db.prepare(`
+    SELECT name, follow_up_status, follow_up_note
+    FROM students
+    WHERE class_id = ? AND deleted_at IS NULL AND status = '在读'
+      AND follow_up_status IN ('需关注', '跟进中')
+    ORDER BY CASE follow_up_status WHEN '需关注' THEN 0 ELSE 1 END, name
+  `).all(cid);
+  for (const r of followUps) {
+    alerts.push({ type: 'followUp', level: r.follow_up_status === '需关注' ? 'danger' : 'warning', studentName: r.name, text: r.follow_up_note || r.follow_up_status });
+  }
+
   res.json({
     ok: true,
     data: {

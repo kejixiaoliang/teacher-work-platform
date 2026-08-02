@@ -39,9 +39,9 @@
         </span>
       </div>
       <div class="alert-list">
-        <div v-for="(a, i) in alerts.alerts.slice(0, 12)" :key="i" class="alert-item" :class="'alert-' + a.level">
+        <div v-for="(a, i) in alerts.alerts.slice(0, 12)" :key="i" class="alert-item" :class="'alert-' + a.level" @click="goStudentAlert(a)">
           <el-tag :type="a.level === 'danger' ? 'danger' : a.level === 'warning' ? 'warning' : 'info'" size="small" round>
-            {{ a.type === 'absent' ? '缺勤' : a.type === 'overdue' ? '逾期假条' : a.type === 'noContact' ? '未沟通' : a.type === 'vision' ? '视力' : a.type === 'myopia' ? '近视' : '生日' }}
+            {{ a.type === 'absent' ? '缺勤' : a.type === 'overdue' ? '逾期假条' : a.type === 'noContact' ? '未沟通' : a.type === 'vision' ? '视力' : a.type === 'myopia' ? '近视' : a.type === 'followUp' ? '跟进' : '生日' }}
           </el-tag>
           <b>{{ a.studentName }}</b>
           <span class="text-muted">{{ a.text }}</span>
@@ -348,6 +348,9 @@ function iconOf(c) {
   }[c] || Box;
 }
 function go(p) { router.push(p); }
+function goStudentAlert(alert) {
+  if (alert?.studentName) router.push({ path: '/students', query: { kw: alert.studentName } });
+}
 
 /* ---------- 数据管理 ---------- */
 async function archiveMetrics() {
@@ -516,7 +519,7 @@ async function restorePick(e) {
 .alert-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; flex-wrap: wrap; }
 .alert-panel-title { font-size: 15px; font-weight: 900; color: var(--ink); }
 .alert-list { display: flex; flex-direction: column; gap: 5px; max-height: 220px; overflow-y: auto; }
-.alert-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 8px; border-radius: 8px; }
+.alert-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
 .alert-danger { background: var(--el-color-danger-light-9); }
 .alert-warning { background: var(--el-color-warning-light-9); }
 .alert-info { background: var(--el-color-info-light-9); }
