@@ -1,92 +1,84 @@
-﻿@echo off
-chcp 65001 >nul
+@echo off
+setlocal
 cd /d "%~dp0"
-title 教师工作台
+title Teacher Workbench
 
 echo ============================================
-echo   教师工作台 · 启动引导
+echo   Teacher Workbench - Startup
 echo ============================================
 echo.
 
-rem ========== 1. 依赖检查 ==========
-if not exist node_modules (
-  echo [首次运行] 未检测到依赖，正在安装（约 1-3 分钟）...
+rem 1. Install dependencies on first run.
+if not exist "node_modules\" (
+  echo [First run] Installing dependencies. This may take 1-3 minutes...
   call npm install --no-audit --no-fund
   if errorlevel 1 goto :error
-  echo [首次运行] 依赖安装完成。
+  echo [First run] Dependencies installed.
   echo.
 )
 
-rem ========== 2. 前端构建检查 ==========
-if not exist web\dist\index.html (
-  echo [构建] 未检测到前端产物，正在构建界面...
+rem 2. Build the web interface when no build output exists.
+if not exist "web\dist\index.html" (
+  echo [Build] Building the web interface...
   call npm run build
   if errorlevel 1 goto :error
-  echo [构建] 界面构建完成。
+  echo [Build] Web interface built.
   echo.
 )
 
-rem ========== 3. 端口与运行实例检测 ==========
-echo [检测] 检查服务端口 3210 ...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-NetTCPConnection -LocalPort 3210 -State Listen -ErrorAction SilentlyContinue; if($c -eq $null){exit 0}; try{$r=Invoke-WebRequest 'http://localhost:3210/api/health' -UseBasicParsing -TimeoutSec 3; if($r.StatusCode -eq 200){exit 2}else{exit 1}}catch{exit 1}"
+rem 3. Check whether port 3210 is already in use.
+echo [Check] Checking service port 3210...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-NetTCPConnection -LocalPort 3210 -State Listen -ErrorAction SilentlyContinue; if($null -eq $c){exit 0}; try{$r=Invoke-WebRequest 'http://127.0.0.1:3210/api/health' -UseBasicParsing -TimeoutSec 3; if($r.StatusCode -eq 200){exit 2}else{exit 1}}catch{exit 1}"
 set "PORT_STATE=%errorlevel%"
 
 if "%PORT_STATE%"=="2" (
-  rem 端口被占且健康检查通过 = 已有实例在运行
   echo.
-  echo [提示] 检测到「教师工作台」已经在运行！
-  echo        正在为你打开浏览器...
-  echo.
-  start http://localhost:3210
-  echo 已打开浏览器。本窗口 3 秒后自动关闭。
-  timeout /t 3 >nul
-  goto :eof
+  echo [Info] Teacher Workbench is already running.
+  echo Opening it in your browser...
+  start "" "http://localhost:3210"
+  echo This window will close in 3 seconds.
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 3"
+  goto :end
 )
+
 if "%PORT_STATE%"=="1" (
-  rem 端口被占但健康检查失败 = 其他程序/残留进程占用
   echo.
-  echo [警告] 端口 3210 已被其他进程占用，无法启动！
-  echo        可能原因：之前启动的服务窗口没关、或存在残留的 node 进程。
-  echo        处理办法：
-  echo          1. 关闭所有「教师工作台」的启动窗口
-  echo          2. 打开任务管理器，结束残留的 node.exe 进程
-  echo          3. 重新运行本程序
+  echo [Error] Port 3210 is being used by another process.
+  echo Close any previous Teacher Workbench window or stop the old node.exe process.
+  echo Then run this file again.
   echo.
   pause
-  goto :eof
+  goto :end
 )
 
-rem ========== 4. 正常启动 ==========
+rem 4. Start the server in a separate minimized window.
 echo.
 echo ============================================
-echo   教师工作台启动中...
-echo   服务地址: http://localhost:3210
+echo   Starting Teacher Workbench...
+echo   Address: http://localhost:3210
 echo ============================================
 echo.
-
-rem 用 PowerShell 以最小化独立窗口启动 node 服务（继承当前目录），主窗口可安全关闭
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process node -ArgumentList 'server/index.js' -WorkingDirectory '%~dp0' -WindowStyle Minimized"
+if errorlevel 1 goto :error
 
-echo   ✔ 服务已在后台最小化窗口运行
-echo   ✔ 浏览器将自动打开 http://localhost:3210
+echo The service is running in a minimized window.
+echo Open http://localhost:3210 in your browser.
+echo To stop the service, close the minimized node window.
 echo.
-echo   说明：
-echo   - 本窗口现在可以安全关闭，不会影响服务
-echo   - 需要停止服务时，从任务栏找到并关闭
-echo     「node」那个最小化窗口即可
-echo   - 数据实时保存，关闭窗口前无需额外操作
-echo.
-echo 本窗口 8 秒后自动关闭...
-timeout /t 8 >nul
-goto :eof
+echo This window will close in 8 seconds...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 8"
+goto :end
 
 :error
 echo.
-echo [错误] 启动失败，请检查上方提示。
-echo 常见原因与处理：
-echo   1. 端口被占用   -^> 关闭其他启动窗口 / 结束残留 node 进程后重试
-echo   2. 依赖损坏     -^> 删除 node_modules 文件夹后重新运行
-echo   3. 前端构建失败 -^> 删除 web\dist 文件夹后重新运行
-echo   4. 数据损坏     -^> 先备份 data 文件夹，再删除 data\teacher.db 重试
+echo [Error] Startup failed. Review the message above.
+echo Common fixes:
+echo   1. Port in use       - Close the old startup or node window and retry.
+echo   2. Broken dependency - Delete node_modules and retry.
+echo   3. Build failure     - Delete web\dist and retry.
+echo   4. Database issue    - Back up data, delete data\teacher.db, and retry.
 echo.
 pause
+
+:end
+endlocal
