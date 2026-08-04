@@ -228,6 +228,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { MagicStick, Refresh, Printer, Clock, Check, Lock, Unlock, Delete } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
+import { moveSeatOccupants } from '../domain/seatMovement.js';
 
 const mode = ref('manual');       // manual | auto
 const rows = computed(() => currentClass.value?.seat_rows || 6);
@@ -480,16 +481,14 @@ function onDragStart(e, r, c) {
   e.dataTransfer.effectAllowed = 'move';
 }
 function moveSeat(sourceKey, targetKey) {
-  const source = grid[sourceKey];
-  const target = grid[targetKey];
-  if (!source || !target || !source.studentId || sourceKey === targetKey) return;
-  if (source.locked || target.locked) return ElMessage.warning('锁定座位不可拖拽/拖入');
-  const targetWasEmpty = !target.studentId;
-  const fields = ['studentId', 'name', 'gender', 'height_cm', 'vision_left', 'vision_right', 'is_myopia', 'grade_level'];
-  for (const field of fields) [source[field], target[field]] = [target[field], source[field]];
+  const result = moveSeatOccupants(grid, sourceKey, targetKey);
+  if (result.reason === 'source-locked' || result.reason === 'target-locked') {
+    return ElMessage.warning('锁定座位不可拖拽/拖入');
+  }
+  if (!result.moved) return;
   selectedKey.value = targetKey;
   dirty.value = true;
-  ElMessage.success(targetWasEmpty ? '已移动到空座，记得保存布局' : '已交换座位，记得保存布局');
+  ElMessage.success(result.targetWasEmpty ? '已移动到空座，记得保存布局' : '已交换座位，记得保存布局');
 }
 function onDrop(e, r, c) {
   dragOver.value = null;
