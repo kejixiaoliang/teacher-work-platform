@@ -2,6 +2,7 @@ node_modules/
 web/dist/
 data/
 *.log
+.worktrees/
 .reasonix/
 # 本地 UI 风格参考素材（xiaoliang-content-lab 等），不随项目发布
 Style/
