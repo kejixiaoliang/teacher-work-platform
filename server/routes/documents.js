@@ -5,9 +5,10 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
+import { getDataPaths } from '../config/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const filesDir = path.join(__dirname, '..', '..', 'data', 'files');
+const filesDir = getDataPaths().filesDir;
 if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true });
 
 const router = Router();

@@ -2,13 +2,12 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { ensureDataLayout, getDataDir } from './config/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 测试或便携运行时可指定独立数据目录，默认仍使用项目内 data 目录。
-const dataDir = process.env.TEACHER_WORK_DATA_DIR
-  ? path.resolve(process.env.TEACHER_WORK_DATA_DIR)
-  : path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const dataDir = getDataDir();
+ensureDataLayout();
 
 const dbFile = path.join(dataDir, 'teacher.db');
 // 记录启动时是否为全新数据库（用于首次启动才写示例数据，避免用户删光班级后重启"复活"演示数据）
@@ -17,6 +16,22 @@ const isFreshDb = !fs.existsSync(dbFile);
 const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+export const DATABASE_VERSION = 3;
+const openingVersion = db.pragma('user_version', { simple: true });
+if (!isFreshDb && openingVersion < DATABASE_VERSION) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const recoveryDir = path.join(dataDir, 'backups', `before-db-v${openingVersion}-to-v${DATABASE_VERSION}-${stamp}`);
+  fs.mkdirSync(recoveryDir, { recursive: true });
+  const recoveryFile = path.join(recoveryDir, 'teacher.db');
+  db.prepare('VACUUM INTO ?').run(recoveryFile);
+  fs.writeFileSync(path.join(recoveryDir, 'backup.json'), JSON.stringify({
+    type: 'before-upgrade',
+    fromDatabaseVersion: openingVersion,
+    toDatabaseVersion: DATABASE_VERSION,
+    createdAt: new Date().toISOString(),
+  }, null, 2));
+}
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS classes (

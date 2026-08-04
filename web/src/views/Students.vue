@@ -7,12 +7,23 @@
         <p class="page-head-desc">维护全班学生档案，支持 Excel 批量导入导出与回收站恢复</p>
       </div>
       <div class="page-head-actions">
-        <el-button type="primary" :icon="Plus" @click="openEdit()">新增学生</el-button>
-        <el-button :icon="Upload" @click="fileInput.click()">导入 Excel</el-button>
+        <el-tooltip :disabled="classGuard.canCreate" :content="classGuard.entryMessage" placement="bottom">
+          <span><el-button type="primary" :icon="Plus" :disabled="!classGuard.canCreate" @click="openCreateStudent">新增学生</el-button></span>
+        </el-tooltip>
+        <el-tooltip :disabled="classGuard.canImport" :content="classGuard.entryMessage" placement="bottom">
+          <span><el-button :icon="Upload" :disabled="!classGuard.canImport" @click="openStudentImport">导入 Excel</el-button></span>
+        </el-tooltip>
         <el-button :icon="Files" @click="exportExcel">导出 Excel</el-button>
       </div>
     </div>
 
+    <div v-if="!store.currentClassId" class="class-required-state">
+      <el-empty description="学生档案需要归属班级，请先创建班级" :image-size="90">
+        <el-button type="primary" :icon="Plus" @click="goCreateClass">前往新建班级</el-button>
+      </el-empty>
+    </div>
+
+    <template v-else>
     <!-- 工具栏：搜索/筛选 -->
     <div class="toolbar">
       <el-input v-model="query.keyword" placeholder="搜索姓名/学号" clearable style="width:200px"
@@ -108,6 +119,7 @@
       <el-pagination v-if="list.length > PAGE_SIZE" background layout="prev, pager, next" :total="list.length"
                      :page-size="PAGE_SIZE" :current-page="page" @current-change="p => page = p" />
     </div>
+    </template>
 
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="editVisible" :title="form.id ? '编辑学生' : '新增学生'" width="640px" destroy-on-close>
@@ -388,19 +400,21 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Plus, Download, Upload, Files, Delete, DeleteFilled, RefreshLeft } from '@element-plus/icons-vue';
 import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { studentClassGuard } from '../domain/studentClassGuard.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const listSeq = useSeqLoad();
 const detailSeq = useSeqLoad();
 
 const route = useRoute();
+const router = useRouter();
 
 const TEMPLATE_COLS = [
   { key: 'school_no', title: '学号', width: 12 },
@@ -426,6 +440,7 @@ const selected = ref([]);
 const trashed = ref(false);
 const fileInput = ref(null);
 const query = reactive({ keyword: '', gender: '', status: '', myopia: '', boarding: '', follow_up_status: '' });
+const classGuard = computed(() => studentClassGuard(store.currentClassId));
 
 /* 前端分页：大列表不一次性渲染全部行 */
 const PAGE_SIZE = 50;
@@ -622,9 +637,24 @@ function openEdit(row) {
   editVisible.value = true;
 }
 
+function openCreateStudent() {
+  if (!classGuard.value.canCreate) return ElMessage.warning(classGuard.value.entryMessage);
+  openEdit();
+}
+
+function openStudentImport() {
+  if (!classGuard.value.canImport) return ElMessage.warning(classGuard.value.entryMessage);
+  fileInput.value?.click();
+}
+
+function goCreateClass() {
+  router.push('/classes');
+}
+
 async function saveEdit() {
   if (!form.value.name || !form.value.name.trim()) return ElMessage.warning('请填写姓名');
   const f = { ...form.value, is_boarding: form.value.is_boarding ? 1 : 0, is_myopia: form.value.is_myopia ? 1 : 0 };
+  if (!f.id && !classGuard.value.canCreate) return ElMessage.warning(classGuard.value.saveMessage);
   try {
     const result = f.id
       ? await api.students.update(f.id, f)
@@ -763,7 +793,7 @@ async function onFileChange(e) {
 }
 
 async function doImport() {
-  if (!store.currentClassId) return ElMessage.warning('请先创建班级');
+  if (!classGuard.value.canImport) return ElMessage.warning(classGuard.value.entryMessage);
   importing.value = true;
   try {
     const r = await api.students.import({ class_id: store.currentClassId, students: parsed.value });

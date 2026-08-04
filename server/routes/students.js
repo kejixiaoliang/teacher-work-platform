@@ -7,6 +7,12 @@ const FIELDS = ['school_no','name','gender','birth_date','phone','parent_phone',
   'interest_duty','health_note','height_cm','vision_left','vision_right','is_myopia',
   'grade_level','seat_note','status','follow_up_status','follow_up_note','follow_up_updated_at','remark'];
 
+function hasValidClass(classId) {
+  const id = Number(classId);
+  return Number.isInteger(id) && id > 0
+    && Boolean(db.prepare('SELECT 1 FROM classes WHERE id = ?').get(id));
+}
+
 function pickStudent(row) {
   if (!row) return null;
   const o = { ...row };
@@ -67,6 +73,7 @@ router.get('/', (req, res) => {
 // 新增
 router.post('/', (req, res) => {
   const b = req.body || {};
+  if (!hasValidClass(b.class_id)) return res.json({ ok: false, error: '请先创建并选择有效班级' });
   if (!b.name || !String(b.name).trim()) return res.json({ ok: false, error: '姓名不能为空' });
   if (b.school_no) {
     const dup = db.prepare('SELECT id FROM students WHERE school_no = ? AND deleted_at IS NULL').get(String(b.school_no).trim());
@@ -76,7 +83,7 @@ router.post('/', (req, res) => {
   const placeholders = keys.map(k => '@' + k).join(', ');
   const info = db.prepare(`INSERT INTO students (${keys.join(', ')}, class_id) VALUES (${placeholders}, @class_id)`).run({
     ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] ?? null }), {}),
-    class_id: b.class_id ? Number(b.class_id) : null,
+    class_id: Number(b.class_id),
     school_no: b.school_no ? String(b.school_no).trim() : null,
     name: String(b.name).trim(),
     gender: b.gender || '男',
@@ -186,7 +193,7 @@ router.post('/purge', (req, res) => {
 // 批量导入（Excel 解析后前端传 JSON；返回成功/失败明细）
 router.post('/import', (req, res) => {
   const { class_id, students } = req.body || {};
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  if (!hasValidClass(class_id)) return res.json({ ok: false, error: '请先创建并选择有效班级' });
   if (!Array.isArray(students) || students.length === 0) return res.json({ ok: false, error: '没有可导入的数据' });
   const ins = db.prepare(`
     INSERT INTO students (class_id, school_no, name, gender, birth_date, phone, parent_phone,

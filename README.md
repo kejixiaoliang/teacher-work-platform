@@ -15,6 +15,19 @@
 
 </div>
 
+## Tauri v2 Windows 绿色便携版
+
+```powershell
+npm test
+npm run build
+npm run tauri:dev
+npm run tauri:build
+$env:CARGO_TARGET_DIR='C:\tmp\teacher-work-tauri-target'
+npm run package:portable
+```
+
+最终交付以 `release/教师工作台-vX.Y.Z-windows-x64-portable.zip` 为准。必须完整解压 ZIP 后运行，不能单独移动 EXE；用户数据位于 EXE 同级 `data/`。
+
 ---
 
 ## ✨ 它是什么

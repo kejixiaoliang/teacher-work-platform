@@ -1,3 +1,5 @@
+import { getRuntimeConfig, toApiUrl } from './platform/runtimeConfig.js';
+
 async function request(method, url, body) {
   const opts = { method, headers: {} };
   if (body !== undefined) {
@@ -10,7 +12,9 @@ async function request(method, url, body) {
   opts.signal = ctrl.signal;
   let r;
   try {
-    r = await fetch(url, opts);
+    const { apiToken } = getRuntimeConfig();
+    if (apiToken) opts.headers['x-teacher-work-token'] = apiToken;
+    r = await fetch(toApiUrl(url), opts);
   } catch (e) {
     clearTimeout(timer);
     if (e.name === 'AbortError') throw new Error('请求超时，请重试');
@@ -71,7 +75,9 @@ export const api = {
       const timer = setTimeout(() => ctrl.abort(), 15000);
       let r;
       try {
-        r = await fetch('/api/documents', { method: 'POST', body: formData, signal: ctrl.signal });
+        const { apiToken } = getRuntimeConfig();
+        const headers = apiToken ? { 'x-teacher-work-token': apiToken } : {};
+        r = await fetch(toApiUrl('/api/documents'), { method: 'POST', body: formData, headers, signal: ctrl.signal });
       } catch (e) {
         if (e.name === 'AbortError') throw new Error('上传超时，请重试');
         throw new Error('网络错误：' + e.message);
@@ -86,8 +92,8 @@ export const api = {
     remove: id => request('DELETE', `/api/documents/${id}`),
     restore: ids => request('POST', '/api/documents/restore', { ids }),
     purge: ids => request('POST', '/api/documents/purge', { ids }),
-    fileUrl: id => `/api/documents/${id}/file`,
-    fileDl: id => `/api/documents/${id}/file?dl=1`,
+    fileUrl: id => toApiUrl(`/api/documents/${id}/file`, true),
+    fileDl: id => toApiUrl(`/api/documents/${id}/file?dl=1`, true),
   },
   duties: {
     list: q => request('GET', '/api/duties' + toQuery(q)),
