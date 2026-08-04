@@ -31,4 +31,25 @@ if ($text -notmatch "Invoke-WebRequest 'http://127\.0\.0\.1:3210/api/health'") {
   throw 'Startup health checks must use IPv4 because the server listens on 127.0.0.1 and localhost may resolve to IPv6.'
 }
 
+$nodeCheck = $text.IndexOf('where node >nul 2>nul')
+$npmCheck = $text.IndexOf('where npm >nul 2>nul')
+$firstNpmInstall = $text.IndexOf('call npm install --no-audit --no-fund')
+if ($nodeCheck -lt 0 -or $npmCheck -lt 0 -or $nodeCheck -gt $firstNpmInstall -or $npmCheck -gt $firstNpmInstall) {
+  throw 'Startup batch file must check node and npm before installing project dependencies.'
+}
+
+foreach ($required in @(
+  'set /p "INSTALL_NODE=Install Node.js LTS now? [Y/N]: "',
+  'if /i not "%INSTALL_NODE%"=="Y" goto :node_declined',
+  'where winget >nul 2>nul',
+  'winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements',
+  'https://nodejs.org/en/download',
+  ':node_unavailable',
+  ':node_declined'
+)) {
+  if (-not $text.Contains($required)) {
+    throw "Startup batch file is missing required Node bootstrap marker: $required"
+  }
+}
+
 Write-Host 'Startup batch encoding and line-ending checks passed.'
