@@ -109,13 +109,14 @@
               <div class="seat"
                    :class="{ locked: seat(r, c).locked, empty: !seat(r, c).studentId,
                              selected: selectedKey === keyOf(r, c), 'drag-over': dragOver === keyOf(r, c),
+                             dragging: pointerDrag.dragging && pointerDrag.sourceKey === keyOf(r, c),
                              girl: seat(r, c).gender === '女', boy: seat(r, c).gender === '男' }"
-                   :draggable="mode === 'manual' && !seat(r, c).locked && !!seat(r, c).studentId"
-                   @dragstart="onDragStart($event, r, c)"
-                   @dragover.prevent="dragOver = keyOf(r, c)"
-                   @dragleave="dragOver = null"
-                   @drop.prevent="onDrop(r, c)"
-                   @click="selectSeat(r, c)"
+                   :data-seat-key="keyOf(r, c)"
+                   @pointerdown="onSeatPointerDown($event, r, c)"
+                   @pointermove="onSeatPointerMove"
+                   @pointerup="onSeatPointerUp"
+                   @pointercancel="onSeatPointerCancel"
+                   @click="onSeatClick(r, c)"
                    @contextmenu.prevent="openMenu($event, r, c)">
                 <template v-if="seat(r, c).studentId">
                   <div class="s-name">{{ seat(r, c).name }}</div>
@@ -229,6 +230,7 @@ import { MagicStick, Refresh, Printer, Clock, Check, Lock, Unlock, Delete } from
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 import { moveSeatOccupants } from '../domain/seatMovement.js';
+import { advancePointerDrag, createPointerDragState } from '../domain/pointerDrag.js';
 
 const mode = ref('manual');       // manual | auto
 const rows = computed(() => currentClass.value?.seat_rows || 6);
@@ -243,6 +245,8 @@ const unplaced = ref([]);
 
 const selectedKey = ref(null);
 const dragOver = ref(null);
+const pointerDrag = reactive(createPointerDragState());
+const suppressNextSeatClick = ref(false);
 const menuVisible = ref(false);
 const menu = reactive({ x: 0, y: 0 });
 const menuKey = ref(null);
@@ -475,11 +479,7 @@ async function confirmClearSeat() {
   clearSeat();
 }
 
-/* ---------- 拖拽交换 ---------- */
-function onDragStart(e, r, c) {
-  e.dataTransfer.setData('text/plain', keyOf(r, c));
-  e.dataTransfer.effectAllowed = 'move';
-}
+/* ---------- 指针拖拽交换（浏览器与 WebView2 共用） ---------- */
 function moveSeat(sourceKey, targetKey) {
   const result = moveSeatOccupants(grid, sourceKey, targetKey);
   if (result.reason === 'source-locked' || result.reason === 'target-locked') {
@@ -490,17 +490,67 @@ function moveSeat(sourceKey, targetKey) {
   dirty.value = true;
   ElMessage.success(result.targetWasEmpty ? '已移动到空座，记得保存布局' : '已交换座位，记得保存布局');
 }
-function onDrop(e, r, c) {
-  dragOver.value = null;
-  const sourceKey = e.dataTransfer.getData('text/plain');
-  const targetKey = keyOf(r, c);
-  if (!sourceKey || sourceKey === targetKey) return;
-  const a = grid[sourceKey];
-  const b = grid[targetKey];
-  if (!a || !b) return;
-  if (a.locked || b.locked) return ElMessage.warning('锁定座位不可拖拽/拖入');
-  moveSeat(sourceKey, targetKey);
+
+function updatePointerDrag(event) {
+  const result = advancePointerDrag({ ...pointerDrag }, event);
+  Object.assign(pointerDrag, result.state);
+  return result;
 }
+
+function resetPointerDrag() {
+  Object.assign(pointerDrag, createPointerDragState());
+  dragOver.value = null;
+}
+
+function onSeatPointerDown(e, r, c) {
+  const currentSeat = seat(r, c);
+  if (mode.value !== 'manual' || e.button !== 0 || currentSeat.locked || !currentSeat.studentId) return;
+  suppressNextSeatClick.value = false;
+  updatePointerDrag({
+    type: 'down', pointerId: e.pointerId, sourceKey: keyOf(r, c), x: e.clientX, y: e.clientY,
+  });
+  e.currentTarget.setPointerCapture?.(e.pointerId);
+}
+
+function seatKeyAtPoint(x, y) {
+  return document.elementFromPoint(x, y)?.closest?.('[data-seat-key]')?.dataset?.seatKey ?? null;
+}
+
+function onSeatPointerMove(e) {
+  if (pointerDrag.pointerId !== e.pointerId) return;
+  const result = updatePointerDrag({
+    type: 'move', pointerId: e.pointerId, targetKey: seatKeyAtPoint(e.clientX, e.clientY), x: e.clientX, y: e.clientY,
+  });
+  dragOver.value = result.state.dragging ? result.state.targetKey : null;
+  if (result.state.dragging) e.preventDefault();
+}
+
+function onSeatPointerUp(e) {
+  if (pointerDrag.pointerId !== e.pointerId) return;
+  const result = updatePointerDrag({ type: 'up', pointerId: e.pointerId });
+  dragOver.value = null;
+  suppressNextSeatClick.value = result.suppressClick;
+  if (result.drop && result.drop.sourceKey !== result.drop.targetKey) {
+    moveSeat(result.drop.sourceKey, result.drop.targetKey);
+  }
+  e.currentTarget.releasePointerCapture?.(e.pointerId);
+}
+
+function onSeatPointerCancel(e) {
+  if (pointerDrag.pointerId !== e.pointerId) return;
+  updatePointerDrag({ type: 'cancel', pointerId: e.pointerId });
+  dragOver.value = null;
+}
+
+function onSeatClick(r, c) {
+  if (suppressNextSeatClick.value) {
+    suppressNextSeatClick.value = false;
+    return;
+  }
+  selectSeat(r, c);
+}
+
+watch(mode, resetPointerDrag);
 
 /* ---------- 自动排座 ---------- */
 async function runAuto() {
@@ -640,7 +690,10 @@ function print() {
 /* ---------- 右键菜单：点击外部关闭（P1-8） ---------- */
 function onDocClick() { menuVisible.value = false; }
 onMounted(() => document.addEventListener('click', onDocClick));
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick));
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick);
+  resetPointerDrag();
+});
 
 /* ---------- 离开拦截：未保存修改时提醒 ---------- */
 onBeforeRouteLeave(async () => {
@@ -717,7 +770,7 @@ onBeforeRouteLeave(async () => {
   border: 2px solid var(--ink); border-radius: 12px; padding: 8px 4px 7px;
   text-align: center; cursor: pointer; background: #fff;
   transition: transform .12s, box-shadow .12s, border-color .12s;
-  user-select: none; min-height: 78px;
+  user-select: none; touch-action: none; min-height: 78px;
   display: flex; flex-direction: column; justify-content: center; gap: 3px;
 }
 .seat:hover { transform: translateY(-2px); box-shadow: var(--shadow-xs); }
@@ -730,6 +783,7 @@ onBeforeRouteLeave(async () => {
 .seat.empty:hover { transform: none; box-shadow: none; cursor: default; }
 .seat.selected { outline: 3px solid var(--tomato); outline-offset: 1px; }
 .seat.drag-over { background: var(--mustard) !important; border-color: var(--mustard); outline: 3px dashed var(--tomato); }
+.seat.dragging { opacity: .72; transform: scale(.97); cursor: grabbing; }
 
 .s-name {
   font-weight: 800; font-size: 15px; line-height: 1.3; color: var(--ink);
