@@ -8,7 +8,52 @@ echo   Teacher Workbench - Startup
 echo ============================================
 echo.
 
-rem 1. Install dependencies on first run.
+rem 1. Ensure Node.js and npm are available.
+where node >nul 2>nul
+if errorlevel 1 goto :offer_node_install
+where npm >nul 2>nul
+if errorlevel 1 goto :offer_node_install
+goto :node_ready
+
+:offer_node_install
+echo [Setup] Node.js LTS and npm are required but were not found.
+set "INSTALL_NODE="
+set /p "INSTALL_NODE=Install Node.js LTS now? [Y/N]: "
+if /i not "%INSTALL_NODE%"=="Y" goto :node_declined
+where winget >nul 2>nul
+if errorlevel 1 goto :node_unavailable
+echo [Setup] Installing Node.js LTS with winget...
+winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
+if errorlevel 1 goto :node_unavailable
+set "PATH=%ProgramFiles%\nodejs;%PATH%"
+where node >nul 2>nul
+if errorlevel 1 goto :node_restart_required
+where npm >nul 2>nul
+if errorlevel 1 goto :node_restart_required
+echo [Setup] Node.js LTS installed successfully.
+goto :node_ready
+
+:node_unavailable
+echo [Setup] Automatic installation is unavailable or failed.
+echo Download Node.js LTS from: https://nodejs.org/en/download
+start "" "https://nodejs.org/en/download"
+echo Install Node.js LTS, then run this file again.
+pause
+goto :end
+
+:node_restart_required
+echo [Setup] Node.js was installed, but this window cannot see it yet.
+echo Close this window and run this file again.
+pause
+goto :end
+
+:node_declined
+echo [Setup] Installation cancelled. Node.js LTS is required to continue.
+pause
+goto :end
+
+:node_ready
+rem 2. Install dependencies on first run.
 if not exist "node_modules\" (
   echo [First run] Installing dependencies. This may take 1-3 minutes...
   call npm install --no-audit --no-fund
@@ -17,7 +62,7 @@ if not exist "node_modules\" (
   echo.
 )
 
-rem 2. Build the web interface when no build output exists.
+rem 3. Build the web interface when no build output exists.
 if not exist "web\dist\index.html" (
   echo [Build] Building the web interface...
   call npm run build
@@ -26,9 +71,9 @@ if not exist "web\dist\index.html" (
   echo.
 )
 
-rem 3. Check whether port 3210 is already in use.
+rem 4. Check whether port 3210 is already in use.
 echo [Check] Checking service port 3210...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-NetTCPConnection -LocalPort 3210 -State Listen -ErrorAction SilentlyContinue; if($null -eq $c){exit 0}; try{$r=Invoke-WebRequest 'http://127.0.0.1:3210/api/health' -UseBasicParsing -TimeoutSec 3; if($r.StatusCode -eq 200){exit 2}else{exit 1}}catch{exit 1}"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try{$r=Invoke-WebRequest 'http://127.0.0.1:3210/api/health' -UseBasicParsing -TimeoutSec 3; if($r.StatusCode -eq 200){exit 2}}catch{}; $c=New-Object Net.Sockets.TcpClient; try{$c.Connect('127.0.0.1',3210); exit 1}catch{exit 0}finally{$c.Dispose()}"
 set "PORT_STATE=%errorlevel%"
 
 if "%PORT_STATE%"=="2" (
@@ -51,7 +96,7 @@ if "%PORT_STATE%"=="1" (
   goto :end
 )
 
-rem 4. Start the server in a separate minimized window.
+rem 5. Start the server in a separate minimized window.
 echo.
 echo ============================================
 echo   Starting Teacher Workbench...

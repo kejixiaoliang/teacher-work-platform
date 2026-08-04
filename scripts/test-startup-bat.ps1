@@ -31,6 +31,14 @@ if ($text -notmatch "Invoke-WebRequest 'http://127\.0\.0\.1:3210/api/health'") {
   throw 'Startup health checks must use IPv4 because the server listens on 127.0.0.1 and localhost may resolve to IPv6.'
 }
 
+if ($text.Contains('Get-NetTCPConnection')) {
+  throw 'Startup port checks must not require Get-NetTCPConnection because it can be denied for standard users.'
+}
+
+if (-not $text.Contains("New-Object Net.Sockets.TcpClient")) {
+  throw 'Startup port checks must use TcpClient so standard users can detect an occupied port.'
+}
+
 $nodeCheck = $text.IndexOf('where node >nul 2>nul')
 $npmCheck = $text.IndexOf('where npm >nul 2>nul')
 $firstNpmInstall = $text.IndexOf('call npm install --no-audit --no-fund')
