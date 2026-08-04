@@ -1,6 +1,6 @@
 {
   "name": "teacher-work",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "班主任教师工作台：班级/学生/座位/文档/值日管理（单机 Web 应用）",
   "type": "module",
@@ -10,9 +10,10 @@
     "dev": "concurrently -k -n server,web \"npm:dev:server\" \"npm:dev:web\"",
     "build": "vite build",
     "start": "node server/index.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test tests/*.test.js && npm run version:check",
+    "version:check": "node scripts/version-contract.mjs",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build --no-bundle",
+    "tauri:build": "npm run version:check && tauri build --no-bundle",
     "package:portable": "node scripts/package-portable.mjs",
     "qa:portable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/qa-portable.ps1"
   },
