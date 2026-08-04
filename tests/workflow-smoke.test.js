@@ -1,0 +1,83 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+test('核心教学工作流通过统一 API 完成持久化与备份', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-work-workflow-'));
+  process.env.TEACHER_WORK_DATA_DIR = dataDir;
+  process.env.SEED_DEMO = '0';
+  const token = 'workflow-smoke-secret';
+  const { startServer } = await import(`../server/runtime.js?workflow=${Date.now()}`);
+  const running = await startServer({ port: 0, apiToken: token, openBrowser: false });
+
+  const request = async (method, url, body) => {
+    const response = await fetch(`${running.baseUrl}${url}`, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        'x-teacher-work-token': token,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    assert.equal(response.status, 200, `${method} ${url}`);
+    const payload = await response.json();
+    assert.equal(payload.ok, true, payload.error || `${method} ${url}`);
+    return payload.data;
+  };
+
+  try {
+    const createdClass = await request('POST', '/api/classes', {
+      name: '0.2.0 验证班', seat_rows: 2, seat_cols: 2,
+    });
+    const first = await request('POST', '/api/students', {
+      class_id: createdClass.id, school_no: '001', name: '甲同学', status: '在读',
+    });
+    const second = await request('POST', '/api/students', {
+      class_id: createdClass.id, school_no: '002', name: '乙同学', status: '在读',
+    });
+
+    const savedSeats = await request('PUT', '/api/seats', {
+      classId: createdClass.id,
+      seats: [
+        { studentId: first.id, row: 0, col: 0, locked: false },
+        { studentId: second.id, row: 0, col: 1, locked: false },
+      ],
+    });
+    assert.equal(savedSeats.count, 2);
+    assert.equal((await request('GET', `/api/seats?class_id=${createdClass.id}`)).length, 2);
+
+    const attendance = await request('PUT', '/api/attendance', {
+      classId: createdClass.id,
+      date: '2026-08-05',
+      rows: [
+        { studentId: first.id, status: '出勤', remark: '' },
+        { studentId: second.id, status: '迟到', remark: '演练' },
+      ],
+    });
+    assert.equal(attendance.count, 2);
+    const attendanceRead = await request('GET', `/api/attendance?class_id=${createdClass.id}&date=2026-08-05`);
+    assert.equal(attendanceRead.rows.length, 2);
+
+    const exam = await request('POST', '/api/scores/exams', {
+      class_id: createdClass.id, name: '统一版本测试', date: '2026-08-05', subjects: ['语文'],
+    });
+    const savedScores = await request('PUT', '/api/scores', {
+      examId: exam.id,
+      rows: [
+        { studentId: first.id, subject: '语文', score: 96 },
+        { studentId: second.id, subject: '语文', score: 88 },
+      ],
+    });
+    assert.equal(savedScores.count, 2);
+    assert.equal((await request('GET', `/api/scores?exam_id=${exam.id}`)).length, 2);
+
+    const backup = await request('GET', '/api/backup/export');
+    assert.equal(backup.app, 'teacher-work');
+    assert.ok(backup.tables.find(item => item.table === 'classes').rows.length >= 1);
+    assert.ok(backup.tables.find(item => item.table === 'students').rows.length >= 2);
+  } finally {
+    await running.close();
+  }
+});
