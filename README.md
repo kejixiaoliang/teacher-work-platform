@@ -1,182 +1,259 @@
 <div align="center">
 
-# 📓 教师工作台 · 班主任版
+# 教师工作台
 
-**小亮实验室风格 · 单机即用 · 数据不出本机**
+面向班主任的本地班级管理工具
 
-一份给班主任的「班级实验本」——管学生、排座位、记成绩、盯考勤、收文档、轮值日，全部装进浏览器，双击就能用。
+支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机。
 
-![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883?logo=vue.js&logoColor=white)
-![Element Plus](https://img.shields.io/badge/Element%20Plus-2.9-409eff?logo=element&logoColor=white)
-![Express](https://img.shields.io/badge/Express-4.21-000000?logo=express&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003b57?logo=sqlite&logoColor=white)
+[![Version](https://img.shields.io/badge/version-0.2.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0)
+![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=white)
-![ECharts](https://img.shields.io/badge/ECharts-6-orange?logo=apacheecharts&logoColor=white)
+![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003b57?logo=sqlite&logoColor=white)
 
 </div>
 
-## Tauri v2 Windows 绿色便携版
+## 下载最新版
+
+当前稳定版本为 **v0.2.0**。
+
+- [下载教师工作台 v0.2.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0)
+- [查看历史版本 v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0)
+
+普通用户请从 GitHub Releases 下载 Windows x64 绿色便携 ZIP。使用发布包不需要安装 Node.js、Rust，也不需要运行安装器。
+
+> 必须先完整解压 ZIP，再双击“教师工作台.exe”。不要在压缩包内直接运行，也不要单独移动 EXE。
+
+## 快速开始
+
+1. 打开 [v0.2.0 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0)。
+2. 下载 `teacher-workbench-v0.2.0-windows-x64-portable.zip`。
+3. 将整个 ZIP 解压到桌面、文档目录或其他有写入权限的位置。
+4. 保持 EXE、`resources`、`data`、`backup` 和 `logs` 的相对位置不变。
+5. 双击“教师工作台.exe”。
+6. 首次启动后先建立班级，再录入或导入学生。
+
+推荐目录结构如下。
+
+```text
+教师工作台/
+├─ 教师工作台.exe
+├─ resources/       程序运行资源
+├─ data/            数据库与用户文件
+├─ backup/          数据库迁移恢复点与备份
+├─ logs/            运行与诊断日志
+├─ manifest.json    发布包文件清单
+└─ README.txt       便携版使用说明
+```
+
+## 数据保存与备份
+
+教师工作台采用真正的便携数据目录。核心数据存放在应用目录旁的 `data/` 中，包括 SQLite 数据库和用户上传的文件。
+
+- 复制整个应用目录，可以一起移动程序和数据。
+- 日常备份至少应复制完整的 `data/`。
+- 涉及版本升级时，建议同时保留 `backup/` 和 `logs/`。
+- 不要把应用放在 `Program Files` 等普通用户可能没有写权限的位置。
+- 不要只备份 `teacher.db` 后忽略 `data/files/` 中的上传文件。
+
+## 手动升级
+
+当前版本采用手动绿色升级方式。
+
+1. 完全退出旧版应用，确认后台进程已经结束。
+2. 复制旧版的 `data/`、`backup/` 和 `logs/` 作为升级前备份。
+3. 下载并完整解压新版便携包。
+4. 保留旧版用户数据，替换程序文件和 `resources/`。
+5. 启动新版，等待数据库迁移完成。
+6. 检查班级、学生、座位、成绩、考勤和文档是否正常。
+
+数据库迁移前会创建恢复备份。数据库已经被新版升级后，不要只换回旧 EXE。旧程序可能无法正确读取新版数据库。需要回退时，应同时恢复匹配版本的程序和数据库备份。
+
+详细规则见 [第一版绿色便携包手动升级与数据库迁移方案](docs/第一版绿色便携包手动升级与数据库迁移方案.md)。
+
+## 核心功能
+
+| 模块 | 主要能力 |
+| --- | --- |
+| 班级 | 多班级管理、学年学期、座位网格和教室布局设置 |
+| 学生 | 新增编辑、搜索筛选、Excel 导入导出、成长档案、健康记录和回收站 |
+| 座位 | 拖拽移动与交换、点击换座、锁定座位、自动排座、轮换、历史恢复和打印 |
+| 成绩 | 考试管理、手动录入、Excel 导入、统计排名和趋势查看 |
+| 考勤与请假 | 每日考勤、月度统计、请假台账和销假管理 |
+| 值日 | 分组、轮换、自动分组和打印值日表 |
+| 文档 | 上传、分类、标签、预览、重命名和回收站 |
+| 班委与课代表 | 班委、课代表的选择、编辑和预设 |
+| 家校沟通 | 家访、电话、微信等沟通记录和统计筛选 |
+| 数据分析 | 班级结构、健康、成绩等图表概览 |
+| 使用支持 | 内置使用指南和版本更新记录 |
+
+v0.2.0 已统一浏览器与 WebView2 中的座位拖拽行为，并在学生录入与导入前检查班级是否存在。详细审计见 [Web 与 EXE 功能一致性基线](docs/web-desktop-feature-parity-v0.2.0.md)。
+
+## Web 与 EXE 共用一套业务代码
+
+项目不维护两套独立产品。浏览器版本和 Windows EXE 共用 Vue 页面、业务规则、Express API、SQLite 数据库迁移逻辑和产品版本号。
+
+```text
+Vue 业务界面
+    ↓
+运行环境适配层 desktopApi
+    ↓
+Express API
+    ↓
+SQLite 与用户文件
+
+Tauri v2 负责桌面窗口、启动内置后端和计算便携目录
+```
+
+浏览器开发模式使用本地开发服务器。Tauri Release 使用 WebView2 加载同一套前端构建产物，并启动发布包中自带的 Node.js 后端。环境差异集中在 `web/src/platform/`，业务页面不为 EXE 单独维护副本。
+
+## 技术栈
+
+| 层级 | 技术 |
+| --- | --- |
+| 前端 | Vue 3、Vue Router、Vite 6、Element Plus、ECharts、ExcelJS |
+| 后端 | Node.js、Express、Multer |
+| 数据 | SQLite、better-sqlite3 |
+| 桌面 | Tauri v2、Rust、Windows WebView2 |
+| 测试 | Node.js Test Runner、PowerShell 便携包 QA |
+
+## 项目结构
+
+```text
+teacher-work/
+├─ web/             Vue 前端和运行环境适配层
+├─ server/          Express API、SQLite、迁移和业务服务
+├─ src-tauri/       Tauri v2 Windows 桌面壳
+├─ scripts/         版本检查、便携打包和 QA 脚本
+├─ tests/           单元、集成、迁移和工作流测试
+├─ docs/            PRD、构建手册、升级方案和审计记录
+├─ data/            Web 模式运行数据，本地生成且不提交
+├─ package.json
+└─ README.md
+```
+
+本地构建产生的 `web/dist/`、`src-tauri/target/` 和 `release/` 均不提交到源码仓库。正式 ZIP 作为附件发布在 GitHub Releases。
+
+## 开发环境
+
+Web 开发至少需要 Node.js 和 npm。Tauri Windows 构建还需要 Rust MSVC 工具链、Visual Studio C++ Build Tools、Windows SDK 和 Microsoft Edge WebView2 Runtime。
+
+安装依赖并启动 Web 开发环境。
+
+```powershell
+npm install
+npm run dev
+```
+
+常用命令如下。
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run dev` | 同时启动 Vite 前端和 Express 后端 |
+| `npm test` | 运行自动化测试和产品版本契约检查 |
+| `npm run build` | 构建 Web Release 资源到 `web/dist/` |
+| `npm start` | 使用已构建的前端启动生产模式 Express 服务 |
+| `npm run tauri:dev` | 启动 Tauri 开发模式 |
+| `npm run tauri:build` | 构建不带安装器的 Tauri Release EXE |
+| `npm run package:portable` | 整理完整便携目录并生成 ZIP |
+| `npm run qa:portable -- -ZipPath <ZIP路径>` | 在临时中文路径中验证便携包首次启动和正常退出 |
+
+## Windows 构建门禁
+
+开始 Tauri 编译前先执行以下检查。
+
+```powershell
+node --version
+npm --version
+rustc --version
+cargo --version
+rustup show active-toolchain
+where.exe link
+```
+
+Windows x64 构建应使用 `stable-x86_64-pc-windows-msvc`。`where.exe link` 返回的第一项必须来自 Visual Studio MSVC，路径通常包含以下片段。
+
+```text
+Microsoft Visual Studio
+VC\Tools\MSVC
+Hostx64\x64
+```
+
+如果第一项是 Anaconda 的 `Library\usr\bin\link.exe`，请从开始菜单打开 Developer PowerShell for VS 2022 或 x64 Native Tools Command Prompt for VS 2022，在该终端中重新检查并构建。不要删除、重命名或复制 Anaconda 的同名文件。
+
+完整排查方法见 [Tauri v2 Windows 免安装便携版开发与交付手册](docs/tauri-portable-windows-handbook.md)。
+
+## 构建绿色便携包
+
+在 MSVC 环境门禁通过后执行。
 
 ```powershell
 npm test
 npm run build
-npm run tauri:dev
 npm run tauri:build
-$env:CARGO_TARGET_DIR='C:\tmp\teacher-work-tauri-target'
 npm run package:portable
 ```
 
-最终交付以 `release/教师工作台-vX.Y.Z-windows-x64-portable.zip` 为准。必须完整解压 ZIP 后运行，不能单独移动 EXE；用户数据位于 EXE 同级 `data/`。
+如需把 Cargo 产物放到独立短路径，可在同一个 PowerShell 会话中设置 `CARGO_TARGET_DIR`。
 
----
-
-## ✨ 它是什么
-
-面向**班主任**（而非程序员）的单机 Web 应用：双击启动、浏览器即用、无需联网、无需账号。
-
-> ⚠️ **这不是普通静态网页，也不是 localStorage 伪单机。**
-
-这是一套**完整的「前端 + 后端 + 数据库」三层应用**：
-
-- 🗄️ **真实数据库**：数据存入本地 **SQLite 数据库**（`data/teacher.db`），结构化建表、事务写入、索引查询——不是塞在浏览器 `localStorage` 里的字符串，浏览器清缓存、换电脑、换浏览器，数据都还在
-- 🔌 **独立后端服务**：Express 提供完整的 REST API 层（13 组接口），所有读写都经过服务端校验与事务
-- 🧩 **前后端分离**：Vue 3 前端通过 HTTP API 与后端通信，界面与数据彻底解耦
-
-一句话：**它运行起来是一台完整的 Web 服务器 + 数据库**，只是这台服务器恰好跑在你自己的电脑上、只服务你自己。
-
-界面采用「小亮实验室」风格——暖纸背景、手绘粗线、贴纸卡片，像一本创作者的实验笔记，而不是冷冰冰的管理后台。
-
----
-
-## 🚀 快速开始（Windows）
-
-```text
-1. 双击 启动.bat
-2. 首次运行自动安装依赖并构建界面（约 1-3 分钟）
-3. 浏览器自动打开 http://localhost:3210
-4. 关闭启动窗口即停止服务
+```powershell
+$env:CARGO_TARGET_DIR = 'C:\tmp\teacher-work-tauri-target'
+npm run tauri:build
+npm run package:portable
 ```
 
-> **备份数据** = 复制整个 `data\` 文件夹（SQLite 数据库 + 上传文件）。
-> 应用内顶栏还有「备份数据」按钮（导出班级基础信息 JSON）。
+打包脚本会检查 Release EXE，复制运行资源，创建 `data/`、`backup/` 和 `logs/`，生成 UTF-8 使用说明与文件清单，最后输出 ZIP 和 SHA-256。
 
-### 开发模式
+## 发布前 QA
 
-```bash
-npm install
-npm run dev        # 开发模式：Vite(5173) + API 服务(3210)，自动打开浏览器
-npm run build      # 构建前端到 web/dist（自动生成 .gz，gzip 传输）
-npm start          # 生产模式：Express 托管 web/dist + API（静态资源 gzip 压缩）
+`tauri dev` 能启动不代表发布完成。最终验收对象必须是 Release EXE 和 GitHub Release 使用的 ZIP。
+
+```powershell
+npm run qa:portable -- -ZipPath 'release\教师工作台-v0.2.0-windows-x64-portable.zip'
 ```
 
----
+发布前至少检查以下场景。
 
-## 🗂 功能总览
+- 关闭所有开发服务器后，从独立目录完整解压 ZIP。
+- 在中文路径和包含空格的路径中双击 EXE。
+- 使用空 `data/` 首次启动并生成数据库。
+- 保存数据，退出应用，再次启动后确认数据仍在。
+- 移动整个应用目录，再次启动并读取原有数据。
+- 正常关闭窗口后，内置 Node.js 后端没有残留进程。
+- 在普通 Windows 电脑或干净虚拟机上检查 WebView2 依赖。
+- 人工检查文档拖入、打印、Excel 保存和文件选择器等系统交互。
 
-### 首页 · 一眼看班
+## 已知限制
 
-打开首页就是班级「信息大屏」：班级概况（人数/男女/近视/住宿/平均身高）、今日请假名单、最近家校沟通、班委与课代表一览、今日值日、座位缩略图、最近文档——**只看不编辑，就知道班里谁是谁**。
+- 当前发布包未进行商业代码签名，Windows SmartScreen 可能在首次启动时提示风险。
+- 应用需要 Microsoft Edge WebView2 Runtime。Windows 10 和 Windows 11 的常见环境通常已包含，但正式发布仍需在目标电脑验证。
+- 便携数据写在应用目录旁，应用必须放在当前用户有写入权限的位置。
+- EXE、`resources/` 和数据目录属于同一个便携应用，不支持只复制 EXE 使用。
+- 数据库升级可能改变结构。程序回退必须配合相应数据库备份，不能把替换旧 EXE 当作完整回滚。
 
-### 常用
+## 版本记录
 
-| 模块 | 能力 |
-|---|---|
-| **学生管理** | 增删改查、搜索筛选（姓名/学号/性别/状态/近视/住宿）、Excel 批量导入导出（含标准模板）、详情抽屉（健康概览条 + 身高视力历史 + 成长档案 + 家校沟通）、回收站软删除 |
-| **座位管理** | 网格排座、拖拽换座/交换、右键锁定/设空座、**自动排座**（身高/视力/男女搭配/成绩互助，近视坐中间）、平移轮换、历史布局回看恢复、打印座位表、颜色图例 |
+| 版本 | 状态 | 说明 |
+| --- | --- | --- |
+| [v0.2.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0) | Latest | 统一 Web 与 EXE 版本和业务代码，完善座位拖拽、班级前置校验、数据库迁移备份与便携 QA |
+| [v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0) | 历史版本 | 首个 Windows x64 绿色便携版本 |
 
-### 学习分析
+## 详细文档
 
-| 模块 | 能力 |
-|---|---|
-| **数据分析** | 身高分布、视力健康、成绩等级、性别构成、住宿情况五大图表（ECharts） |
-| **成绩管理** | 考试管理（新增/编辑/删除）、成绩录入（手填 + **Excel 导入**）、排名与统计（平均/最高/优秀率/及格率）、学生进步趋势、**一键载入示例成绩** |
-| **考勤管理** | 每日出勤登记（出勤/迟到/请假/缺勤）、月度统计表（弹性铺满，可拉宽） |
+- [产品需求文档](docs/PRD.md)
+- [项目开发全记录](docs/项目开发全记录.md)
+- [Web 与 EXE 功能一致性基线](docs/web-desktop-feature-parity-v0.2.0.md)
+- [Tauri v2 Windows 免安装便携版开发与交付手册](docs/tauri-portable-windows-handbook.md)
+- [第一版绿色便携包手动升级与数据库迁移方案](docs/第一版绿色便携包手动升级与数据库迁移方案.md)
+- [绿色便携版发布、升级与数据库迁移注意事项](docs/绿色便携版发布、升级与数据库迁移注意事项.md)
 
-### 班级事务
+## 数据与隐私
 
-| 模块 | 能力 |
-|---|---|
-| **文档管理** | 拖拽上传（图片/PDF/Office/文本，单文件 ≤200MB）、分类树 + **预设标签**（教案/试卷/课件/通知/家长信…）+ 自定义标签、图片/PDF/文本内嵌预览、重命名、回收站 |
-| **值日管理** | 分组（每人一组、全局查重）、按周轮换、一键自动分组、打印值日表 |
-| **班委学委** | 选任/编辑/解除班委、一键预设班委 |
-| **课代表选择** | 各科课代表（每科一人、可兼任）、一键预设课代表 |
-| **请假管理** | 事假/病假台账、起止日期自动算天数、销假、月份/学生/类型/状态筛选、今日请假统计 |
-| **家校沟通** | 家访/电话/微信台账、月度统计（次数/涉及学生/家访/电话）、按学生/月份筛选 |
-| **班级设置** | 多班支持、座位网格尺寸、教室布局（均分/中间走道/双走道）、删除确认 |
-
----
-
-## 🎨 设计风格
-
-小亮实验室（xiaoliang-lab）：
-
-- **暖纸背景**：奶油纸 `#fff4dc` + 30px 网格纹理，模拟笔记本
-- **手绘粗线**：4px 墨黑描边 `#201b17`，实色错位投影营造贴纸浮起感
-- **强调色**：番茄红 `#f35b3f`、芥末黄 `#f2c84b`、薄荷绿 `#8bd6af`
-- **组件语言**：胶囊按钮、贴纸页头、药丸标签、旋转角标——全站统一
-- **克制**：粗边只留给一级容器，表格/输入框细边化，保证信息密度与可读性
-
----
-
-## 🧱 技术栈
-
-| 层 | 技术 |
-|---|---|
-| 前端 | Vue 3 + Vite 6 + Element Plus + ECharts（按需引入）+ exceljs |
-| 后端 | Node.js + Express 4（独立 REST API 服务） |
-| **数据库** | **better-sqlite3（SQLite）**：13 张业务表，外键级联、`UNIQUE` 约束、事务批量写入、查询索引——真正的数据库，不是浏览器存储 |
-| 上传 | multer（扩展名白名单 + 班级归属校验 + 失败清理孤立文件） |
-| 存储 | SQLite（`data/teacher.db`）+ 上传文件（`data/files/`） |
-| 性能 | 路由懒加载、vendor 分块、静态资源 gzip、图表按需渲染、大列表分页 |
-
-**数据流**：浏览器 → `fetch` → Express API（参数化 SQL + 校验 + 事务）→ SQLite。所有数据读写都经过服务端，前端只是展示层。
-
-**安全加固**：全量 SQL 参数化、上传内容安全（nosniff + 按扩展名映射 MIME + 非图片强制下载）、跨班数据归属校验、删除操作事务化。
-
----
-
-## 📁 目录结构
-
-```text
-teacher-work/
-├─ 启动.bat            # 双击启动（首次自动装依赖+构建+开浏览器）
-├─ package.json
-├─ server/             # Node + Express 后端
-│  ├─ index.js         # 入口：API 挂载 + 静态托管 + gzip + 错误处理
-│  ├─ db.js            # SQLite 初始化 / 建表 / 迁移 / 种子
-│  ├─ seating.js       # 自动排座算法
-│  └─ routes/          # classes / students / seats / documents / duties /
-│                      # scores / attendance / records / leaves / contacts
-├─ web/                # Vue 3 前端
-│  ├─ index.html
-│  └─ src/
-│     ├─ views/        # 13 个页面（路由懒加载）
-│     ├─ components/   # EChart 等
-│     ├─ composables/  # useSeqLoad（竞态防护）等
-│     └─ style.css     # 小亮实验室设计系统（CSS 变量）
-├─ data/               # 运行时生成：teacher.db + files/（备份=复制此目录）
-└─ docs/               # PRD、审查报告等
-```
-
----
-
-## ✨ 最近更新（2026-08）
-
-- **学生档案更可靠**：修改身高、左右眼视力或近视状态时，会自动新增一条健康快照；也可以从档案内直接“记录测量”。
-- **学期显示统一**：历史体征记录会优先使用班级学年，旧数据缺失时自动从已有学期存档补全，避免出现仅“上/下”或带问号的学期名称。
-- **学生列表更易读**：调整了学号、视力、家长电话、职务/特长、状态、跟进和操作列的弹性比例，宽屏无需横向拖动即可阅读完整信息。
-- **使用支持**：左侧新增“使用指南”和“版本更新”，分别说明各模块操作方式与重要迭代记录。
-
-## 📚 文档
-
-- [项目开发全记录（时间线/决策/踩坑清单）](docs/项目开发全记录.md)
-- [产品需求文档（PRD）](docs/PRD.md)
-- [全面审查报告（功能/逻辑/交互/性能/安全）](docs/审查报告-2026-07-31.md)
-
----
+项目默认在本机运行，不要求注册账号，也不会主动把班级数据上传到外部服务。请自行妥善保管便携目录、备份文件和导出的学生资料。
 
 <div align="center">
 
-**数据仅存本机 · 隐私不出机器 · 关了窗口就是下班**
+数据保存在本机。退出应用后，工作台和内置后端会一起关闭。
 
 </div>
