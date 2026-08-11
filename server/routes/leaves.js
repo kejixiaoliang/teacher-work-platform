@@ -142,6 +142,7 @@ router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的请假 ID' });
   const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ ok: false, code: 'LEAVE_NOT_FOUND', error: '请假记录不存在' });
   if (row) {
     // 方向 1：删除请假时清理其联动写入的考勤记录（仅仍处于「请假」状态的）
     db.prepare(`

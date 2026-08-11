@@ -273,6 +273,8 @@ router.put('/:id', (req, res) => {  const id = Number(req.params.id);
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的值日 ID' });
+  const row = db.prepare('SELECT id FROM duties WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ ok: false, code: 'DUTY_NOT_FOUND', error: '值日记录不存在' });
   db.prepare('DELETE FROM duties WHERE id = ?').run(id);
   res.json({ ok: true });
 });

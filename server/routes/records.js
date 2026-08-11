@@ -61,6 +61,8 @@ router.post('/:id/records', (req, res) => {
 router.delete('/:id/records/:rid', (req, res) => {
   const rid = Number(req.params.rid);
   if (!Number.isInteger(rid) || rid < 1) return res.status(400).json({ ok: false, error: '无效的记录 ID' });
+  const row = db.prepare('SELECT id FROM student_records WHERE id = ? AND student_id = ?').get(rid, Number(req.params.id));
+  if (!row) return res.status(404).json({ ok: false, code: 'RECORD_NOT_FOUND', error: '记录不存在' });
   db.prepare('DELETE FROM student_records WHERE id = ? AND student_id = ?').run(rid, Number(req.params.id));
   res.json({ ok: true });
 });
@@ -102,6 +104,8 @@ router.post('/:id/contacts', (req, res) => {
 router.delete('/:id/contacts/:cid', (req, res) => {
   const cid = Number(req.params.cid);
   if (!Number.isInteger(cid) || cid < 1) return res.status(400).json({ ok: false, error: '无效的沟通记录 ID' });
+  const row = db.prepare('SELECT id FROM contacts WHERE id = ? AND student_id = ?').get(cid, Number(req.params.id));
+  if (!row) return res.status(404).json({ ok: false, code: 'CONTACT_NOT_FOUND', error: '沟通记录不存在' });
   db.prepare('DELETE FROM contacts WHERE id = ? AND student_id = ?').run(cid, Number(req.params.id));
   res.json({ ok: true });
 });
