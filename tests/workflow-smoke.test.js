@@ -77,6 +77,9 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     await expectStatus('GET', '/api/seats?class_id=not-an-id', undefined, 400, 'INVALID_INPUT');
     await expectStatus('PUT', '/api/seats', { classId: 999999, seats: [] }, 404, 'CLASS_NOT_FOUND');
     await expectStatus('GET', '/api/overview/alerts', undefined, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/students', { name: '无班级' }, 400, 'INVALID_INPUT');
+    await expectStatus('PUT', '/api/students/999999', { name: '不存在' }, 404, 'STUDENT_NOT_FOUND');
+    await expectStatus('POST', '/api/students/import', { class_id: 999999, students: [{ name: '不存在' }] }, 400, 'INVALID_INPUT');
     await expectBadRequest('GET', '/api/attendance?class_id=not-an-id&date=2026-08-05');
     await expectBadRequest('GET', '/api/attendance?class_id=1&date=2026-02-30');
     await expectBadRequest('GET', '/api/scores/exams?class_id=1.5');

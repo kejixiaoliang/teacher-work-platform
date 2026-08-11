@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { positiveInt } from '../validation.js';
+import { badRequest, positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -74,11 +74,11 @@ router.get('/', (req, res) => {
 // 新增
 router.post('/', (req, res) => {
   const b = req.body || {};
-  if (!hasValidClass(b.class_id)) return res.json({ ok: false, error: '请先创建并选择有效班级' });
-  if (!b.name || !String(b.name).trim()) return res.json({ ok: false, error: '姓名不能为空' });
+  if (!hasValidClass(b.class_id)) return badRequest(res, '请先创建并选择有效班级');
+  if (!b.name || !String(b.name).trim()) return badRequest(res, '姓名不能为空');
   if (b.school_no) {
     const dup = db.prepare('SELECT id FROM students WHERE school_no = ? AND deleted_at IS NULL').get(String(b.school_no).trim());
-    if (dup) return res.json({ ok: false, error: `学号 ${b.school_no} 已被使用` });
+    if (dup) return res.status(409).json({ ok: false, code: 'SCHOOL_NO_CONFLICT', error: `学号 ${b.school_no} 已被使用` });
   }
   const keys = [...FIELDS];
   const placeholders = keys.map(k => '@' + k).join(', ');
@@ -97,15 +97,16 @@ router.post('/', (req, res) => {
 
 // 更新
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的学生 ID');
   const row = db.prepare('SELECT * FROM students WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '学生不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不存在' });
   const b = req.body || {};
-  if (b.name !== undefined && !String(b.name || '').trim()) return res.json({ ok: false, error: '姓名不能为空' });
+  if (b.name !== undefined && !String(b.name || '').trim()) return badRequest(res, '姓名不能为空');
   if (b.school_no && String(b.school_no).trim() !== row.school_no) {
     const dup = db.prepare('SELECT id FROM students WHERE school_no = ? AND deleted_at IS NULL AND id <> ?')
       .get(String(b.school_no).trim(), id);
-    if (dup) return res.json({ ok: false, error: `学号 ${b.school_no} 已被使用` });
+    if (dup) return res.status(409).json({ ok: false, code: 'SCHOOL_NO_CONFLICT', error: `学号 ${b.school_no} 已被使用` });
   }
   const sets = FIELDS.map(k => `${k} = @${k}`).join(', ');
   const followUpChanged = b.follow_up_status !== undefined || b.follow_up_note !== undefined;
@@ -196,8 +197,8 @@ router.post('/purge', (req, res) => {
 // 批量导入（Excel 解析后前端传 JSON；返回成功/失败明细）
 router.post('/import', (req, res) => {
   const { class_id, students } = req.body || {};
-  if (!hasValidClass(class_id)) return res.json({ ok: false, error: '请先创建并选择有效班级' });
-  if (!Array.isArray(students) || students.length === 0) return res.json({ ok: false, error: '没有可导入的数据' });
+  if (!hasValidClass(class_id)) return badRequest(res, '请先创建并选择有效班级');
+  if (!Array.isArray(students) || students.length === 0) return badRequest(res, '没有可导入的数据');
   const ins = db.prepare(`
     INSERT INTO students (class_id, school_no, name, gender, birth_date, phone, parent_phone,
       is_boarding, height_cm, vision_left, vision_right, is_myopia, grade_level, seat_note, status, remark)
