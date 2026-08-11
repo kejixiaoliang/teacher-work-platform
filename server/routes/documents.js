@@ -156,9 +156,10 @@ router.get('/', (req, res) => {
 
 // 重命名/改标签
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
   const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '文件不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'DOCUMENT_NOT_FOUND', error: '文件不存在' });
   const b = req.body || {};
   db.prepare(`UPDATE documents SET original_name=?, tag=?, deleted_at=? WHERE id=?`).run(
     b.name !== undefined ? b.name : row.original_name,

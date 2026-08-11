@@ -78,6 +78,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const createdClass = await request('POST', '/api/classes', {
       name: '0.2.0 验证班', seat_rows: 2, seat_cols: 2,
     });
+    await expectStatus('PUT', '/api/classes/999999', { name: '不存在班级' }, 404, 'CLASS_NOT_FOUND');
     await expectStatus('DELETE', '/api/students/999999', undefined, 404, 'STUDENT_NOT_FOUND');
     const spoofed = new FormData();
     spoofed.append('class_id', String(createdClass.id));
@@ -98,6 +99,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const documentPayload = await documentResponse.json();
     assert.equal(documentPayload.ok, true);
     await request('DELETE', `/api/documents/${documentPayload.data.id}`);
+    await expectStatus('PUT', '/api/documents/999999', { name: '不存在文件' }, 404, 'DOCUMENT_NOT_FOUND');
     const first = await request('POST', '/api/students', {
       class_id: createdClass.id, school_no: '001', name: '甲同学', status: '在读',
     });
@@ -111,6 +113,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const leave = await request('POST', '/api/leaves', {
       class_id: createdClass.id, student_id: first.id, start_date: '2026-08-10', end_date: '2026-08-10',
     });
+    await expectStatus('PUT', '/api/leaves/999999', { status: '已销假' }, 404, 'LEAVE_NOT_FOUND');
     const linkedBeforeMove = await request('GET', `/api/attendance?class_id=${createdClass.id}&date=2026-08-10`);
     assert.equal(linkedBeforeMove.rows.find(row => row.studentId === first.id).status, '请假');
     await request('PUT', `/api/leaves/${leave.id}`, { student_id: second.id });
@@ -150,6 +153,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const exam = await request('POST', '/api/scores/exams', {
       class_id: createdClass.id, name: '统一版本测试', date: '2026-08-05', subjects: ['语文'],
     });
+    await expectStatus('PUT', '/api/scores/exams/999999', { name: '不存在考试' }, 404, 'EXAM_NOT_FOUND');
     const savedScores = await request('PUT', '/api/scores', {
       examId: exam.id,
       rows: [

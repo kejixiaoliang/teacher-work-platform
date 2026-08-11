@@ -42,10 +42,10 @@ router.post('/exams', (req, res) => {
 
 // 更新考试
 router.put('/exams/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!positiveInt(req.params.id)) return badRequest(res, '无效的考试 ID');
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的考试 ID');
   const row = db.prepare('SELECT * FROM exams WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '考试不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'EXAM_NOT_FOUND', error: '考试不存在' });
   const b = req.body || {};
   db.prepare(`UPDATE exams SET name=?, date=?, subjects=?, remark=? WHERE id=?`).run(
     b.name ? String(b.name).trim() : row.name,

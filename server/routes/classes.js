@@ -4,6 +4,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataDir } from '../config/paths.js';
+import { positiveInt } from '../validation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = getDataDir();
@@ -43,10 +44,10 @@ router.post('/', (req, res) => {
 
 // 更新班级
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的班级 ID' });
+  const id = positiveInt(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的班级 ID' });
   const exists = db.prepare('SELECT * FROM classes WHERE id = ?').get(id);
-  if (!exists) return res.json({ ok: false, error: '班级不存在' });
+  if (!exists) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
   const b = req.body || {};
   const rows = parseSeatDim(b.seat_rows, exists.seat_rows ?? 6);
   const cols = parseSeatDim(b.seat_cols, exists.seat_cols ?? 8);
