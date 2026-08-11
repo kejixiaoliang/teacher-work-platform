@@ -16,13 +16,15 @@ function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padS
  * 1) 先清理该生在该日期范围内的联动记录（仅删除仍处于「请假」状态的——老师手动改为出勤/迟到等的不删，尊重手动登记）
  * 2) 若状态不是「已销假」，逐日补写考勤「请假」——当天已有考勤记录则不覆盖（尊重老师手动登记）
  */
-function syncAttendance(leave, oldStart, oldEnd) {
+function syncAttendance(leave, oldStart, oldEnd, oldClassId = leave.class_id, oldStudentId = leave.student_id) {
   const cls = Number(leave.class_id);
   const sid = Number(leave.student_id);
+  const previousClassId = Number(oldClassId);
+  const previousStudentId = Number(oldStudentId);
   // 清理旧范围联动记录（改日期/销假/删除时都会先清）；只删 status='请假' 的联动记录
   db.prepare(`
     DELETE FROM attendance WHERE class_id=? AND student_id=? AND date BETWEEN ? AND ? AND remark=? AND status='请假'
-  `).run(cls, sid, oldStart || leave.start_date, oldEnd || leave.end_date || leave.start_date, SYNC_REMARK);
+  `).run(previousClassId, previousStudentId, oldStart || leave.start_date, oldEnd || leave.end_date || leave.start_date, SYNC_REMARK);
   if (leave.status === '已销假') return;
   // 逐日补写：当天已有记录则跳过
   const ins = db.prepare(`
@@ -130,7 +132,7 @@ router.put('/:id', (req, res) => {
   // 方向 1：按最新状态/日期重新同步考勤（先清旧范围联动，再按新范围补写）
   syncAttendance(
     { class_id: newClassId, student_id: newStudentId, start_date: sDate, end_date: eDate, status: b.status !== undefined ? b.status : row.status },
-    row.start_date, row.end_date
+    row.start_date, row.end_date, row.class_id, row.student_id
   );
   res.json({ ok: true });
 });

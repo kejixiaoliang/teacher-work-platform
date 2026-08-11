@@ -108,6 +108,15 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     await expectStatus('POST', '/api/leaves', {
       class_id: createdClass.id, student_id: first.id, start_date: '2026-02-30', end_date: '2026-02-28',
     }, 400, 'INVALID_INPUT');
+    const leave = await request('POST', '/api/leaves', {
+      class_id: createdClass.id, student_id: first.id, start_date: '2026-08-10', end_date: '2026-08-10',
+    });
+    const linkedBeforeMove = await request('GET', `/api/attendance?class_id=${createdClass.id}&date=2026-08-10`);
+    assert.equal(linkedBeforeMove.rows.find(row => row.studentId === first.id).status, '请假');
+    await request('PUT', `/api/leaves/${leave.id}`, { student_id: second.id });
+    const linkedAfterMove = await request('GET', `/api/attendance?class_id=${createdClass.id}&date=2026-08-10`);
+    assert.equal(linkedAfterMove.rows.find(row => row.studentId === first.id).status, '出勤');
+    assert.equal(linkedAfterMove.rows.find(row => row.studentId === second.id).status, '请假');
 
     const savedSeats = await request('PUT', '/api/seats', {
       classId: createdClass.id,
