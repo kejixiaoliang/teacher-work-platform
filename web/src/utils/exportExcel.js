@@ -1,5 +1,3 @@
-import ExcelJS from 'exceljs';
-
 /**
  * 通用 Excel 导出工具（阶段二 B2）
  * @param {string} sheetName 工作表名
@@ -9,6 +7,7 @@ import ExcelJS from 'exceljs';
  */
 export async function exportExcel(sheetName, fileName, cols, rows) {
   if (!rows.length) throw new Error('当前没有可导出的数据');
+  const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(sheetName);
   ws.addRow(cols.map(c => c.title));

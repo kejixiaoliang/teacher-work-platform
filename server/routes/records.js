@@ -61,14 +61,18 @@ router.post('/:id/records', (req, res) => {
 router.delete('/:id/records/:rid', (req, res) => {
   const rid = Number(req.params.rid);
   if (!Number.isInteger(rid) || rid < 1) return res.status(400).json({ ok: false, error: '无效的记录 ID' });
+  const row = db.prepare('SELECT id FROM student_records WHERE id = ? AND student_id = ?').get(rid, Number(req.params.id));
+  if (!row) return res.status(404).json({ ok: false, code: 'RECORD_NOT_FOUND', error: '记录不存在' });
   db.prepare('DELETE FROM student_records WHERE id = ? AND student_id = ?').run(rid, Number(req.params.id));
   res.json({ ok: true });
 });
 
 router.put('/:id/records/:rid', (req, res) => {
   if (!hasStudent(req.params.id, res)) return;
-  const row = db.prepare('SELECT * FROM student_records WHERE id = ? AND student_id = ?').get(Number(req.params.rid), Number(req.params.id));
-  if (!row) return res.json({ ok: false, error: '记录不存在' });
+  const rid = Number(req.params.rid);
+  if (!Number.isInteger(rid) || rid < 1) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的记录 ID' });
+  const row = db.prepare('SELECT * FROM student_records WHERE id = ? AND student_id = ?').get(rid, Number(req.params.id));
+  if (!row) return res.status(404).json({ ok: false, code: 'RECORD_NOT_FOUND', error: '记录不存在' });
   const { type, content, date, remark } = req.body || {};
   db.prepare('UPDATE student_records SET type=?, content=?, date=?, remark=? WHERE id=?').run(
     type !== undefined ? type : row.type,
@@ -102,14 +106,18 @@ router.post('/:id/contacts', (req, res) => {
 router.delete('/:id/contacts/:cid', (req, res) => {
   const cid = Number(req.params.cid);
   if (!Number.isInteger(cid) || cid < 1) return res.status(400).json({ ok: false, error: '无效的沟通记录 ID' });
+  const row = db.prepare('SELECT id FROM contacts WHERE id = ? AND student_id = ?').get(cid, Number(req.params.id));
+  if (!row) return res.status(404).json({ ok: false, code: 'CONTACT_NOT_FOUND', error: '沟通记录不存在' });
   db.prepare('DELETE FROM contacts WHERE id = ? AND student_id = ?').run(cid, Number(req.params.id));
   res.json({ ok: true });
 });
 
 router.put('/:id/contacts/:cid', (req, res) => {
   if (!hasStudent(req.params.id, res)) return;
-  const row = db.prepare('SELECT * FROM contacts WHERE id = ? AND student_id = ?').get(Number(req.params.cid), Number(req.params.id));
-  if (!row) return res.json({ ok: false, error: '沟通记录不存在' });
+  const cid = Number(req.params.cid);
+  if (!Number.isInteger(cid) || cid < 1) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的沟通记录 ID' });
+  const row = db.prepare('SELECT * FROM contacts WHERE id = ? AND student_id = ?').get(cid, Number(req.params.id));
+  if (!row) return res.status(404).json({ ok: false, code: 'CONTACT_NOT_FOUND', error: '沟通记录不存在' });
   const { date, method, topic, result, remark } = req.body || {};
   db.prepare('UPDATE contacts SET date=?, method=?, topic=?, result=?, remark=? WHERE id=?').run(
     date !== undefined ? date : row.date,

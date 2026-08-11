@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { badRequest, positiveInt } from '../validation.js';
 
 const router = Router();
 
 // 智能预警中心（方向 4）：按班级聚合各类预警，供首页「预警中心」卡片展示
 router.get('/alerts', (req, res) => {
   const { class_id } = req.query;
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
-  const cid = Number(class_id);
+  const cid = positiveInt(class_id);
+  if (!cid) return badRequest(res, '缺少有效班级');
   const today = new Date();
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, '0');

@@ -31,16 +31,22 @@ test('student creation and import require an existing class', async () => {
 
   try {
     const missing = await post('/api/students', { name: '未分班学生' });
-    assert.deepEqual(missing, { ok: false, error: '请先创建并选择有效班级' });
+    assert.equal(missing.ok, false);
+    assert.equal(missing.code, 'INVALID_INPUT');
+    assert.equal(missing.error, '请先创建并选择有效班级');
 
     const unknown = await post('/api/students', { name: '错误班级', class_id: 999999 });
-    assert.deepEqual(unknown, { ok: false, error: '请先创建并选择有效班级' });
+    assert.equal(unknown.ok, false);
+    assert.equal(unknown.code, 'INVALID_INPUT');
+    assert.equal(unknown.error, '请先创建并选择有效班级');
 
     const imported = await post('/api/students/import', {
       class_id: 999999,
       students: [{ _row: 2, name: '错误导入' }],
     });
-    assert.deepEqual(imported, { ok: false, error: '请先创建并选择有效班级' });
+    assert.equal(imported.ok, false);
+    assert.equal(imported.code, 'INVALID_INPUT');
+    assert.equal(imported.error, '请先创建并选择有效班级');
     assert.equal((await listStudents()).length, 0);
 
     const createdClass = await post('/api/classes', { name: '一班' });

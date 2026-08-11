@@ -403,7 +403,6 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Plus, Download, Upload, Files, Delete, DeleteFilled, RefreshLeft } from '@element-plus/icons-vue';
-import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
@@ -738,6 +737,7 @@ function cellBool(cell, yesValues = ['是', 'true', '1', 'y', 'yes']) {
 }
 
 async function downloadTemplate() {
+  const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('学生名单');
   ws.addRow(TEMPLATE_COLS.map(c => c.title));
@@ -754,6 +754,7 @@ async function onFileChange(e) {
   e.target.value = '';
   if (!file) return;
   try {
+    const ExcelJS = (await import('exceljs')).default;
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await file.arrayBuffer());
     const ws = wb.worksheets[0];
@@ -812,6 +813,7 @@ async function doImport() {
 async function exportExcel() {
   if (!list.value.length) return ElMessage.info('当前没有可导出的学生');
   ElMessage.info(`将导出当前筛选结果 ${list.value.length} 人`);
+  const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('学生名单');
   ws.addRow(TEMPLATE_COLS.map(c => c.title));

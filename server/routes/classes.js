@@ -4,6 +4,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataDir } from '../config/paths.js';
+import { positiveInt } from '../validation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = getDataDir();
@@ -31,7 +32,7 @@ router.get('/', (req, res) => {
 // 新建班级
 router.post('/', (req, res) => {
   const { name, academic_year, term, seat_rows, seat_cols, aisle_mode, head_teacher, remark } = req.body || {};
-  if (!name || !String(name).trim()) return res.json({ ok: false, error: '班级名称不能为空' });
+  if (!name || !String(name).trim()) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '班级名称不能为空' });
   const rows = parseSeatDim(seat_rows, 6);
   const cols = parseSeatDim(seat_cols, 8);
   const info = db.prepare(`
@@ -43,10 +44,10 @@ router.post('/', (req, res) => {
 
 // 更新班级
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的班级 ID' });
+  const id = positiveInt(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的班级 ID' });
   const exists = db.prepare('SELECT * FROM classes WHERE id = ?').get(id);
-  if (!exists) return res.json({ ok: false, error: '班级不存在' });
+  if (!exists) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
   const b = req.body || {};
   const rows = parseSeatDim(b.seat_rows, exists.seat_rows ?? 6);
   const cols = parseSeatDim(b.seat_cols, exists.seat_cols ?? 8);
@@ -63,6 +64,8 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的班级 ID' });
+  const exists = db.prepare('SELECT id FROM classes WHERE id = ?').get(id);
+  if (!exists) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
   const files = db.prepare('SELECT stored_name FROM documents WHERE class_id = ?').all(id);
   const tx = db.transaction(() => {
     for (const f of files) {

@@ -47,6 +47,10 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'INVALID_ANNOTATION' && warning.message?.includes('@vueuse/core')) return;
+        warn(warning);
+      },
       output: {
         manualChunks(id) {
           // 大依赖单独分块：缓存友好，改动业务代码不影响 vendor 缓存

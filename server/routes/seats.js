@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { autoArrange } from '../seating.js';
+import { badRequest, positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -11,23 +12,25 @@ function getClass(id) {
 // 当前布局（含学生信息，空座保留）
 router.get('/', (req, res) => {
   const { class_id } = req.query;
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  const parsedClassId = positiveInt(class_id);
+  if (!parsedClassId) return badRequest(res, '缺少有效班级');
   const rows = db.prepare(`
     SELECT t.row, t.col, t.locked, t.student_id AS studentId,
       s.name, s.gender, s.height_cm, s.vision_left, s.vision_right, s.is_myopia, s.grade_level
     FROM seats t LEFT JOIN students s ON s.id = t.student_id
     WHERE t.class_id = ? ORDER BY t.row, t.col
-  `).all(Number(class_id));
+  `).all(parsedClassId);
   res.json({ ok: true, data: rows });
 });
 
 // 保存布局：全量替换 seats，并写入一条历史快照
 router.put('/', (req, res) => {
   const { classId, seats, remark } = req.body || {};
-  if (!classId) return res.json({ ok: false, error: '缺少班级' });
-  const cls = getClass(classId);
-  if (!cls) return res.json({ ok: false, error: '班级不存在' });
-  if (!Array.isArray(seats)) return res.json({ ok: false, error: '布局数据格式错误' });
+  const parsedClassId = positiveInt(classId);
+  if (!parsedClassId) return badRequest(res, '缺少有效班级');
+  const cls = getClass(parsedClassId);
+  if (!cls) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
+  if (!Array.isArray(seats)) return badRequest(res, '布局数据格式错误');
 
   // 校验学生是否属于该班且存在
   const validIds = new Set(db.prepare(`

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { badRequest, isDateString, positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -15,13 +16,15 @@ function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padS
  * 1) 先清理该生在该日期范围内的联动记录（仅删除仍处于「请假」状态的——老师手动改为出勤/迟到等的不删，尊重手动登记）
  * 2) 若状态不是「已销假」，逐日补写考勤「请假」——当天已有考勤记录则不覆盖（尊重老师手动登记）
  */
-function syncAttendance(leave, oldStart, oldEnd) {
+function syncAttendance(leave, oldStart, oldEnd, oldClassId = leave.class_id, oldStudentId = leave.student_id) {
   const cls = Number(leave.class_id);
   const sid = Number(leave.student_id);
+  const previousClassId = Number(oldClassId);
+  const previousStudentId = Number(oldStudentId);
   // 清理旧范围联动记录（改日期/销假/删除时都会先清）；只删 status='请假' 的联动记录
   db.prepare(`
     DELETE FROM attendance WHERE class_id=? AND student_id=? AND date BETWEEN ? AND ? AND remark=? AND status='请假'
-  `).run(cls, sid, oldStart || leave.start_date, oldEnd || leave.end_date || leave.start_date, SYNC_REMARK);
+  `).run(previousClassId, previousStudentId, oldStart || leave.start_date, oldEnd || leave.end_date || leave.start_date, SYNC_REMARK);
   if (leave.status === '已销假') return;
   // 逐日补写：当天已有记录则跳过
   const ins = db.prepare(`
@@ -65,46 +68,53 @@ router.get('/', (req, res) => {
 // 新增请假
 router.post('/', (req, res) => {
   const { class_id, student_id, type, start_date, end_date, days, reason, status, remark } = req.body || {};
-  if (!class_id || !student_id) return res.json({ ok: false, error: '班级/学生不能为空' });
-  if (!start_date) return res.json({ ok: false, error: '请选择开始日期' });
-  const stu = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(Number(student_id));
-  if (!stu) return res.json({ ok: false, error: '学生不存在' });
+  const classId = positiveInt(class_id);
+  const studentId = positiveInt(student_id);
+  if (!classId || !studentId) return badRequest(res, '班级或学生无效');
+  if (!start_date || !isDateString(String(start_date))) return badRequest(res, '开始日期应为有效的 YYYY-MM-DD');
+  const endDate = end_date || start_date;
+  if (!isDateString(String(endDate))) return badRequest(res, '结束日期应为有效的 YYYY-MM-DD');
+  const stu = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(studentId);
+  if (!stu) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不存在' });
   // 归属校验：学生必须属于该班级，避免跨班脏数据
-  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(Number(student_id), Number(class_id));
-  if (!owner) return res.json({ ok: false, error: '学生不属于当前班级' });
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(studentId, classId);
+  if (!owner) return badRequest(res, '学生不属于当前班级', 'STUDENT_CLASS_MISMATCH');
   const d = days != null ? Number(days) : 1;
-  if (!Number.isFinite(d) || d <= 0 || d > 365) return res.json({ ok: false, error: '天数无效' });
-  if (end_date && end_date < start_date) return res.json({ ok: false, error: '结束日期不能早于开始日期' });
+  if (!Number.isFinite(d) || d <= 0 || d > 365) return badRequest(res, '天数无效');
+  if (endDate < start_date) return badRequest(res, '结束日期不能早于开始日期');
   const info = db.prepare(`
     INSERT INTO leaves (class_id, student_id, type, start_date, end_date, days, reason, status, remark)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    Number(class_id), Number(student_id), type || '事假',
-    start_date, end_date || start_date,
+    classId, studentId, type || '事假',
+    start_date, endDate,
     d,
     reason || '', status || '已批准', remark || ''
   );
   // 方向 1：联动写入考勤「请假」
-  syncAttendance({ class_id, student_id, start_date, end_date: end_date || start_date, status: status || '已批准' });
+  syncAttendance({ class_id: classId, student_id: studentId, start_date, end_date: endDate, status: status || '已批准' });
   res.json({ ok: true, data: { id: info.lastInsertRowid } });
 });
 
 // 更新请假（改日期/销假等）
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的请假 ID');
   const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '请假记录不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'LEAVE_NOT_FOUND', error: '请假记录不存在' });
   const b = req.body || {};
-  const newStudentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
-  const newClassId = b.class_id !== undefined ? Number(b.class_id) : row.class_id;
+  const newStudentId = b.student_id !== undefined ? positiveInt(b.student_id) : row.student_id;
+  const newClassId = b.class_id !== undefined ? positiveInt(b.class_id) : row.class_id;
+  if (!newStudentId || !newClassId) return badRequest(res, '班级或学生无效');
   // 归属校验：学生必须属于记录所属班级
   const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(newStudentId, newClassId);
-  if (!owner) return res.json({ ok: false, error: '学生不属于该班级' });
+  if (!owner) return badRequest(res, '学生不属于该班级', 'STUDENT_CLASS_MISMATCH');
   const days = b.days !== undefined ? Number(b.days) : row.days;
-  if (!Number.isFinite(days) || days <= 0 || days > 365) return res.json({ ok: false, error: '天数无效' });
+  if (!Number.isFinite(days) || days <= 0 || days > 365) return badRequest(res, '天数无效');
   const sDate = b.start_date !== undefined ? b.start_date : row.start_date;
   const eDate = b.end_date !== undefined ? b.end_date : row.end_date;
-  if (eDate && sDate && eDate < sDate) return res.json({ ok: false, error: '结束日期不能早于开始日期' });
+  if (!isDateString(String(sDate)) || !isDateString(String(eDate || sDate))) return badRequest(res, '日期应为有效的 YYYY-MM-DD');
+  if (eDate && sDate && eDate < sDate) return badRequest(res, '结束日期不能早于开始日期');
   db.prepare(`
     UPDATE leaves SET type=?, start_date=?, end_date=?, days=?, reason=?, status=?, remark=?, student_id=?, class_id=? WHERE id=?
   `).run(
@@ -122,7 +132,7 @@ router.put('/:id', (req, res) => {
   // 方向 1：按最新状态/日期重新同步考勤（先清旧范围联动，再按新范围补写）
   syncAttendance(
     { class_id: newClassId, student_id: newStudentId, start_date: sDate, end_date: eDate, status: b.status !== undefined ? b.status : row.status },
-    row.start_date, row.end_date
+    row.start_date, row.end_date, row.class_id, row.student_id
   );
   res.json({ ok: true });
 });
@@ -132,6 +142,7 @@ router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的请假 ID' });
   const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ ok: false, code: 'LEAVE_NOT_FOUND', error: '请假记录不存在' });
   if (row) {
     // 方向 1：删除请假时清理其联动写入的考勤记录（仅仍处于「请假」状态的）
     db.prepare(`

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -60,17 +61,22 @@ router.post('/', (req, res) => {
 
 // 更新沟通记录
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
+  const id = positiveInt(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的沟通记录 ID' });
   const row = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '沟通记录不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'CONTACT_NOT_FOUND', error: '沟通记录不存在' });
   const b = req.body || {};
+  const studentId = b.student_id === undefined ? row.student_id : positiveInt(b.student_id);
+  if (!studentId || !db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(studentId)) {
+    return res.status(400).json({ ok: false, code: 'INVALID_STUDENT', error: '学生不存在或已在回收站' });
+  }
   db.prepare('UPDATE contacts SET date=?, method=?, topic=?, result=?, remark=?, student_id=? WHERE id=?').run(
     b.date !== undefined ? b.date : row.date,
     b.method !== undefined ? b.method : row.method,
     b.topic !== undefined ? b.topic : row.topic,
     b.result !== undefined ? b.result : row.result,
     b.remark !== undefined ? b.remark : row.remark,
-    b.student_id !== undefined ? Number(b.student_id) : row.student_id,
+    studentId,
     id
   );
   res.json({ ok: true });
