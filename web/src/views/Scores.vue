@@ -113,6 +113,14 @@
                      placeholder="输入科目后回车" style="width:100%">
             <el-option v-for="s in COMMON_SUBJECTS" :key="s" :value="s" :label="s" />
           </el-select>
+          <div class="subject-template-row">
+            <el-select v-model="selectedSubjectTemplate" clearable placeholder="套用科目模板" size="small"
+                       style="flex:1" @change="applySubjectTemplate">
+              <el-option v-for="template in subjectTemplates" :key="template.name" :value="template.name"
+                         :label="`${template.name}（${template.subjects.length} 科）`" />
+            </el-select>
+            <el-button size="small" @click="saveSubjectTemplate">保存为模板</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="examForm.remark" placeholder="选填（C 组：补上死字段）" /></el-form-item>
       </el-form>
@@ -178,6 +186,47 @@ const trendPoints = ref([]);
 const examDialogVisible = ref(false);
 const examForm = ref({ id: null, name: '', date: '', subjects: [] });
 const demoLoading = ref(false);
+const selectedSubjectTemplate = ref('');
+const SUBJECT_TEMPLATE_KEY = 'teacher-work-score-subject-templates-v1';
+
+function readSubjectTemplates() {
+  try {
+    const value = JSON.parse(localStorage.getItem(SUBJECT_TEMPLATE_KEY) || '[]');
+    return Array.isArray(value) ? value.filter(item => item?.name && Array.isArray(item.subjects) && item.subjects.length) : [];
+  } catch {
+    return [];
+  }
+}
+
+const subjectTemplates = ref(readSubjectTemplates());
+
+function persistSubjectTemplates() {
+  localStorage.setItem(SUBJECT_TEMPLATE_KEY, JSON.stringify(subjectTemplates.value));
+}
+
+function applySubjectTemplate(name) {
+  const template = subjectTemplates.value.find(item => item.name === name);
+  if (template) examForm.value.subjects = [...template.subjects];
+}
+
+async function saveSubjectTemplate() {
+  const subjects = [...new Set(examForm.value.subjects.map(subject => String(subject).trim()).filter(Boolean))];
+  if (!subjects.length) return ElMessage.warning('请先添加科目，再保存模板');
+  const { value } = await ElMessageBox.prompt('给科目模板起个名字：', '保存科目模板', {
+    inputValue: selectedSubjectTemplate.value || '',
+    inputPattern: /\S+/,
+    inputErrorMessage: '模板名称不能为空',
+  }).catch(() => ({ value: '' }));
+  const name = String(value || '').trim();
+  if (!name) return;
+  const index = subjectTemplates.value.findIndex(item => item.name === name);
+  const next = { name, subjects };
+  if (index >= 0) subjectTemplates.value.splice(index, 1, next);
+  else subjectTemplates.value.push(next);
+  selectedSubjectTemplate.value = name;
+  persistSubjectTemplates();
+  ElMessage.success(`科目模板「${name}」已保存`);
+}
 
 /* ---------- 成绩 Excel 导入 ---------- */
 const scoreFileInput = ref(null);
@@ -461,6 +510,7 @@ function openExamDialog(e) {
   examForm.value = e
     ? { id: e.id, name: e.name, date: e.date || '', subjects: [...(e.subjects || [])], remark: e.remark || '' }
     : { id: null, name: '', date: '', subjects: [], remark: '' };
+  selectedSubjectTemplate.value = '';
   examDialogVisible.value = true;
 }
 async function saveExam() {
@@ -593,8 +643,9 @@ const trendOption = computed(() => ({
   border: 3px solid var(--ink); border-radius: 14px; padding: 10px 14px;
   box-shadow: var(--shadow-xs);
 }
-.sc-subject { font-weight: 900; color: var(--tomato); margin-bottom: 4px; }
-.sc-row { font-size: 12px; color: var(--muted); }
+    .sc-subject { font-weight: 900; color: var(--tomato); margin-bottom: 4px; }
+    .sc-row { font-size: 12px; color: var(--muted); }
+    .subject-template-row { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
 
 /* ---------- 响应式：窄屏考试列表置顶 ---------- */
 @media (max-width: 900px) {
