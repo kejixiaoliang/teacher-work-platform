@@ -172,8 +172,11 @@ router.put('/:id', (req, res) => {
 
 // 软删除
 router.delete('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的文件 ID' });
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
+  if (!db.prepare('SELECT id FROM documents WHERE id = ?').get(id)) {
+    return res.status(404).json({ ok: false, code: 'DOCUMENT_NOT_FOUND', error: '文件不存在' });
+  }
   db.prepare(`UPDATE documents SET deleted_at=datetime('now','localtime') WHERE id=?`).run(id);
   res.json({ ok: true });
 });
