@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { badRequest, isDateString, positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -65,46 +66,53 @@ router.get('/', (req, res) => {
 // 新增请假
 router.post('/', (req, res) => {
   const { class_id, student_id, type, start_date, end_date, days, reason, status, remark } = req.body || {};
-  if (!class_id || !student_id) return res.json({ ok: false, error: '班级/学生不能为空' });
-  if (!start_date) return res.json({ ok: false, error: '请选择开始日期' });
-  const stu = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(Number(student_id));
-  if (!stu) return res.json({ ok: false, error: '学生不存在' });
+  const classId = positiveInt(class_id);
+  const studentId = positiveInt(student_id);
+  if (!classId || !studentId) return badRequest(res, '班级或学生无效');
+  if (!start_date || !isDateString(String(start_date))) return badRequest(res, '开始日期应为有效的 YYYY-MM-DD');
+  const endDate = end_date || start_date;
+  if (!isDateString(String(endDate))) return badRequest(res, '结束日期应为有效的 YYYY-MM-DD');
+  const stu = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(studentId);
+  if (!stu) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不存在' });
   // 归属校验：学生必须属于该班级，避免跨班脏数据
-  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(Number(student_id), Number(class_id));
-  if (!owner) return res.json({ ok: false, error: '学生不属于当前班级' });
+  const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(studentId, classId);
+  if (!owner) return badRequest(res, '学生不属于当前班级', 'STUDENT_CLASS_MISMATCH');
   const d = days != null ? Number(days) : 1;
-  if (!Number.isFinite(d) || d <= 0 || d > 365) return res.json({ ok: false, error: '天数无效' });
-  if (end_date && end_date < start_date) return res.json({ ok: false, error: '结束日期不能早于开始日期' });
+  if (!Number.isFinite(d) || d <= 0 || d > 365) return badRequest(res, '天数无效');
+  if (endDate < start_date) return badRequest(res, '结束日期不能早于开始日期');
   const info = db.prepare(`
     INSERT INTO leaves (class_id, student_id, type, start_date, end_date, days, reason, status, remark)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    Number(class_id), Number(student_id), type || '事假',
-    start_date, end_date || start_date,
+    classId, studentId, type || '事假',
+    start_date, endDate,
     d,
     reason || '', status || '已批准', remark || ''
   );
   // 方向 1：联动写入考勤「请假」
-  syncAttendance({ class_id, student_id, start_date, end_date: end_date || start_date, status: status || '已批准' });
+  syncAttendance({ class_id: classId, student_id: studentId, start_date, end_date: endDate, status: status || '已批准' });
   res.json({ ok: true, data: { id: info.lastInsertRowid } });
 });
 
 // 更新请假（改日期/销假等）
 router.put('/:id', (req, res) => {
-  const id = Number(req.params.id);
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的请假 ID');
   const row = db.prepare('SELECT * FROM leaves WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '请假记录不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'LEAVE_NOT_FOUND', error: '请假记录不存在' });
   const b = req.body || {};
-  const newStudentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
-  const newClassId = b.class_id !== undefined ? Number(b.class_id) : row.class_id;
+  const newStudentId = b.student_id !== undefined ? positiveInt(b.student_id) : row.student_id;
+  const newClassId = b.class_id !== undefined ? positiveInt(b.class_id) : row.class_id;
+  if (!newStudentId || !newClassId) return badRequest(res, '班级或学生无效');
   // 归属校验：学生必须属于记录所属班级
   const owner = db.prepare('SELECT id FROM students WHERE id = ? AND class_id = ?').get(newStudentId, newClassId);
-  if (!owner) return res.json({ ok: false, error: '学生不属于该班级' });
+  if (!owner) return badRequest(res, '学生不属于该班级', 'STUDENT_CLASS_MISMATCH');
   const days = b.days !== undefined ? Number(b.days) : row.days;
-  if (!Number.isFinite(days) || days <= 0 || days > 365) return res.json({ ok: false, error: '天数无效' });
+  if (!Number.isFinite(days) || days <= 0 || days > 365) return badRequest(res, '天数无效');
   const sDate = b.start_date !== undefined ? b.start_date : row.start_date;
   const eDate = b.end_date !== undefined ? b.end_date : row.end_date;
-  if (eDate && sDate && eDate < sDate) return res.json({ ok: false, error: '结束日期不能早于开始日期' });
+  if (!isDateString(String(sDate)) || !isDateString(String(eDate || sDate))) return badRequest(res, '日期应为有效的 YYYY-MM-DD');
+  if (eDate && sDate && eDate < sDate) return badRequest(res, '结束日期不能早于开始日期');
   db.prepare(`
     UPDATE leaves SET type=?, start_date=?, end_date=?, days=?, reason=?, status=?, remark=?, student_id=?, class_id=? WHERE id=?
   `).run(

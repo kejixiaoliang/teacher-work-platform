@@ -105,6 +105,9 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
       class_id: createdClass.id, school_no: '002', name: '乙同学', status: '在读',
     });
     await expectStatus('PUT', '/api/contacts/999999', { student_id: first.id, topic: '不存在记录' }, 404, 'CONTACT_NOT_FOUND');
+    await expectStatus('POST', '/api/leaves', {
+      class_id: createdClass.id, student_id: first.id, start_date: '2026-02-30', end_date: '2026-02-28',
+    }, 400, 'INVALID_INPUT');
 
     const savedSeats = await request('PUT', '/api/seats', {
       classId: createdClass.id,
