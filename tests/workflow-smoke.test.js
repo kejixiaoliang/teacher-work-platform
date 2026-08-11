@@ -63,6 +63,25 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const createdClass = await request('POST', '/api/classes', {
       name: '0.2.0 验证班', seat_rows: 2, seat_cols: 2,
     });
+    const spoofed = new FormData();
+    spoofed.append('class_id', String(createdClass.id));
+    spoofed.append('file', new Blob(['%PDF-1.7'], { type: 'image/png' }), 'spoof.png');
+    const spoofedResponse = await fetch(`${running.baseUrl}/api/documents`, {
+      method: 'POST', headers: { 'x-teacher-work-token': token }, body: spoofed,
+    });
+    assert.equal(spoofedResponse.status, 400);
+    assert.equal((await spoofedResponse.json()).code, 'INVALID_FILE_CONTENT');
+
+    const documentForm = new FormData();
+    documentForm.append('class_id', String(createdClass.id));
+    documentForm.append('file', new Blob(['%PDF-1.7\nvalid test'], { type: 'application/pdf' }), 'test.pdf');
+    const documentResponse = await fetch(`${running.baseUrl}/api/documents`, {
+      method: 'POST', headers: { 'x-teacher-work-token': token }, body: documentForm,
+    });
+    assert.equal(documentResponse.status, 200);
+    const documentPayload = await documentResponse.json();
+    assert.equal(documentPayload.ok, true);
+    await request('DELETE', `/api/documents/${documentPayload.data.id}`);
     const first = await request('POST', '/api/students', {
       class_id: createdClass.id, school_no: '001', name: '甲同学', status: '在读',
     });

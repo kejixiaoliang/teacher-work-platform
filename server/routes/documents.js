@@ -6,12 +6,14 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
+import { badRequest, positiveInt, text } from '../validation.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const filesDir = getDataPaths().filesDir;
 if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true });
 
 const router = Router();
+const MAX_STORAGE_BYTES = Number(process.env.TEACHER_WORK_FILES_LIMIT_MB || 2048) * 1024 * 1024;
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, filesDir),
@@ -32,6 +34,34 @@ const upload = multer({
     else cb(new Error(`不支持的文件类型 ${ext || '(无扩展名)'}`));
   },
 });
+
+function unlinkUploaded(file) {
+  if (!file?.path) return;
+  try { fs.unlinkSync(file.path); } catch { /* 文件可能已被清理 */ }
+}
+
+function hasSignature(ext, filePath) {
+  const head = fs.readFileSync(filePath).subarray(0, 16);
+  const ascii = head.toString('ascii');
+  if (['.jpg', '.jpeg'].includes(ext)) return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+  if (ext === '.png') return head.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (ext === '.gif') return ascii.startsWith('GIF87a') || ascii.startsWith('GIF89a');
+  if (ext === '.pdf') return ascii.startsWith('%PDF-');
+  if (['.zip', '.docx', '.xlsx', '.pptx'].includes(ext)) return head.subarray(0, 4).equals(Buffer.from([80, 75, 3, 4]));
+  if (ext === '.7z') return head.subarray(0, 6).equals(Buffer.from([55, 122, 188, 175, 39, 28]));
+  if (ext === '.rar') return ascii.startsWith('Rar!');
+  if (ext === '.wav') return ascii.startsWith('RIFF') && head.subarray(8, 12).toString('ascii') === 'WAVE';
+  if (ext === '.mp4' || ext === '.mov') return head.subarray(4, 8).toString('ascii') === 'ftyp';
+  if (ext === '.mp3') return ascii.startsWith('ID3') || (head[0] === 0xff && (head[1] & 0xe0) === 0xe0);
+  return true;
+}
+
+function currentStorageBytes() {
+  return fs.readdirSync(filesDir, { withFileTypes: true }).reduce((total, entry) => {
+    if (!entry.isFile()) return total;
+    try { return total + fs.statSync(path.join(filesDir, entry.name)).size; } catch { return total; }
+  }, 0);
+}
 
 function categoryOf(ext) {
   if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)) return '图片';
@@ -65,18 +95,32 @@ router.post('/', upload.single('file'), (req, res) => {
   const { class_id, tag, name } = req.body || {};
   const original = decodeName(name || req.file.originalname);
   const ext = path.extname(original).toLowerCase();
+  const classId = positiveInt(class_id);
+  const safeName = text(original, { max: 255 });
   try {
+    if (!classId || !safeName) {
+      unlinkUploaded(req.file);
+      return badRequest(res, '班级或文件名无效');
+    }
+    if (!hasSignature(ext, req.file.path)) {
+      unlinkUploaded(req.file);
+      return badRequest(res, '文件内容与扩展名不匹配', 'INVALID_FILE_CONTENT');
+    }
+    if (currentStorageBytes() + req.file.size > MAX_STORAGE_BYTES) {
+      unlinkUploaded(req.file);
+      return res.status(413).json({ ok: false, code: 'FILE_STORAGE_LIMIT', error: '文件存储空间已达到上限' });
+    }
     // 校验班级存在，避免写入孤立文件/脏数据
-    if (!class_id || !db.prepare('SELECT id FROM classes WHERE id = ?').get(Number(class_id))) {
-      fs.unlinkSync(path.join(filesDir, req.file.filename));
+    if (!db.prepare('SELECT id FROM classes WHERE id = ?').get(classId)) {
+      unlinkUploaded(req.file);
       return res.json({ ok: false, error: '班级不存在或未指定' });
     }
     const info = db.prepare(`
       INSERT INTO documents (class_id, original_name, stored_name, category, size, mime, tag)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
-      Number(class_id),
-      original,
+      classId,
+      safeName,
       req.file.filename,
       categoryOf(ext),
       req.file.size,
