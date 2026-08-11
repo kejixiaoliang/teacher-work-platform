@@ -93,19 +93,30 @@ router.put('/', (req, res) => {
     ON CONFLICT(exam_id, student_id, subject) DO UPDATE SET score = excluded.score
   `);
   let saved = 0;
+  const skipped = [];
   const tx = db.transaction((list) => {
     for (const r of list) {
-      if (r.studentId == null || !r.subject) continue;
-      if (!validIds.has(Number(r.studentId))) continue;
-      if (String(r.subject).length > 30) continue; // 科目名过长跳过
+      const studentId = positiveInt(r.studentId);
+      const subject = r.subject == null ? '' : String(r.subject).trim();
+      if (!studentId || !validIds.has(studentId)) {
+        skipped.push({ studentId: studentId || r.studentId, subject, reason: '学生不属于该班级或已删除' });
+        continue;
+      }
+      if (!subject || subject.length > 30) {
+        skipped.push({ studentId, subject, reason: '科目名称无效' });
+        continue;
+      }
       const v = r.score === null || r.score === '' || r.score === undefined ? null : Number(r.score);
-      if (v != null && (!Number.isFinite(v) || v < 0 || v > 200)) continue; // 非法/越界分数跳过
-      upsert.run(parsedExamId, Number(r.studentId), String(r.subject), v);
+      if (v != null && (!Number.isFinite(v) || v < 0 || v > 200)) {
+        skipped.push({ studentId, subject, reason: '分数无效或超出范围' });
+        continue;
+      }
+      upsert.run(parsedExamId, studentId, subject, v);
       saved++;
     }
   });
   tx(rows);
-  res.json({ ok: true, data: { count: saved } });
+  res.json({ ok: true, data: { count: saved, skipped } });
 });
 
 /* ================= 统计分析 ================= */

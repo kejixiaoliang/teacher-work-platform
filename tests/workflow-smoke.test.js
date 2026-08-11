@@ -149,6 +149,12 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
       ],
     });
     assert.equal(savedScores.count, 2);
+    const skippedScores = await request('PUT', '/api/scores', {
+      examId: exam.id,
+      rows: [{ studentId: 999999, subject: '语文', score: 88 }],
+    });
+    assert.equal(skippedScores.count, 0);
+    assert.deepEqual(skippedScores.skipped, [{ studentId: 999999, subject: '语文', reason: '学生不属于该班级或已删除' }]);
     assert.equal((await request('GET', `/api/scores?exam_id=${exam.id}`)).length, 2);
 
     const backup = await request('GET', '/api/backup/export');
