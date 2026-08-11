@@ -85,7 +85,7 @@ router.put('/', (req, res) => {
   const parsedExamId = positiveInt(examId);
   if (!parsedExamId || !Array.isArray(rows)) return badRequest(res, '参数不完整');
   const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(parsedExamId);
-  if (!exam) return res.json({ ok: false, error: '考试不存在' });
+  if (!exam) return res.status(404).json({ ok: false, code: 'EXAM_NOT_FOUND', error: '考试不存在' });
   // 校验学生属于该班且在册（软删除学生不能写入成绩）
   const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id = ? AND deleted_at IS NULL').all(exam.class_id).map(r => r.id));
   const upsert = db.prepare(`
@@ -127,7 +127,7 @@ router.get('/analysis', (req, res) => {
   const examId = positiveInt(exam_id);
   if (!examId) return badRequest(res, '缺少有效考试');
   const exam = db.prepare('SELECT * FROM exams WHERE id = ?').get(examId);
-  if (!exam) return res.json({ ok: false, error: '考试不存在' });
+  if (!exam) return res.status(404).json({ ok: false, code: 'EXAM_NOT_FOUND', error: '考试不存在' });
   const subjects = safeJson(exam.subjects, []);
   const rows = db.prepare(`
     SELECT s.student_id, s.subject, s.score, st.name, st.school_no
