@@ -130,6 +130,13 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.equal(attendance.count, 2);
     const attendanceRead = await request('GET', `/api/attendance?class_id=${createdClass.id}&date=2026-08-05`);
     assert.equal(attendanceRead.rows.length, 2);
+    const skippedAttendance = await request('PUT', '/api/attendance', {
+      classId: createdClass.id,
+      date: '2026-08-06',
+      rows: [{ studentId: 999999, status: '出勤', remark: '' }],
+    });
+    assert.equal(skippedAttendance.count, 0);
+    assert.deepEqual(skippedAttendance.skipped, [{ studentId: 999999, reason: '学生不属于该班级或已删除' }]);
 
     const exam = await request('POST', '/api/scores/exams', {
       class_id: createdClass.id, name: '统一版本测试', date: '2026-08-05', subjects: ['语文'],

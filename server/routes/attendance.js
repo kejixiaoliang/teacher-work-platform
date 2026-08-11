@@ -56,21 +56,26 @@ router.put('/', (req, res) => {
   // 方向 1：读取已有记录，保留请假联动的 remark 标记（销假时靠它清理）
   const getRemark = db.prepare('SELECT remark FROM attendance WHERE class_id=? AND student_id=? AND date=?');
   let saved = 0;
+  const skipped = [];
   const tx = db.transaction((list) => {
     for (const r of list) {
-      if (r.studentId == null || !validIds.has(Number(r.studentId))) continue;
+      const studentId = positiveInt(r.studentId);
+      if (!studentId || !validIds.has(studentId)) {
+        skipped.push({ studentId: studentId || r.studentId, reason: '学生不属于该班级或已删除' });
+        continue;
+      }
       const status = STATUSES.includes(r.status) ? r.status : '出勤';
-      const prev = getRemark.get(parsedClassId, Number(r.studentId), String(date));
+      const prev = getRemark.get(parsedClassId, studentId, String(date));
       // 前端未填备注时，保留请假联动标记；否则按用户输入覆盖
       const remark = r.remark && String(r.remark).trim()
         ? String(r.remark).trim()
         : (prev?.remark === '请假联动' ? '请假联动' : (r.remark || ''));
-      upsert.run(parsedClassId, Number(r.studentId), String(date), status, remark);
+      upsert.run(parsedClassId, studentId, String(date), status, remark);
       saved++;
     }
   });
   tx(rows);
-  res.json({ ok: true, data: { count: saved } });
+  res.json({ ok: true, data: { count: saved, skipped } });
 });
 
 // 按月统计：每人各状态天数
