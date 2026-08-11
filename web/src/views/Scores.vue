@@ -442,8 +442,12 @@ async function saveScores() {
   }
   if (!rows.length) return ElMessage.info('还没有录入成绩');
   try {
-    await api.scores.save({ examId: currentExam.value.id, rows });
-    ElMessage.success(`已保存 ${rows.length} 条成绩`);
+    const result = await api.scores.save({ examId: currentExam.value.id, rows });
+    if (result.skipped?.length) {
+      ElMessage.warning(`已保存 ${result.count} 条成绩，跳过 ${result.skipped.length} 条：${result.skipped[0].reason}`);
+    } else {
+      ElMessage.success(`已保存 ${result.count ?? rows.length} 条成绩`);
+    }
     scoreDirty.value = false;
     selectExam(currentExam.value); // 刷新统计
   } catch (e) {

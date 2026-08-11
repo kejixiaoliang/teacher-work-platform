@@ -167,8 +167,13 @@ async function saveDaily() {
     studentId: r.studentId, status: r.status, remark: r.remark || '',
   }));
   try {
-    await api.attendance.save({ classId: store.currentClassId, date: date.value, rows: payload });
-    ElMessage.success(`已保存 ${date.value} 的考勤`);
+    const result = await api.attendance.save({ classId: store.currentClassId, date: date.value, rows: payload });
+    if (result.skipped?.length) {
+      const details = result.skipped.slice(0, 3).map(item => item.studentId).join('、');
+      ElMessage.warning(`已保存 ${result.count} 人，跳过 ${result.skipped.length} 人${details ? `（学生：${details}）` : ''}`);
+    } else {
+      ElMessage.success(`已保存 ${date.value} 的考勤`);
+    }
     dirty.value = false;
     loadDaily();
   } catch (e) {
