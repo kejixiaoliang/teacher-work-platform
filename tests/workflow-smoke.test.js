@@ -84,7 +84,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     await expectBadRequest('GET', '/api/attendance?class_id=1&date=2026-02-30');
     await expectBadRequest('GET', '/api/scores/exams?class_id=1.5');
     const createdClass = await request('POST', '/api/classes', {
-      name: '0.2.0 验证班', seat_rows: 2, seat_cols: 2,
+      name: '版本契约验证班', seat_rows: 2, seat_cols: 2,
     });
     await expectStatus('PUT', '/api/classes/999999', { name: '不存在班级' }, 404, 'CLASS_NOT_FOUND');
     await expectStatus('DELETE', '/api/students/999999', undefined, 404, 'STUDENT_NOT_FOUND');
