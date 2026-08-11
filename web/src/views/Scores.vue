@@ -155,7 +155,6 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Upload, Download } from '@element-plus/icons-vue';
-import ExcelJS from 'exceljs';
 import { api } from '../api.js';
 import { store } from '../store.js';
 import EChart from '../components/EChart.vue';
@@ -245,6 +244,7 @@ async function onScoreFileChange(e) {
   if (!file) return;
   if (!currentExam.value) return ElMessage.warning('请先选择考试');
   try {
+    const ExcelJS = (await import('exceljs')).default;
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await file.arrayBuffer());
     const ws = wb.worksheets[0];
