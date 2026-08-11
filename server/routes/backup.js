@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataDir } from '../config/paths.js';
@@ -26,11 +27,50 @@ const TABLES = [
   'contacts',
   'leaves',
 ];
+const MAX_TOTAL_ROWS = 200_000;
+const MAX_ROWS_PER_TABLE = 100_000;
 
 // 每张表需要带 id 导出，保证恢复时外键关系完整
 function dumpTable(name) {
   const rows = db.prepare(`SELECT * FROM ${name}`).all();
   return { table: name, rows };
+}
+
+function invalidBackup(res, error) {
+  return res.status(400).json({ ok: false, code: 'INVALID_BACKUP', error });
+}
+
+function validatePayload(payload) {
+  if (!payload || payload.app !== 'teacher-work' || payload.version !== 1 || !Array.isArray(payload.tables)) {
+    return '备份版本或文件格式不正确';
+  }
+  if (payload.tables.length !== TABLES.length) return '备份数据表数量不正确';
+  const seen = new Set();
+  let totalRows = 0;
+  for (const table of payload.tables) {
+    if (!table || typeof table !== 'object' || !TABLES.includes(table.table) || seen.has(table.table)) {
+      return '备份包含未知或重复的数据表';
+    }
+    seen.add(table.table);
+    if (!Array.isArray(table.rows) || table.rows.length > MAX_ROWS_PER_TABLE) {
+      return `数据表 ${table.table} 的记录数量超出限制`;
+    }
+    totalRows += table.rows.length;
+    if (totalRows > MAX_TOTAL_ROWS) return '备份记录总数超出限制';
+    const columns = new Set(db.prepare(`PRAGMA table_info(${table.table})`).all().map(column => column.name));
+    for (const row of table.rows) {
+      if (!row || typeof row !== 'object' || Array.isArray(row) || !Object.prototype.hasOwnProperty.call(row, 'id')) {
+        return `数据表 ${table.table} 存在无效记录`;
+      }
+      for (const [key, value] of Object.entries(row)) {
+        if (!columns.has(key) || (value !== null && typeof value === 'object')) {
+          return `数据表 ${table.table} 存在无效字段`;
+        }
+      }
+    }
+  }
+  const missing = TABLES.filter(table => !seen.has(table));
+  return missing.length ? `备份缺少数据表：${missing.join('、')}` : null;
 }
 
 // 全量导出（含全部 13 张业务表，用于应用内备份）
@@ -53,24 +93,22 @@ router.get('/export', (req, res) => {
 // 清空子表 → 父表，插入父表 → 子表；外键保持 ON，靠顺序本身满足依赖。
 router.post('/import', async (req, res) => {
   const payload = req.body || {};
-  if (!payload || !Array.isArray(payload.tables) || payload.app !== 'teacher-work') {
-    return res.status(400).json({ ok: false, error: '备份文件格式不正确' });
-  }
+  const validationError = validatePayload(payload);
+  if (validationError) return invalidBackup(res, validationError);
   const tableMap = new Map(payload.tables.map(t => [t.table, t]));
-  // 校验必须包含全部业务表
-  const missing = TABLES.filter(t => !tableMap.has(t));
-  if (missing.length) return res.status(400).json({ ok: false, error: `备份缺少数据表：${missing.join('、')}` });
 
   try {
     // 恢复前先把当前库完整快照（含 WAL 内容）到 data/backups/，防止恢复失败或误操作无法回头
     const backupDir = path.join(dataDir, 'backups');
     fs.mkdirSync(backupDir, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const snapFile = path.join(backupDir, `pre-restore-${stamp}.db`);
+    const snapFile = path.join(backupDir, `pre-restore-${stamp}-${crypto.randomBytes(4).toString('hex')}.db`);
     try {
       await db.backup(snapFile); // better-sqlite3 在线备份：自动包含 WAL 中的未 checkpoint 数据
     } catch (e) {
-      console.error('[backup/import] 快照失败（不阻断恢复）：', e.message);
+      try { fs.rmSync(snapFile, { force: true }); } catch { /* 清理失败不覆盖原始错误 */ }
+      console.error('[backup/import] 快照失败，已阻止恢复：', e.message);
+      return res.status(503).json({ ok: false, code: 'BACKUP_SNAPSHOT_FAILED', error: '恢复前快照失败，未修改当前数据' });
     }
     console.log('[backup/import] 恢复前快照 →', snapFile);
 
@@ -97,6 +135,8 @@ router.post('/import', async (req, res) => {
           ins.run(obj);
         }
       }
+      const violations = db.pragma('foreign_key_check');
+      if (violations.length) throw new Error('恢复后的数据未通过外键完整性检查');
     });
     tx();
 

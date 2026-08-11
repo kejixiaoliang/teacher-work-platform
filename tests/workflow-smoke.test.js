@@ -42,6 +42,20 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.equal(payload.code, 'INVALID_INPUT');
   };
 
+  const expectBackupRejected = async payload => {
+    const response = await fetch(`${running.baseUrl}/api/backup/import`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-teacher-work-token': token,
+      },
+      body: JSON.stringify(payload),
+    });
+    assert.equal(response.status, 400);
+    const result = await response.json();
+    assert.equal(result.code, 'INVALID_BACKUP');
+  };
+
   try {
     await expectBadRequest('GET', '/api/attendance?class_id=not-an-id&date=2026-08-05');
     await expectBadRequest('GET', '/api/attendance?class_id=1&date=2026-02-30');
@@ -95,6 +109,15 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.equal(backup.app, 'teacher-work');
     assert.ok(backup.tables.find(item => item.table === 'classes').rows.length >= 1);
     assert.ok(backup.tables.find(item => item.table === 'students').rows.length >= 2);
+    await expectBackupRejected({ app: 'teacher-work', version: 1, tables: [] });
+    await expectBackupRejected({
+      ...backup,
+      tables: [...backup.tables, { table: 'unknown', rows: [] }],
+    });
+    const invalidRowBackup = structuredClone(backup);
+    invalidRowBackup.tables.find(item => item.table === 'classes').rows[0].unexpected = true;
+    await expectBackupRejected(invalidRowBackup);
+    assert.equal((await request('GET', '/api/classes')).length, 1);
   } finally {
     await running.close();
   }
