@@ -7,4 +7,5 @@ test('scores page exposes reusable subject template controls', () => {
   assert.match(source, /subjectTemplates/);
   assert.match(source, /saveSubjectTemplate/);
   assert.match(source, /applySubjectTemplate/);
+  assert.match(source, /已导入 .*r\.count.*r\.skipped/);
 });

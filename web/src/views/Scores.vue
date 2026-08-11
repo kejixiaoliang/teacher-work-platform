@@ -300,7 +300,11 @@ async function doScoreImport() {
   scoreImporting.value = true;
   try {
     const r = await api.scores.save({ examId: currentExam.value.id, rows: valid.map(x => ({ studentId: x.studentId, subject: x.subject, score: x.score })) });
-    ElMessage.success(`已导入 ${r.count} 条成绩` + (valid.length !== scoreImportRows.value.length ? `，跳过 ${scoreImportRows.value.length - valid.length} 条无效` : ''));
+    if (r.skipped?.length) {
+      ElMessage.warning(`已导入 ${r.count} 条成绩，跳过 ${r.skipped.length} 条：${r.skipped[0].reason}`);
+    } else {
+      ElMessage.success(`已导入 ${r.count} 条成绩` + (valid.length !== scoreImportRows.value.length ? `，跳过 ${scoreImportRows.value.length - valid.length} 条无效` : ''));
+    }
     scoreImportVisible.value = false;
     selectExam(currentExam.value); // 刷新录入矩阵与统计
   } catch (e) {
