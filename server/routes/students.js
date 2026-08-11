@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -142,8 +143,10 @@ router.put('/:id', (req, res) => {
 
 // 软删除（进回收站，同时清空其座位，避免"幽灵座位"）
 router.delete('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的学生 ID' });
+  const id = positiveInt(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的学生 ID' });
+  const exists = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!exists) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不存在或已在回收站' });
   const tx = db.transaction(() => {
     db.prepare(`UPDATE students SET deleted_at=datetime('now','localtime') WHERE id=?`).run(id);
     db.prepare(`DELETE FROM seats WHERE student_id=?`).run(id);

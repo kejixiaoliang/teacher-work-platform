@@ -56,6 +56,21 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.equal(result.code, 'INVALID_BACKUP');
   };
 
+  const expectStatus = async (method, url, body, status, code) => {
+    const response = await fetch(`${running.baseUrl}${url}`, {
+      method,
+      headers: {
+        'content-type': 'application/json',
+        'x-teacher-work-token': token,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    assert.equal(response.status, status, `${method} ${url}`);
+    const payload = await response.json();
+    if (code) assert.equal(payload.code, code);
+    return payload;
+  };
+
   try {
     await expectBadRequest('GET', '/api/attendance?class_id=not-an-id&date=2026-08-05');
     await expectBadRequest('GET', '/api/attendance?class_id=1&date=2026-02-30');
@@ -63,6 +78,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const createdClass = await request('POST', '/api/classes', {
       name: '0.2.0 验证班', seat_rows: 2, seat_cols: 2,
     });
+    await expectStatus('DELETE', '/api/students/999999', undefined, 404, 'STUDENT_NOT_FOUND');
     const spoofed = new FormData();
     spoofed.append('class_id', String(createdClass.id));
     spoofed.append('file', new Blob(['%PDF-1.7'], { type: 'image/png' }), 'spoof.png');
