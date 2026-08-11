@@ -110,6 +110,9 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     await expectStatus('DELETE', '/api/duties/999999', {}, 404, 'DUTY_NOT_FOUND');
     await expectStatus('DELETE', `/api/students/${first.id}/records/999999`, {}, 404, 'RECORD_NOT_FOUND');
     await expectStatus('DELETE', `/api/students/${first.id}/contacts/999999`, {}, 404, 'CONTACT_NOT_FOUND');
+    await expectStatus('PUT', '/api/duties/999999', { role: '班长' }, 404, 'DUTY_NOT_FOUND');
+    await expectStatus('PUT', `/api/students/${first.id}/records/999999`, { content: '不存在' }, 404, 'RECORD_NOT_FOUND');
+    await expectStatus('PUT', `/api/students/${first.id}/contacts/999999`, { topic: '不存在' }, 404, 'CONTACT_NOT_FOUND');
     await expectStatus('PUT', '/api/contacts/999999', { student_id: first.id, topic: '不存在记录' }, 404, 'CONTACT_NOT_FOUND');
     await expectStatus('POST', '/api/leaves', {
       class_id: createdClass.id, student_id: first.id, start_date: '2026-02-30', end_date: '2026-02-28',

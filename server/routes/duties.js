@@ -234,8 +234,9 @@ router.post('/preset-subject-leaders', (req, res) => {
 
 // 更新（同样做班干部职务唯一 + 值日生一人一组校验，排除自身）
 router.put('/:id', (req, res) => {  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, code: 'INVALID_INPUT', error: '无效的值日 ID' });
   const row = db.prepare('SELECT * FROM duties WHERE id = ?').get(id);
-  if (!row) return res.json({ ok: false, error: '记录不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'DUTY_NOT_FOUND', error: '值日记录不存在' });
   const b = req.body || {};
   const role = b.role || row.role;
   const studentId = b.student_id !== undefined ? Number(b.student_id) : row.student_id;
