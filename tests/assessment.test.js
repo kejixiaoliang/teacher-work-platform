@@ -204,3 +204,62 @@ test('includes assessment rules, records, and revisions in backups', async () =>
   assert.equal(tables.find(table => table.table === 'assessment_records').rows.length, 1);
   await stopServer(server.child);
 });
+
+test('rejects invalid months and disabled categories', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-assessment-validation-'));
+  const server = startServer(dataDir);
+  const port = await server.ready;
+  const fixture = await createFixture(port);
+  const categories = await apiRequest(port, 'GET', '/api/assessment/categories');
+  const category = categories.body.data[0];
+  const item = category.items[0];
+  const invalidMonth = await apiRequest(port, 'GET', `/api/assessment/stats/monthly?class_id=${fixture.classId}&month=2026-13`);
+  assert.equal(invalidMonth.status, 400);
+  const disabled = await apiRequest(port, 'PUT', `/api/assessment/categories/${category.id}`, { name: category.name, isActive: false });
+  assert.equal(disabled.status, 200);
+  const blocked = await apiRequest(port, 'POST', '/api/assessment/records/batch', {
+    classId: fixture.classId, date: '2026-08-16', itemId: item.id, studentIds: [fixture.studentId],
+  });
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.body.code, 'CATEGORY_DISABLED');
+  await stopServer(server.child);
+});
+
+test('protects assessment history from student and class deletion', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-assessment-history-protection-'));
+  const server = startServer(dataDir);
+  const port = await server.ready;
+  const fixture = await createFixture(port);
+  const categories = await apiRequest(port, 'GET', '/api/assessment/categories');
+  const item = categories.body.data.flatMap(category => category.items).find(candidate => candidate.name === '积极发言');
+  await apiRequest(port, 'POST', '/api/assessment/records/batch', { classId: fixture.classId, date: '2026-08-16', itemId: item.id, studentIds: [fixture.studentId] });
+  const purge = await apiRequest(port, 'POST', '/api/students/purge', { ids: [fixture.studentId] });
+  assert.equal(purge.status, 409);
+  assert.equal(purge.body.code, 'STUDENT_HAS_ASSESSMENT_HISTORY');
+  const removeClass = await apiRequest(port, 'DELETE', `/api/classes/${fixture.classId}`);
+  assert.equal(removeClass.status, 409);
+  assert.equal(removeClass.body.code, 'CLASS_HAS_ASSESSMENT_HISTORY');
+  const records = await apiRequest(port, 'GET', `/api/assessment/records?class_id=${fixture.classId}`);
+  assert.equal(records.body.data.length, 1);
+  await stopServer(server.child);
+});
+
+test('keeps item and score snapshots in correction history', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-assessment-revision-snapshot-'));
+  const server = startServer(dataDir);
+  const port = await server.ready;
+  const fixture = await createFixture(port);
+  const categories = await apiRequest(port, 'GET', '/api/assessment/categories');
+  const items = categories.body.data.flatMap(category => category.items).filter(item => item.allowDailyRepeat === false);
+  const firstItem = items[0];
+  const secondItem = items.find(item => item.id !== firstItem.id);
+  await apiRequest(port, 'POST', '/api/assessment/records/batch', { classId: fixture.classId, date: '2026-08-16', itemId: firstItem.id, studentIds: [fixture.studentId] });
+  const records = await apiRequest(port, 'GET', `/api/assessment/records?class_id=${fixture.classId}`);
+  const edited = await apiRequest(port, 'PUT', `/api/assessment/records/${records.body.data[0].id}`, { itemId: secondItem.id, reason: '修正行为项目' });
+  assert.equal(edited.status, 200);
+  const revisions = await apiRequest(port, 'GET', `/api/assessment/records/${records.body.data[0].id}/revisions`);
+  assert.equal(revisions.body.data[0].action, 'edit');
+  assert.ok(revisions.body.data[0].changedFields.includes('scoreSnapshot'));
+  assert.equal(revisions.body.data[0].after.itemNameSnapshot, secondItem.name);
+  await stopServer(server.child);
+});

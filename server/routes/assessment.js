@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import db from '../db.js';
-import { badRequest, finiteNumber, isDateString, positiveInt, text } from '../validation.js';
+import { badRequest, finiteNumber, isDateString, isMonthString, positiveInt, text } from '../validation.js';
 
 const router = Router();
 const SCORE_MIN = -100;
@@ -9,7 +9,7 @@ const SCORE_MAX = 100;
 
 function itemRow(id) {
   return db.prepare(`
-    SELECT i.*, c.name AS category_name
+    SELECT i.*, c.name AS category_name, c.is_active AS category_is_active
     FROM assessment_items i
     JOIN assessment_categories c ON c.id = i.category_id
     WHERE i.id = ?
@@ -47,6 +47,11 @@ function parseScore(value) {
 function parseActive(value, fallback = true) {
   if (value === undefined) return fallback ? 1 : 0;
   return value === true || value === 1 || value === '1' ? 1 : 0;
+}
+
+function nextDate(date) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
 
 function requireName(value, label) {
@@ -201,7 +206,9 @@ router.get('/records', (req, res) => {
   const classId = positiveInt(req.query.class_id);
   if (classId) { conditions.push('r.class_id=?'); params.push(classId); }
   if (req.query.student_id) { const id = positiveInt(req.query.student_id); if (!id) return badRequest(res, '学生 ID 无效'); conditions.push('r.student_id=?'); params.push(id); }
-  if (req.query.month) { if (!/^\d{4}-\d{2}$/.test(req.query.month)) return badRequest(res, '月份应为 YYYY-MM'); conditions.push('substr(r.behavior_date,1,7)=?'); params.push(req.query.month); }
+  if (req.query.month) { if (!isMonthString(req.query.month)) return badRequest(res, '月份应为 YYYY-MM'); conditions.push('substr(r.behavior_date,1,7)=?'); params.push(req.query.month); }
+  if (req.query.academic_year !== undefined) { const academicYear = text(req.query.academic_year, { max: 30 }); if (!academicYear) return badRequest(res, '学年无效'); conditions.push('r.academic_year_snapshot=?'); params.push(academicYear); }
+  if (req.query.term !== undefined) { const term = text(req.query.term, { max: 30 }); if (!term) return badRequest(res, '学期无效'); conditions.push('r.term_snapshot=?'); params.push(term); }
   if (req.query.from) { if (!isDateString(req.query.from)) return badRequest(res, '起始日期无效'); conditions.push('r.behavior_date>=?'); params.push(req.query.from); }
   if (req.query.to) { if (!isDateString(req.query.to)) return badRequest(res, '结束日期无效'); conditions.push('r.behavior_date<=?'); params.push(req.query.to); }
   if (req.query.category_id) { const id = positiveInt(req.query.category_id); if (!id) return badRequest(res, '分类 ID 无效'); conditions.push('i.category_id=?'); params.push(id); }
@@ -330,13 +337,13 @@ router.get('/stats/daily', (req, res) => {
     WHERE r.class_id=? AND r.behavior_date=? AND r.status='active'
     ORDER BY r.id DESC
   `).all(classId, date).map(publicRecord);
-  res.json({ ok: true, data: { ...rangeData(classId, date, date < '9999-12-31' ? `${date.slice(0, 8)}${String(Number(date.slice(8)) + 1).padStart(2, '0')}` : '9999-12-31', { date }), records } });
+  res.json({ ok: true, data: { ...rangeData(classId, date, nextDate(date), { date }), records } });
 });
 
 router.get('/stats/monthly', (req, res) => {
   const classId = positiveInt(req.query.class_id);
   const month = req.query.month;
-  if (!classId || !/^\d{4}-\d{2}$/.test(month || '')) return badRequest(res, '班级或月份无效');
+  if (!classId || !isMonthString(month)) return badRequest(res, '班级或月份无效');
   if (!classOr404(classId, res)) return;
   const [year, monthNumber] = month.split('-').map(Number);
   const from = `${month}-01`;
@@ -360,7 +367,7 @@ router.get('/stats/student/:id', (req, res) => {
   const studentId = positiveInt(req.params.id);
   const classId = positiveInt(req.query.class_id);
   if (!studentId || !classId) return badRequest(res, '学生或班级无效');
-  const student = db.prepare('SELECT id, name, school_no FROM students WHERE id=? AND class_id=?').get(studentId, classId);
+  const student = db.prepare('SELECT id, name, school_no FROM students WHERE id=? AND class_id=? AND deleted_at IS NULL').get(studentId, classId);
   if (!student) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不属于当前班级' });
   const conditions = ['r.student_id=?', 'r.class_id=?', "r.status='active'"];
   const params = [studentId, classId];
@@ -380,6 +387,7 @@ router.post('/records/batch', (req, res) => {
   if (!db.prepare('SELECT id FROM classes WHERE id=?').get(classId)) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
   const item = itemRow(itemId);
   if (!item) return res.status(404).json({ ok: false, code: 'ITEM_NOT_FOUND', error: '行为项目不存在' });
+  if (!item.category_is_active) return res.status(409).json({ ok: false, code: 'CATEGORY_DISABLED', error: '行为项目所属分类已停用' });
   if (!item.is_active) return res.status(409).json({ ok: false, code: 'ITEM_DISABLED', error: '行为项目已停用' });
   const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id=? AND deleted_at IS NULL').all(classId).map(row => row.id));
   const names = new Map(db.prepare('SELECT id,name FROM students').all().map(row => [row.id, row.name]));
@@ -388,6 +396,7 @@ router.post('/records/batch', (req, res) => {
   const batchId = crypto.randomUUID();
   const insert = db.prepare(`INSERT INTO assessment_records (batch_id,class_id,student_id,item_id,category_name_snapshot,item_name_snapshot,score_snapshot,behavior_date,academic_year_snapshot,term_snapshot,remark) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
   const inserted = new Set();
+  const existingIds = item.allow_daily_repeat ? new Set() : new Set(db.prepare("SELECT student_id FROM assessment_records WHERE class_id=? AND item_id=? AND behavior_date=? AND status='active'").all(classId, itemId, behaviorDate).map(row => row.student_id));
   let count = 0;
   const remark = text(body.remark, { max: 500 }) || '';
   const tx = db.transaction(() => {
@@ -396,7 +405,7 @@ router.post('/records/batch', (req, res) => {
       if (!studentId || !validIds.has(studentId)) { skipped.push({ studentId: studentId || rawStudentId, name: names.get(studentId) || '', reasonCode: 'STUDENT_INVALID', reason: '学生不属于当前班级或已删除' }); continue; }
       if (inserted.has(studentId)) { skipped.push({ studentId, name: names.get(studentId), reasonCode: 'DUPLICATE_INPUT', reason: '本次操作重复选择学生' }); continue; }
       inserted.add(studentId);
-      if (!item.allow_daily_repeat && db.prepare("SELECT id FROM assessment_records WHERE class_id=? AND student_id=? AND item_id=? AND behavior_date=? AND status='active'").get(classId, studentId, itemId, behaviorDate)) {
+      if (!item.allow_daily_repeat && existingIds.has(studentId)) {
         skipped.push({ studentId, name: names.get(studentId), reasonCode: 'DAILY_DUPLICATE', reason: '该学生当天已经记录过此行为' }); continue;
       }
       insert.run(batchId, classId, studentId, itemId, item.category_name, item.name, item.score, behaviorDate, classRow.academic_year || '', classRow.term || '', remark);
@@ -434,9 +443,10 @@ router.put('/records/:id', (req, res) => {
   if (!db.prepare('SELECT id FROM students WHERE id=? AND class_id=? AND deleted_at IS NULL').get(nextStudentId, current.class_id)) return badRequest(res, '学生不属于当前班级或已删除');
   const item = itemRow(nextItemId);
   if (!item) return res.status(404).json({ ok: false, code: 'ITEM_NOT_FOUND', error: '行为项目不存在' });
+  if (!item.category_is_active && nextItemId !== current.item_id) return res.status(409).json({ ok: false, code: 'CATEGORY_DISABLED', error: '行为项目所属分类已停用' });
   const changed = [];
   if (nextStudentId !== current.student_id) changed.push('studentId');
-  if (nextItemId !== current.item_id) changed.push('itemId');
+  if (nextItemId !== current.item_id) changed.push('itemId', 'categoryNameSnapshot', 'itemNameSnapshot', 'scoreSnapshot');
   if (nextDate !== current.behavior_date) changed.push('behaviorDate');
   if (nextRemark !== current.remark) changed.push('remark');
   if (!changed.length) return res.json({ ok: true, data: publicRecord(current) });
@@ -478,7 +488,7 @@ router.get('/records/:id/revisions', (req, res) => {
   const id = positiveInt(req.params.id);
   if (!id) return badRequest(res, '无效的记分记录 ID');
   if (!db.prepare('SELECT id FROM assessment_records WHERE id=?').get(id)) return res.status(404).json({ ok: false, code: 'RECORD_NOT_FOUND', error: '记分记录不存在' });
-  const rows = db.prepare('SELECT * FROM assessment_record_revisions WHERE record_id=? ORDER BY id').all(id);
+  const rows = db.prepare('SELECT * FROM assessment_record_revisions WHERE record_id=? ORDER BY id DESC').all(id);
   res.json({ ok: true, data: rows.map(row => ({
     id: row.id, recordId: row.record_id, action: row.action,
     before: JSON.parse(row.before_json), after: JSON.parse(row.after_json),

@@ -185,6 +185,12 @@ router.post('/restore', (req, res) => {
 router.post('/purge', (req, res) => {
   const { ids } = req.body || {};
   if (!Array.isArray(ids) || ids.length === 0) return res.json({ ok: false, error: '未选择学生' });
+  for (const rawId of ids) {
+    const id = Number(rawId);
+    if (Number.isSafeInteger(id) && id > 0 && db.prepare('SELECT 1 FROM assessment_records WHERE student_id=? LIMIT 1').get(id)) {
+      return res.status(409).json({ ok: false, code: 'STUDENT_HAS_ASSESSMENT_HISTORY', error: '所选学生存在学生表现量化历史，不能彻底删除' });
+    }
+  }
   const tx = db.transaction(() => {
     for (const id of ids) {
       db.prepare(`DELETE FROM students WHERE id=?`).run(Number(id));
