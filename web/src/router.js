@@ -7,6 +7,7 @@ const Seats = () => import('./views/Seats.vue');
 const Analytics = () => import('./views/Analytics.vue');
 const Scores = () => import('./views/Scores.vue');
 const Attendance = () => import('./views/Attendance.vue');
+const Assessment = () => import('./views/Assessment.vue');
 const Documents = () => import('./views/Documents.vue');
 const Duties = () => import('./views/Duties.vue');
 const Leaders = () => import('./views/Leaders.vue');
@@ -27,6 +28,7 @@ export default createRouter({
     { path: '/analytics', component: Analytics, meta: { title: '数据分析' } },
     { path: '/scores', component: Scores, meta: { title: '成绩管理' } },
     { path: '/attendance', component: Attendance, meta: { title: '考勤管理' } },
+    { path: '/assessment', component: Assessment, meta: { title: '表现量化' } },
     { path: '/documents', component: Documents, meta: { title: '文档管理' } },
     { path: '/duties', component: Duties, meta: { title: '值日管理' } },
     { path: '/leaders', component: Leaders, meta: { title: '班委学委' } },

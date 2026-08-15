@@ -6,7 +6,7 @@
 
 支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机。
 
-[![Version](https://img.shields.io/badge/version-0.3.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.3.0)
+[![Version](https://img.shields.io/badge/version-0.4.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0)
 ![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=white)
 ![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)
@@ -16,9 +16,9 @@
 
 ## 下载最新版
 
-当前稳定版本为 **v0.3.0**。
+当前稳定版本为 **v0.4.0**。
 
-- [下载教师工作台 v0.3.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.3.0)
+- [下载教师工作台 v0.4.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0)
 - [查看历史版本 v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0)
 
 普通用户请从 GitHub Releases 下载 Windows x64 绿色便携 ZIP。使用发布包不需要安装 Node.js、Rust，也不需要运行安装器。
@@ -27,8 +27,8 @@
 
 ## 快速开始
 
-1. 打开 [v0.3.0 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.3.0)。
-2. 下载 `教师工作台-v0.3.0-windows-x64-portable.zip`。
+1. 打开 [v0.4.0 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0)。
+2. 下载 `教师工作台-v0.4.0-windows-x64-portable.zip`。
 3. 将整个 ZIP 解压到桌面、文档目录或其他有写入权限的位置。
 4. 保持 EXE、`resources`、`data`、`backup` 和 `logs` 的相对位置不变。
 5. 双击“教师工作台.exe”。
@@ -81,6 +81,7 @@
 | 座位 | 拖拽移动与交换、点击换座、锁定座位、自动排座、轮换、历史恢复和打印 |
 | 成绩 | 考试管理、手动录入、Excel 导入、统计排名和趋势查看 |
 | 考勤与请假 | 每日考勤、月度统计、请假台账和销假管理 |
+| 表现量化 | 自定义行为规则、批量记分、月度/学期统计、修正留痕和 Excel/CSV/JSON 导出 |
 | 值日 | 分组、轮换、自动分组和打印值日表 |
 | 文档 | 上传、分类、标签、预览、重命名和回收站 |
 | 班委与课代表 | 班委、课代表的选择、编辑和预设 |
@@ -210,7 +211,7 @@ npm run package:portable
 `tauri dev` 能启动不代表发布完成。最终验收对象必须是 Release EXE 和 GitHub Release 使用的 ZIP。
 
 ```powershell
-npm run qa:portable -- -ZipPath 'release\教师工作台-v0.3.0-windows-x64-portable.zip'
+npm run qa:portable -- -ZipPath 'release\教师工作台-v0.4.0-windows-x64-portable.zip'
 ```
 
 发布前至少检查以下场景。
@@ -236,7 +237,7 @@ npm run qa:portable -- -ZipPath 'release\教师工作台-v0.3.0-windows-x64-port
 
 | 版本 | 状态 | 说明 |
 | --- | --- | --- |
-| [v0.3.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.3.0) | Latest | 综合安全加固、数据一致性修复、成绩与批量工作流完善、依赖修复与便携包优化 |
+| [v0.4.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0) | Latest | 学生表现量化、值日组精准记分、统计可视化、规则启用停用闭环与操作列优化 |
 | [v0.2.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0) | 历史 | 统一 Web 与 EXE 版本和业务代码，完善座位拖拽、班级前置校验、数据库迁移备份与便携 QA |
 | [v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0) | 历史版本 | 首个 Windows x64 绿色便携版本 |
 

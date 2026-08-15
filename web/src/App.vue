@@ -31,6 +31,9 @@
           <el-menu-item index="/attendance">
             <el-icon><Finished /></el-icon><span>考勤管理</span>
           </el-menu-item>
+          <el-menu-item index="/assessment">
+            <el-icon><Trophy /></el-icon><span>表现量化</span>
+          </el-menu-item>
         </el-menu-item-group>
         <el-menu-item-group title="班级事务">
           <el-menu-item index="/documents">
@@ -147,7 +150,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   Search, Notebook, Reading, Clock, ChatDotRound, HomeFilled, User, Grid,
-  TrendCharts, DocumentChecked, Finished, FolderOpened, Calendar, UserFilled, Setting, InfoFilled, Notification,
+  TrendCharts, DocumentChecked, Finished, Trophy, FolderOpened, Calendar, UserFilled, Setting, InfoFilled, Notification,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from './api.js';
@@ -366,7 +369,9 @@ async function onClassChange(id) {
     linear-gradient(90deg, rgba(32, 27, 23, .045) 1px, transparent 1px);
   background-size: 30px 30px;
   padding: 20px;
-  overflow: auto;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ---------- 响应式：窄屏侧栏折叠为图标栏 ---------- */

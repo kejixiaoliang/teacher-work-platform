@@ -66,6 +66,8 @@ router.delete('/:id', (req, res) => {
   if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: '无效的班级 ID' });
   const exists = db.prepare('SELECT id FROM classes WHERE id = ?').get(id);
   if (!exists) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
+  const assessmentCount = db.prepare('SELECT COUNT(*) AS count FROM assessment_records WHERE class_id=?').get(id).count;
+  if (assessmentCount) return res.status(409).json({ ok: false, code: 'CLASS_HAS_ASSESSMENT_HISTORY', error: '该班级存在学生表现量化历史，不能直接删除' });
   const files = db.prepare('SELECT stored_name FROM documents WHERE class_id = ?').all(id);
   const tx = db.transaction(() => {
     for (const f of files) {

@@ -17,7 +17,7 @@ const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-export const DATABASE_VERSION = 3;
+export const DATABASE_VERSION = 4;
 const openingVersion = db.pragma('user_version', { simple: true });
 if (!isFreshDb && openingVersion < DATABASE_VERSION) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -202,6 +202,58 @@ CREATE INDEX IF NOT EXISTS idx_leaves_class ON leaves(class_id);
 CREATE INDEX IF NOT EXISTS idx_leaves_student ON leaves(student_id);
 CREATE INDEX IF NOT EXISTS idx_leaves_class_dates ON leaves(class_id, start_date, end_date);
 
+CREATE TABLE IF NOT EXISTS assessment_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  updated_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS assessment_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category_id INTEGER NOT NULL REFERENCES assessment_categories(id),
+  name TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  allow_daily_repeat INTEGER NOT NULL DEFAULT 0,
+  description TEXT DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  updated_at TEXT DEFAULT (datetime('now','localtime')),
+  UNIQUE(category_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS assessment_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  batch_id TEXT,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  item_id INTEGER REFERENCES assessment_items(id) ON DELETE SET NULL,
+  category_name_snapshot TEXT NOT NULL,
+  item_name_snapshot TEXT NOT NULL,
+  score_snapshot INTEGER NOT NULL,
+  behavior_date TEXT NOT NULL,
+  academic_year_snapshot TEXT NOT NULL DEFAULT '',
+  term_snapshot TEXT NOT NULL DEFAULT '',
+  remark TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'voided')),
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  updated_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS assessment_record_revisions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  record_id INTEGER NOT NULL REFERENCES assessment_records(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK(action IN ('edit', 'void', 'restore')),
+  before_json TEXT NOT NULL,
+  after_json TEXT NOT NULL,
+  changed_fields_json TEXT NOT NULL DEFAULT '[]',
+  reason TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
 -- 常用查询索引（P2-16）：必须在所有建表之后，否则全新库会报 no such table
 CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);
 CREATE INDEX IF NOT EXISTS idx_documents_class ON documents(class_id);
@@ -217,6 +269,12 @@ CREATE INDEX IF NOT EXISTS idx_seats_student ON seats(student_id);
 CREATE INDEX IF NOT EXISTS idx_exam_scores_student ON exam_scores(student_id);
 CREATE INDEX IF NOT EXISTS idx_duties_student ON duties(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_items_category ON assessment_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_records_class_date ON assessment_records(class_id, behavior_date);
+CREATE INDEX IF NOT EXISTS idx_assessment_records_student_date ON assessment_records(student_id, behavior_date);
+CREATE INDEX IF NOT EXISTS idx_assessment_records_item_date ON assessment_records(item_id, behavior_date);
+CREATE INDEX IF NOT EXISTS idx_assessment_records_batch ON assessment_records(batch_id);
+CREATE INDEX IF NOT EXISTS idx_assessment_revisions_record ON assessment_record_revisions(record_id);
 `);
 
 // ===== 迁移（必须在建表之后，且一次性迁移用 user_version 标记，避免重复执行） =====
@@ -252,6 +310,52 @@ function migrate() {
     if (!metricCols.includes('source')) db.exec("ALTER TABLE student_metrics_history ADD COLUMN source TEXT DEFAULT '学期存档'");
     db.pragma('user_version = 3');
     console.log('[migrate] 健康快照来源字段迁移完成 → user_version 3');
+  }
+  if (db.pragma('user_version', { simple: true }) < 4) {
+    const assessmentRecordCols = db.prepare('PRAGMA table_info(assessment_records)').all().map(column => column.name);
+    if (!assessmentRecordCols.includes('academic_year_snapshot')) db.exec("ALTER TABLE assessment_records ADD COLUMN academic_year_snapshot TEXT NOT NULL DEFAULT ''");
+    if (!assessmentRecordCols.includes('term_snapshot')) db.exec("ALTER TABLE assessment_records ADD COLUMN term_snapshot TEXT NOT NULL DEFAULT ''");
+    const categoryCount = db.prepare('SELECT COUNT(*) AS c FROM assessment_categories').get().c;
+    if (categoryCount === 0) {
+      const insertCategory = db.prepare('INSERT INTO assessment_categories (name, sort_order) VALUES (?, ?)');
+      const insertItem = db.prepare(`
+        INSERT INTO assessment_items
+          (category_id, name, score, allow_daily_repeat, description, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      const seeds = [
+        ['课堂表现', [
+          ['积极发言', 1, 0, '课堂中主动、有效参与讨论'],
+          ['课堂迟到', -1, 0, '未按时进入课堂'],
+        ]],
+        ['学习习惯', [
+          ['按时完成作业', 1, 0, '按要求完成并提交作业'],
+          ['未完成作业', -2, 1, '未按要求完成作业'],
+        ]],
+        ['卫生劳动', [
+          ['认真完成值日', 2, 0, '按要求完成分配的卫生劳动'],
+          ['值日缺勤', -2, 0, '无故未完成值日任务'],
+        ]],
+        ['文明纪律', [
+          ['课堂扰乱秩序', -2, 1, '影响正常课堂秩序'],
+          ['主动帮助同学', 2, 1, '主动帮助同学解决问题'],
+        ]],
+        ['荣誉表现', [
+          ['获得表扬', 3, 1, '获得学校、班级或教师表扬'],
+        ]],
+      ];
+      const seed = db.transaction(() => {
+        seeds.forEach(([categoryName, items], categoryIndex) => {
+          const category = insertCategory.run(categoryName, categoryIndex);
+          items.forEach(([name, score, repeat, description], itemIndex) => {
+            insertItem.run(category.lastInsertRowid, name, score, repeat, description, itemIndex);
+          });
+        });
+      });
+      seed();
+    }
+    db.pragma('user_version = 4');
+    console.log('[migrate] 学生行为量化表迁移完成 → user_version 4');
   }
 }
 migrate();
