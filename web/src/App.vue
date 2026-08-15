@@ -369,7 +369,9 @@ async function onClassChange(id) {
     linear-gradient(90deg, rgba(32, 27, 23, .045) 1px, transparent 1px);
   background-size: 30px 30px;
   padding: 20px;
-  overflow: auto;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ---------- 响应式：窄屏侧栏折叠为图标栏 ---------- */

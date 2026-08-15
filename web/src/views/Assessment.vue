@@ -188,13 +188,15 @@ watch(selectedCategoryId, () => { if (!selectedItems.value.some(item => item.id 
 .stream-card :deep(.el-table__body-wrapper), .rule-card :deep(.el-table__body-wrapper) { overflow-x:auto; }
 .assessment-table-scroll { width:100%; overflow-x:auto; overflow-y:hidden; border:2px solid var(--ink); border-radius:14px; background:#fffdf4; }
 .assessment-grid-table { display:grid; width:100%; color:var(--ink); font-size:12px; }
-.record-grid-table { min-width:704px; grid-template-columns:96px 78px 118px 58px 64px minmax(290px,1fr); }
-.rule-grid-table { min-width:950px; grid-template-columns:180px 250px 100px 130px minmax(290px,1fr); }
+.record-grid-table { min-width:704px; grid-template-columns:96px 78px 118px 58px 64px minmax(270px,1fr); }
+.rule-grid-table { min-width:930px; grid-template-columns:180px 250px 100px 130px minmax(270px,1fr); }
 .assessment-grid-table > * { min-width:0; border-bottom:1px solid #e8dcc3; }
 .assessment-grid-table .grid-head { padding:8px 8px; background:var(--mustard); border-bottom:2px solid var(--ink); font-weight:900; }
 .assessment-grid-table .grid-cell { min-height:38px; display:flex; align-items:center; padding:6px 8px; background:#fffdf4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .assessment-grid-table .grid-cell.center, .assessment-grid-table .grid-head.center { justify-content:center; text-align:center; }
 .assessment-grid-table .grid-cell.action-cell { overflow:visible; }
+.assessment-grid-table .grid-cell.action-cell .assessment-actions { width:100%; }
+.assessment-grid-table .grid-cell.action-cell .assessment-actions .row-btn { flex:1 1 0 !important; width:auto !important; min-width:0 !important; }
 .record-grid-table > :nth-child(6n), .rule-grid-table > :nth-child(5n) { position:sticky; right:0; z-index:2; background:#fffdf4; box-shadow:-3px 0 0 rgba(32,27,23,.12); }
 .record-grid-table > .grid-head:nth-child(6n), .rule-grid-table > .grid-head:nth-child(5n) { z-index:3; background:var(--mustard); }
 .assessment-grid-table .grid-cell:nth-child(12n + 1), .assessment-grid-table .grid-cell:nth-child(12n + 2), .assessment-grid-table .grid-cell:nth-child(12n + 3), .assessment-grid-table .grid-cell:nth-child(12n + 4), .assessment-grid-table .grid-cell:nth-child(12n + 5), .assessment-grid-table .grid-cell:nth-child(12n + 6) { background:#fffdf4; }
