@@ -42,12 +42,14 @@
           <el-card shadow="never" class="stream-card">
             <template #header><div class="card-title"><b>记分流水</b><el-button text type="primary" @click="loadRecords">刷新流水</el-button></div></template>
             <div class="filter-line"><el-date-picker v-model="recordMonth" type="month" value-format="YYYY-MM" placeholder="筛选月份" clearable @change="loadRecords" /><el-checkbox v-model="includeVoided" @change="loadRecords">包含已撤销</el-checkbox></div>
-            <el-table class="assessment-record-table" :fit="false" :data="records" size="small" border max-height="540">
-              <el-table-column prop="behaviorDate" label="日期" width="96" /><el-table-column prop="student_name" label="学生" width="78" /><el-table-column prop="itemName" label="行为" width="118" />
-              <el-table-column label="分值" width="58" align="center"><template #default="{ row }"><span :class="row.score_snapshot < 0 ? 'negative' : 'positive'">{{ row.score_snapshot > 0 ? '+' : '' }}{{ row.score_snapshot }}</span></template></el-table-column>
-              <el-table-column label="状态" width="64"><template #default="{ row }"><el-tag v-if="row.status === 'voided'" type="info" size="small">已撤销</el-tag><span v-else>有效</span></template></el-table-column>
-              <el-table-column label="操作" width="290"><template #default="{ row }"><div class="assessment-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openEdit(row)">编辑</el-button><el-button class="row-btn" :icon="Clock" @click="showRevisions(row)">历史</el-button><el-button v-if="row.status === 'active'" class="row-btn row-btn-del" :icon="CircleClose" @click="voidRecord(row)">撤销</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="restoreRecord(row)">恢复</el-button></div></template></el-table-column>
-            </el-table>
+            <div class="assessment-table-scroll">
+              <div class="assessment-grid-table record-grid-table">
+                <div class="grid-head">日期</div><div class="grid-head">学生</div><div class="grid-head">行为</div><div class="grid-head center">分值</div><div class="grid-head">状态</div><div class="grid-head">操作</div>
+                <template v-for="row in records" :key="row.id">
+                  <div class="grid-cell">{{ row.behaviorDate }}</div><div class="grid-cell">{{ row.student_name }}</div><div class="grid-cell">{{ row.itemName }}</div><div class="grid-cell center"><span :class="row.score_snapshot < 0 ? 'negative' : 'positive'">{{ row.score_snapshot > 0 ? '+' : '' }}{{ row.score_snapshot }}</span></div><div class="grid-cell"><el-tag v-if="row.status === 'voided'" type="info" size="small">已撤销</el-tag><span v-else>有效</span></div><div class="grid-cell action-cell"><div class="assessment-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openEdit(row)">编辑</el-button><el-button class="row-btn" :icon="Clock" @click="showRevisions(row)">历史</el-button><el-button v-if="row.status === 'active'" class="row-btn row-btn-del" :icon="CircleClose" @click="voidRecord(row)">撤销</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="restoreRecord(row)">恢复</el-button></div></div>
+                </template>
+              </div>
+            </div>
             <el-empty v-if="!records.length" description="当前筛选下暂无记分记录" :image-size="70" />
           </el-card>
         </div>
@@ -69,7 +71,14 @@
         <div class="rules-toolbar"><span class="muted">全班级共用一套规则；修改只影响以后新记录，历史记录保留快照。</span><span><el-button type="primary" @click="openItemDialog()">新增行为项目</el-button><el-button @click="openCategoryDialog()">新增分类</el-button></span></div>
         <el-card v-for="category in categories" :key="category.id" shadow="never" class="rule-card">
           <template #header><div class="card-title"><div class="rule-title"><b>{{ category.name }}</b><span class="status-sticker" :class="category.isActive ? 'is-on' : 'is-off'">{{ category.isActive ? '启用中' : '已停用' }}</span></div><div class="rule-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openCategoryDialog(category)">编辑</el-button><el-button v-if="category.isActive" class="row-btn row-btn-del" :icon="CircleClose" @click="toggleCategory(category)">停用</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="toggleCategory(category)">启用</el-button><el-button class="row-btn row-btn-delete" :icon="Delete" @click="deleteCategory(category)">删除</el-button></div></div></template>
-          <el-table class="assessment-rule-table" :fit="false" :data="category.items" size="small"><el-table-column prop="name" label="行为项目" width="180" /><el-table-column prop="description" label="说明" width="250" /><el-table-column label="固定分值" width="100"><template #default="{ row }"><span :class="row.score < 0 ? 'negative' : 'positive'">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span></template></el-table-column><el-table-column label="重复规则" width="130"><template #default="{ row }">{{ row.allowDailyRepeat ? '允许当天重复' : '每天一次' }}</template></el-table-column><el-table-column label="操作" width="290"><template #default="{ row }"><div class="assessment-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openItemDialog(row, category.id)">编辑</el-button><el-button v-if="row.isActive" class="row-btn row-btn-del" :icon="CircleClose" @click="toggleItem(row)">停用</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="toggleItem(row)">启用</el-button><el-button class="row-btn row-btn-delete" :icon="Delete" @click="deleteItem(row)">删除</el-button></div></template></el-table-column></el-table>
+          <div class="assessment-table-scroll rule-table-scroll">
+            <div class="assessment-grid-table rule-grid-table">
+              <div class="grid-head">行为项目</div><div class="grid-head">说明</div><div class="grid-head">固定分值</div><div class="grid-head">重复规则</div><div class="grid-head">操作</div>
+              <template v-for="item in category.items" :key="item.id">
+                <div class="grid-cell">{{ item.name }}</div><div class="grid-cell">{{ item.description }}</div><div class="grid-cell"><span :class="item.score < 0 ? 'negative' : 'positive'">{{ item.score > 0 ? '+' : '' }}{{ item.score }}</span></div><div class="grid-cell">{{ item.allowDailyRepeat ? '允许当天重复' : '每天一次' }}</div><div class="grid-cell action-cell"><div class="assessment-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openItemDialog(item, category.id)">编辑</el-button><el-button v-if="item.isActive" class="row-btn row-btn-del" :icon="CircleClose" @click="toggleItem(item)">停用</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="toggleItem(item)">启用</el-button><el-button class="row-btn row-btn-delete" :icon="Delete" @click="deleteItem(item)">删除</el-button></div></div>
+              </template>
+            </div>
+          </div>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -170,6 +179,17 @@ watch(selectedCategoryId, () => { if (!selectedItems.value.some(item => item.id 
 .assessment-record-table :deep(.el-table__header-wrapper table), .assessment-record-table :deep(.el-table__body-wrapper table) { min-width:704px; }
 .assessment-rule-table :deep(.el-table__header-wrapper table), .assessment-rule-table :deep(.el-table__body-wrapper table) { min-width:950px; }
 .stream-card :deep(.el-table__body-wrapper), .rule-card :deep(.el-table__body-wrapper) { overflow-x:auto; }
+.assessment-table-scroll { width:100%; overflow-x:auto; overflow-y:hidden; border:2px solid var(--ink); border-radius:14px; background:#fffdf4; }
+.assessment-grid-table { display:grid; width:max-content; min-width:100%; color:var(--ink); font-size:12px; }
+.record-grid-table { grid-template-columns:96px 78px 118px 58px 64px 290px; }
+.rule-grid-table { grid-template-columns:180px 250px 100px 130px 290px; }
+.assessment-grid-table > * { min-width:0; border-bottom:1px solid #e8dcc3; }
+.assessment-grid-table .grid-head { padding:8px 8px; background:var(--mustard); border-bottom:2px solid var(--ink); font-weight:900; }
+.assessment-grid-table .grid-cell { min-height:38px; display:flex; align-items:center; padding:6px 8px; background:#fffdf4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.assessment-grid-table .grid-cell.center, .assessment-grid-table .grid-head.center { justify-content:center; text-align:center; }
+.assessment-grid-table .grid-cell.action-cell { overflow:visible; }
+.assessment-grid-table .grid-cell:nth-child(12n + 1), .assessment-grid-table .grid-cell:nth-child(12n + 2), .assessment-grid-table .grid-cell:nth-child(12n + 3), .assessment-grid-table .grid-cell:nth-child(12n + 4), .assessment-grid-table .grid-cell:nth-child(12n + 5), .assessment-grid-table .grid-cell:nth-child(12n + 6) { background:#fffdf4; }
+.rule-grid-table .grid-cell { min-height:38px; }
 .revision-head { display:flex; align-items:center; gap:8px; }
 .revision-reason { margin:8px 0; color:var(--muted); font-size:12px; }
 .revision-diff { display:grid; gap:6px; padding:10px 12px; background:#fffaf0; border:2px solid #ead9b9; border-radius:12px; }
