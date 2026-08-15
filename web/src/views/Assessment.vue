@@ -42,7 +42,7 @@
           <el-card shadow="never" class="stream-card">
             <template #header><div class="card-title"><b>记分流水</b><el-button text type="primary" @click="loadRecords">刷新流水</el-button></div></template>
             <div class="filter-line"><el-date-picker v-model="recordMonth" type="month" value-format="YYYY-MM" placeholder="筛选月份" clearable @change="loadRecords" /><el-checkbox v-model="includeVoided" @change="loadRecords">包含已撤销</el-checkbox></div>
-            <el-table class="assessment-record-table" :data="records" size="small" border max-height="540">
+            <el-table class="assessment-record-table" :fit="false" :data="records" size="small" border max-height="540">
               <el-table-column prop="behaviorDate" label="日期" width="96" /><el-table-column prop="student_name" label="学生" width="78" /><el-table-column prop="itemName" label="行为" width="118" />
               <el-table-column label="分值" width="58" align="center"><template #default="{ row }"><span :class="row.score_snapshot < 0 ? 'negative' : 'positive'">{{ row.score_snapshot > 0 ? '+' : '' }}{{ row.score_snapshot }}</span></template></el-table-column>
               <el-table-column label="状态" width="64"><template #default="{ row }"><el-tag v-if="row.status === 'voided'" type="info" size="small">已撤销</el-tag><span v-else>有效</span></template></el-table-column>
@@ -69,7 +69,7 @@
         <div class="rules-toolbar"><span class="muted">全班级共用一套规则；修改只影响以后新记录，历史记录保留快照。</span><span><el-button type="primary" @click="openItemDialog()">新增行为项目</el-button><el-button @click="openCategoryDialog()">新增分类</el-button></span></div>
         <el-card v-for="category in categories" :key="category.id" shadow="never" class="rule-card">
           <template #header><div class="card-title"><div class="rule-title"><b>{{ category.name }}</b><span class="status-sticker" :class="category.isActive ? 'is-on' : 'is-off'">{{ category.isActive ? '启用中' : '已停用' }}</span></div><div class="rule-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openCategoryDialog(category)">编辑</el-button><el-button v-if="category.isActive" class="row-btn row-btn-del" :icon="CircleClose" @click="toggleCategory(category)">停用</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="toggleCategory(category)">启用</el-button><el-button class="row-btn row-btn-delete" :icon="Delete" @click="deleteCategory(category)">删除</el-button></div></div></template>
-          <el-table class="assessment-rule-table" :data="category.items" size="small"><el-table-column prop="name" label="行为项目" width="180" /><el-table-column prop="description" label="说明" width="250" /><el-table-column label="固定分值" width="100"><template #default="{ row }"><span :class="row.score < 0 ? 'negative' : 'positive'">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span></template></el-table-column><el-table-column label="重复规则" width="130"><template #default="{ row }">{{ row.allowDailyRepeat ? '允许当天重复' : '每天一次' }}</template></el-table-column><el-table-column label="操作" width="290"><template #default="{ row }"><div class="assessment-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openItemDialog(row, category.id)">编辑</el-button><el-button v-if="row.isActive" class="row-btn row-btn-del" :icon="CircleClose" @click="toggleItem(row)">停用</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="toggleItem(row)">启用</el-button><el-button class="row-btn row-btn-delete" :icon="Delete" @click="deleteItem(row)">删除</el-button></div></template></el-table-column></el-table>
+          <el-table class="assessment-rule-table" :fit="false" :data="category.items" size="small"><el-table-column prop="name" label="行为项目" width="180" /><el-table-column prop="description" label="说明" width="250" /><el-table-column label="固定分值" width="100"><template #default="{ row }"><span :class="row.score < 0 ? 'negative' : 'positive'">{{ row.score > 0 ? '+' : '' }}{{ row.score }}</span></template></el-table-column><el-table-column label="重复规则" width="130"><template #default="{ row }">{{ row.allowDailyRepeat ? '允许当天重复' : '每天一次' }}</template></el-table-column><el-table-column label="操作" width="290"><template #default="{ row }"><div class="assessment-actions"><el-button class="row-btn row-btn-edit" :icon="EditPen" @click="openItemDialog(row, category.id)">编辑</el-button><el-button v-if="row.isActive" class="row-btn row-btn-del" :icon="CircleClose" @click="toggleItem(row)">停用</el-button><el-button v-else class="row-btn row-btn-restore" :icon="CircleCheck" @click="toggleItem(row)">启用</el-button><el-button class="row-btn row-btn-delete" :icon="Delete" @click="deleteItem(row)">删除</el-button></div></template></el-table-column></el-table>
         </el-card>
       </el-tab-pane>
     </el-tabs>
@@ -166,8 +166,9 @@ watch(selectedCategoryId, () => { if (!selectedItems.value.some(item => item.id 
 .status-sticker.is-off { background:#ffe0d6; color:var(--tomato-deep); }
 .rule-card :deep(.el-table) { box-shadow:none; border-width:2px; }
 .assessment-actions .el-button .el-icon, .rule-actions .el-button .el-icon { margin-right:3px; }
-.assessment-record-table { min-width:704px; }
-.assessment-rule-table { min-width:950px; }
+.assessment-record-table, .assessment-rule-table { width:100%; min-width:0; }
+.assessment-record-table :deep(.el-table__header-wrapper table), .assessment-record-table :deep(.el-table__body-wrapper table) { min-width:704px; }
+.assessment-rule-table :deep(.el-table__header-wrapper table), .assessment-rule-table :deep(.el-table__body-wrapper table) { min-width:950px; }
 .stream-card :deep(.el-table__body-wrapper), .rule-card :deep(.el-table__body-wrapper) { overflow-x:auto; }
 .revision-head { display:flex; align-items:center; gap:8px; }
 .revision-reason { margin:8px 0; color:var(--muted); font-size:12px; }
