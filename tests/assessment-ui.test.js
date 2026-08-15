@@ -14,3 +14,10 @@ test('exposes the assessment API and navigation entry', () => {
   assert.match(app, /表现量化/);
   assert.match(view, /学生表现量化/);
 });
+
+test('assessment view exposes rule management, batch scoring, and revision actions', () => {
+  const view = fs.readFileSync('web/src/views/Assessment.vue', 'utf8');
+  for (const text of ['固定分值', '全班', '值日组', '班委组', '修正原因', '查看修正历史', '撤销记录', '恢复记录']) {
+    assert.match(view, new RegExp(text));
+  }
+});
