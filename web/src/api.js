@@ -126,10 +126,12 @@ export const api = {
       list: includeInactive => request('GET', '/api/assessment/categories' + toQuery({ include_inactive: includeInactive ? '1' : '' })),
       create: d => request('POST', '/api/assessment/categories', d),
       update: (id, d) => request('PUT', `/api/assessment/categories/${id}`, d),
+      remove: id => request('DELETE', `/api/assessment/categories/${id}`),
     },
     items: {
       create: d => request('POST', '/api/assessment/items', d),
       update: (id, d) => request('PUT', `/api/assessment/items/${id}`, d),
+      remove: id => request('DELETE', `/api/assessment/items/${id}`),
       disable: id => request('POST', `/api/assessment/items/${id}/disable`, {}),
     },
     records: {

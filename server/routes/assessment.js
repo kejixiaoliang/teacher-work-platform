@@ -133,6 +133,17 @@ router.put('/categories/:id', (req, res) => {
   res.json({ ok: true, data: result.row });
 });
 
+router.delete('/categories/:id', (req, res) => {
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的分类 ID');
+  const category = db.prepare('SELECT id FROM assessment_categories WHERE id=?').get(id);
+  if (!category) return res.status(404).json({ ok: false, code: 'CATEGORY_NOT_FOUND', error: '分类不存在' });
+  const itemCount = db.prepare('SELECT COUNT(*) AS count FROM assessment_items WHERE category_id=?').get(id).count;
+  if (itemCount) return res.status(409).json({ ok: false, code: 'CATEGORY_HAS_ITEMS', error: '请先删除该分类下的行为项目' });
+  db.prepare('DELETE FROM assessment_categories WHERE id=?').run(id);
+  res.json({ ok: true });
+});
+
 router.post('/items', (req, res) => {
   const input = itemInput(req.body || {});
   if (input.error) return badRequest(res, input.error);
@@ -163,6 +174,17 @@ router.put('/items/:id', (req, res) => {
     if (String(error.code).includes('CONSTRAINT')) return res.status(409).json({ ok: false, code: 'ITEM_CONFLICT', error: '同一分类下行为名称已存在' });
     throw error;
   }
+});
+
+router.delete('/items/:id', (req, res) => {
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的行为项目 ID');
+  const item = db.prepare('SELECT id FROM assessment_items WHERE id=?').get(id);
+  if (!item) return res.status(404).json({ ok: false, code: 'ITEM_NOT_FOUND', error: '行为项目不存在' });
+  const recordCount = db.prepare('SELECT COUNT(*) AS count FROM assessment_records WHERE item_id=?').get(id).count;
+  if (recordCount) return res.status(409).json({ ok: false, code: 'ITEM_HAS_RECORDS', error: '该项目已有记分记录，只能停用，不能删除' });
+  db.prepare('DELETE FROM assessment_items WHERE id=?').run(id);
+  res.json({ ok: true });
 });
 
 router.post('/items/:id/disable', (req, res) => {
