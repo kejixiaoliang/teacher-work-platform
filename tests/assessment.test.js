@@ -148,3 +148,41 @@ test('records batch scores, rejects duplicate daily entries, and keeps revisions
   assert.equal(restored.status, 200);
   await stopServer(server.child);
 });
+
+test('aggregates monthly and term rankings from active records', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-assessment-stats-'));
+  const server = startServer(dataDir);
+  const port = await server.ready;
+  const fixture = await createFixture(port);
+  const secondStudent = await apiRequest(port, 'POST', '/api/students', {
+    class_id: fixture.classId, name: '零分学生', school_no: 'A002',
+  });
+  const categories = await apiRequest(port, 'GET', '/api/assessment/categories');
+  const positive = categories.body.data.flatMap(category => category.items).find(item => item.name === '积极发言');
+  const repeatable = categories.body.data.flatMap(category => category.items).find(item => item.name === '获得表扬');
+  await apiRequest(port, 'POST', '/api/assessment/records/batch', {
+    classId: fixture.classId, date: '2026-08-01', itemId: positive.id, studentIds: [fixture.studentId],
+  });
+  await apiRequest(port, 'POST', '/api/assessment/records/batch', {
+    classId: fixture.classId, date: '2026-08-02', itemId: repeatable.id, studentIds: [fixture.studentId],
+  });
+  const classUpdate = await apiRequest(port, 'PUT', `/api/classes/${fixture.classId}`, { term: '第二学期' });
+  assert.equal(classUpdate.status, 200);
+  await apiRequest(port, 'POST', '/api/assessment/records/batch', {
+    classId: fixture.classId, date: '2026-09-01', itemId: positive.id, studentIds: [fixture.studentId],
+  });
+
+  const monthly = await apiRequest(port, 'GET', `/api/assessment/stats/monthly?class_id=${fixture.classId}&month=2026-08`);
+  assert.equal(monthly.status, 200);
+  assert.equal(monthly.body.data.ranking.length, 2);
+  assert.equal(monthly.body.data.ranking[0].net, 4);
+  assert.equal(monthly.body.data.ranking[1].net, 0);
+  assert.equal(monthly.body.data.categories.length, 2);
+
+  const term = await apiRequest(port, 'GET', `/api/assessment/stats/term?class_id=${fixture.classId}&academic_year=2026-2027&term=第一学期`);
+  assert.equal(term.status, 200);
+  assert.equal(term.body.data.ranking[0].net, 4);
+  assert.equal(term.body.data.ranking[0].recordCount, 2);
+  assert.equal(secondStudent.body.data.id > 0, true);
+  await stopServer(server.child);
+});

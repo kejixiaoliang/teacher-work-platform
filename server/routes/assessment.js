@@ -21,7 +21,8 @@ function recordSnapshot(row) {
     id: row.id, batchId: row.batch_id, classId: row.class_id, studentId: row.student_id,
     itemId: row.item_id, categoryNameSnapshot: row.category_name_snapshot,
     itemNameSnapshot: row.item_name_snapshot, scoreSnapshot: row.score_snapshot,
-    behaviorDate: row.behavior_date, remark: row.remark, status: row.status,
+    behaviorDate: row.behavior_date, academicYearSnapshot: row.academic_year_snapshot,
+    termSnapshot: row.term_snapshot, remark: row.remark, status: row.status,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
@@ -194,6 +195,159 @@ router.get('/records', (req, res) => {
   res.json({ ok: true, data: rows.map(publicRecord) });
 });
 
+function classOr404(classId, res) {
+  const row = db.prepare('SELECT id, academic_year, term FROM classes WHERE id=?').get(classId);
+  if (!row) {
+    res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
+    return null;
+  }
+  return row;
+}
+
+function rankingForRange(classId, from, to) {
+  const students = db.prepare(`
+    SELECT id AS student_id, name, school_no
+    FROM students WHERE class_id=? AND deleted_at IS NULL
+    ORDER BY CAST(school_no AS INTEGER), school_no, id
+  `).all(classId);
+  const rows = db.prepare(`
+    SELECT r.student_id,
+      COUNT(*) AS record_count,
+      COALESCE(SUM(CASE WHEN r.score_snapshot > 0 THEN r.score_snapshot ELSE 0 END), 0) AS positive,
+      COALESCE(SUM(CASE WHEN r.score_snapshot < 0 THEN r.score_snapshot ELSE 0 END), 0) AS negative,
+      COALESCE(SUM(r.score_snapshot), 0) AS net
+    FROM assessment_records r
+    WHERE r.class_id=? AND r.status='active' AND r.behavior_date>=? AND r.behavior_date<?
+    GROUP BY r.student_id
+  `).all(classId, from, to);
+  const byStudent = new Map(rows.map(row => [row.student_id, row]));
+  return students.map(student => {
+    const row = byStudent.get(student.student_id);
+    return {
+      studentId: student.student_id,
+      name: student.name,
+      schoolNo: student.school_no,
+      positive: Number(row?.positive || 0),
+      negative: Number(row?.negative || 0),
+      net: Number(row?.net || 0),
+      recordCount: Number(row?.record_count || 0),
+    };
+  }).sort((a, b) => b.net - a.net || b.positive - a.positive || a.name.localeCompare(b.name, 'zh-CN'))
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function categorySummary(classId, from, to) {
+  return db.prepare(`
+    SELECT r.category_name_snapshot AS category_name,
+      COUNT(*) AS record_count,
+      COALESCE(SUM(CASE WHEN r.score_snapshot > 0 THEN r.score_snapshot ELSE 0 END), 0) AS positive,
+      COALESCE(SUM(CASE WHEN r.score_snapshot < 0 THEN r.score_snapshot ELSE 0 END), 0) AS negative,
+      COALESCE(SUM(r.score_snapshot), 0) AS net,
+      COUNT(DISTINCT r.student_id) AS student_count
+    FROM assessment_records r
+    WHERE r.class_id=? AND r.status='active' AND r.behavior_date>=? AND r.behavior_date<?
+    GROUP BY r.category_name_snapshot ORDER BY net DESC, category_name
+  `).all(classId, from, to).map(row => ({
+    categoryName: row.category_name,
+    recordCount: Number(row.record_count),
+    positive: Number(row.positive),
+    negative: Number(row.negative),
+    net: Number(row.net),
+    studentCount: Number(row.student_count),
+  }));
+}
+
+function termRanking(classId, academicYear, term) {
+  const students = db.prepare('SELECT id AS student_id, name, school_no FROM students WHERE class_id=? AND deleted_at IS NULL ORDER BY CAST(school_no AS INTEGER), school_no, id').all(classId);
+  const rows = db.prepare(`
+    SELECT r.student_id, COUNT(*) AS record_count,
+      COALESCE(SUM(CASE WHEN r.score_snapshot > 0 THEN r.score_snapshot ELSE 0 END), 0) AS positive,
+      COALESCE(SUM(CASE WHEN r.score_snapshot < 0 THEN r.score_snapshot ELSE 0 END), 0) AS negative,
+      COALESCE(SUM(r.score_snapshot), 0) AS net
+    FROM assessment_records r
+    WHERE r.class_id=? AND r.academic_year_snapshot=? AND r.term_snapshot=? AND r.status='active'
+    GROUP BY r.student_id
+  `).all(classId, academicYear, term);
+  const byStudent = new Map(rows.map(row => [row.student_id, row]));
+  return students.map(student => {
+    const row = byStudent.get(student.student_id);
+    return { studentId: student.student_id, name: student.name, schoolNo: student.school_no, positive: Number(row?.positive || 0), negative: Number(row?.negative || 0), net: Number(row?.net || 0), recordCount: Number(row?.record_count || 0) };
+  }).sort((a, b) => b.net - a.net || b.positive - a.positive || a.name.localeCompare(b.name, 'zh-CN'))
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function termCategories(classId, academicYear, term) {
+  return db.prepare(`
+    SELECT r.category_name_snapshot AS category_name, COUNT(*) AS record_count,
+      COALESCE(SUM(CASE WHEN r.score_snapshot > 0 THEN r.score_snapshot ELSE 0 END), 0) AS positive,
+      COALESCE(SUM(CASE WHEN r.score_snapshot < 0 THEN r.score_snapshot ELSE 0 END), 0) AS negative,
+      COALESCE(SUM(r.score_snapshot), 0) AS net, COUNT(DISTINCT r.student_id) AS student_count
+    FROM assessment_records r
+    WHERE r.class_id=? AND r.academic_year_snapshot=? AND r.term_snapshot=? AND r.status='active'
+    GROUP BY r.category_name_snapshot ORDER BY net DESC, category_name
+  `).all(classId, academicYear, term).map(row => ({ categoryName: row.category_name, recordCount: Number(row.record_count), positive: Number(row.positive), negative: Number(row.negative), net: Number(row.net), studentCount: Number(row.student_count) }));
+}
+
+function rangeData(classId, from, to, filters) {
+  return {
+    ranking: rankingForRange(classId, from, to),
+    categories: categorySummary(classId, from, to),
+    filters: { classId, ...filters },
+  };
+}
+
+router.get('/stats/daily', (req, res) => {
+  const classId = positiveInt(req.query.class_id);
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  if (!classId || !isDateString(date)) return badRequest(res, '班级或日期无效');
+  if (!classOr404(classId, res)) return;
+  const records = db.prepare(`
+    SELECT r.*, s.name AS student_name, s.school_no, i.allow_daily_repeat
+    FROM assessment_records r JOIN students s ON s.id=r.student_id
+    LEFT JOIN assessment_items i ON i.id=r.item_id
+    WHERE r.class_id=? AND r.behavior_date=? AND r.status='active'
+    ORDER BY r.id DESC
+  `).all(classId, date).map(publicRecord);
+  res.json({ ok: true, data: { ...rangeData(classId, date, date < '9999-12-31' ? `${date.slice(0, 8)}${String(Number(date.slice(8)) + 1).padStart(2, '0')}` : '9999-12-31', { date }), records } });
+});
+
+router.get('/stats/monthly', (req, res) => {
+  const classId = positiveInt(req.query.class_id);
+  const month = req.query.month;
+  if (!classId || !/^\d{4}-\d{2}$/.test(month || '')) return badRequest(res, '班级或月份无效');
+  if (!classOr404(classId, res)) return;
+  const [year, monthNumber] = month.split('-').map(Number);
+  const from = `${month}-01`;
+  const to = new Date(Date.UTC(year, monthNumber, 1)).toISOString().slice(0, 10);
+  res.json({ ok: true, data: rangeData(classId, from, to, { month }) });
+});
+
+router.get('/stats/term', (req, res) => {
+  const classId = positiveInt(req.query.class_id);
+  if (!classId) return badRequest(res, '班级无效');
+  const cls = classOr404(classId, res);
+  if (!cls) return;
+  const academicYear = req.query.academic_year || cls.academic_year;
+  const term = req.query.term || cls.term;
+  if (!academicYear || !term) return badRequest(res, '学年和学期不能为空');
+  const records = db.prepare(`SELECT MIN(behavior_date) AS first_date, MAX(behavior_date) AS last_date FROM assessment_records WHERE class_id=? AND academic_year_snapshot=? AND term_snapshot=? AND status='active'`).get(classId, academicYear, term);
+  res.json({ ok: true, data: { ranking: termRanking(classId, academicYear, term), categories: termCategories(classId, academicYear, term), filters: { classId, academicYear, term, firstRecordDate: records?.first_date || null, lastRecordDate: records?.last_date || null } } });
+});
+
+router.get('/stats/student/:id', (req, res) => {
+  const studentId = positiveInt(req.params.id);
+  const classId = positiveInt(req.query.class_id);
+  if (!studentId || !classId) return badRequest(res, '学生或班级无效');
+  const student = db.prepare('SELECT id, name, school_no FROM students WHERE id=? AND class_id=?').get(studentId, classId);
+  if (!student) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不属于当前班级' });
+  const conditions = ['r.student_id=?', 'r.class_id=?', "r.status='active'"];
+  const params = [studentId, classId];
+  if (req.query.from) { if (!isDateString(req.query.from)) return badRequest(res, '起始日期无效'); conditions.push('r.behavior_date>=?'); params.push(req.query.from); }
+  if (req.query.to) { if (!isDateString(req.query.to)) return badRequest(res, '结束日期无效'); conditions.push('r.behavior_date<=?'); params.push(req.query.to); }
+  const records = db.prepare(`SELECT r.*, s.name AS student_name, s.school_no, i.allow_daily_repeat FROM assessment_records r JOIN students s ON s.id=r.student_id LEFT JOIN assessment_items i ON i.id=r.item_id WHERE ${conditions.join(' AND ')} ORDER BY r.behavior_date DESC, r.id DESC`).all(...params).map(publicRecord);
+  res.json({ ok: true, data: { student, records, summary: { positive: records.filter(row => row.score_snapshot > 0).reduce((sum, row) => sum + row.score_snapshot, 0), negative: records.filter(row => row.score_snapshot < 0).reduce((sum, row) => sum + row.score_snapshot, 0), net: records.reduce((sum, row) => sum + row.score_snapshot, 0), recordCount: records.length } } });
+});
+
 router.post('/records/batch', (req, res) => {
   const body = req.body || {};
   const classId = positiveInt(body.classId ?? body.class_id);
@@ -207,9 +361,10 @@ router.post('/records/batch', (req, res) => {
   if (!item.is_active) return res.status(409).json({ ok: false, code: 'ITEM_DISABLED', error: '行为项目已停用' });
   const validIds = new Set(db.prepare('SELECT id FROM students WHERE class_id=? AND deleted_at IS NULL').all(classId).map(row => row.id));
   const names = new Map(db.prepare('SELECT id,name FROM students').all().map(row => [row.id, row.name]));
+  const classRow = db.prepare('SELECT academic_year, term FROM classes WHERE id=?').get(classId);
   const skipped = [];
   const batchId = crypto.randomUUID();
-  const insert = db.prepare(`INSERT INTO assessment_records (batch_id,class_id,student_id,item_id,category_name_snapshot,item_name_snapshot,score_snapshot,behavior_date,remark) VALUES (?,?,?,?,?,?,?,?,?)`);
+  const insert = db.prepare(`INSERT INTO assessment_records (batch_id,class_id,student_id,item_id,category_name_snapshot,item_name_snapshot,score_snapshot,behavior_date,academic_year_snapshot,term_snapshot,remark) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
   const inserted = new Set();
   let count = 0;
   const remark = text(body.remark, { max: 500 }) || '';
@@ -222,7 +377,7 @@ router.post('/records/batch', (req, res) => {
       if (!item.allow_daily_repeat && db.prepare("SELECT id FROM assessment_records WHERE class_id=? AND student_id=? AND item_id=? AND behavior_date=? AND status='active'").get(classId, studentId, itemId, behaviorDate)) {
         skipped.push({ studentId, name: names.get(studentId), reasonCode: 'DAILY_DUPLICATE', reason: '该学生当天已经记录过此行为' }); continue;
       }
-      insert.run(batchId, classId, studentId, itemId, item.category_name, item.name, item.score, behaviorDate, remark);
+      insert.run(batchId, classId, studentId, itemId, item.category_name, item.name, item.score, behaviorDate, classRow.academic_year || '', classRow.term || '', remark);
       count++;
     }
   });

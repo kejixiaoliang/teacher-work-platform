@@ -235,6 +235,8 @@ CREATE TABLE IF NOT EXISTS assessment_records (
   item_name_snapshot TEXT NOT NULL,
   score_snapshot INTEGER NOT NULL,
   behavior_date TEXT NOT NULL,
+  academic_year_snapshot TEXT NOT NULL DEFAULT '',
+  term_snapshot TEXT NOT NULL DEFAULT '',
   remark TEXT DEFAULT '',
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'voided')),
   created_at TEXT DEFAULT (datetime('now','localtime')),
@@ -310,6 +312,9 @@ function migrate() {
     console.log('[migrate] 健康快照来源字段迁移完成 → user_version 3');
   }
   if (db.pragma('user_version', { simple: true }) < 4) {
+    const assessmentRecordCols = db.prepare('PRAGMA table_info(assessment_records)').all().map(column => column.name);
+    if (!assessmentRecordCols.includes('academic_year_snapshot')) db.exec("ALTER TABLE assessment_records ADD COLUMN academic_year_snapshot TEXT NOT NULL DEFAULT ''");
+    if (!assessmentRecordCols.includes('term_snapshot')) db.exec("ALTER TABLE assessment_records ADD COLUMN term_snapshot TEXT NOT NULL DEFAULT ''");
     const categoryCount = db.prepare('SELECT COUNT(*) AS c FROM assessment_categories').get().c;
     if (categoryCount === 0) {
       const insertCategory = db.prepare('INSERT INTO assessment_categories (name, sort_order) VALUES (?, ?)');
