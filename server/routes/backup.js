@@ -16,6 +16,8 @@ const TABLES = [
   'classes',
   'students',
   'student_metrics_history',
+  'assessment_categories',
+  'assessment_items',
   'seats',
   'seat_layouts',
   'documents',
@@ -26,6 +28,8 @@ const TABLES = [
   'student_records',
   'contacts',
   'leaves',
+  'assessment_records',
+  'assessment_record_revisions',
 ];
 const MAX_TOTAL_ROWS = 200_000;
 const MAX_ROWS_PER_TABLE = 100_000;
@@ -174,6 +178,13 @@ router.get('/export-class/:id', (req, res) => {
         { table: 'contacts', rows: db.prepare(`SELECT * FROM contacts WHERE ${whereS}`).all() },
         { table: 'leaves', rows: db.prepare(`SELECT * FROM leaves WHERE class_id = ?`).all(classId) },
         { table: 'student_metrics_history', rows: db.prepare(`SELECT * FROM student_metrics_history WHERE ${whereS}`).all() },
+        { table: 'assessment_categories', rows: db.prepare('SELECT * FROM assessment_categories').all() },
+        { table: 'assessment_items', rows: db.prepare('SELECT * FROM assessment_items').all() },
+        { table: 'assessment_records', rows: db.prepare(`SELECT * FROM assessment_records WHERE class_id = ?`).all(classId) },
+        { table: 'assessment_record_revisions', rows: db.prepare(`
+          SELECT r.* FROM assessment_record_revisions r
+          WHERE r.record_id IN (SELECT id FROM assessment_records WHERE class_id = ?)
+        `).all(classId) },
       ],
     };
     res.json({ ok: true, data: payload });

@@ -186,3 +186,21 @@ test('aggregates monthly and term rankings from active records', async () => {
   assert.equal(secondStudent.body.data.id > 0, true);
   await stopServer(server.child);
 });
+
+test('includes assessment rules, records, and revisions in backups', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-assessment-backup-'));
+  const server = startServer(dataDir);
+  const port = await server.ready;
+  const fixture = await createFixture(port);
+  const categories = await apiRequest(port, 'GET', '/api/assessment/categories');
+  const item = categories.body.data.flatMap(category => category.items).find(candidate => candidate.name === '积极发言');
+  await apiRequest(port, 'POST', '/api/assessment/records/batch', { classId: fixture.classId, date: '2026-08-15', itemId: item.id, studentIds: [fixture.studentId] });
+  const exported = await apiRequest(port, 'GET', '/api/backup/export');
+  assert.equal(exported.status, 200);
+  const tables = exported.body.data.tables;
+  assert.deepEqual(tables.map(table => table.table).filter(name => name.startsWith('assessment_')), [
+    'assessment_categories', 'assessment_items', 'assessment_records', 'assessment_record_revisions',
+  ]);
+  assert.equal(tables.find(table => table.table === 'assessment_records').rows.length, 1);
+  await stopServer(server.child);
+});
