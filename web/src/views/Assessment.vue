@@ -62,9 +62,8 @@
           <el-card shadow="never" class="visual-card"><template #header><div class="card-title"><b><el-icon><TrendCharts /></el-icon> 学生净分走势</b><span class="muted">前 10 名</span></div></template><EChart v-if="hasStatsData" :option="rankingChartOption" height="280px" /><el-empty v-else description="本周期还没有记分记录" :image-size="70" /></el-card>
           <el-card shadow="never" class="visual-card"><template #header><div class="card-title"><b>分类贡献分布</b><span class="muted">净分</span></div></template><EChart v-if="hasStatsData" :option="categoryChartOption" height="280px" /><el-empty v-else description="本周期还没有分类数据" :image-size="70" /></el-card>
         </div>
-        <el-card shadow="never" class="ranking-detail-card"><template #header><div class="card-title"><b>学生排名明细</b><span class="muted">点击按钮查看当前统计周期的加分与扣分来源</span></div></template><div class="ranking-detail-list"><div v-for="row in stats.ranking" :key="row.studentId" class="ranking-detail-row"><span><b>{{ row.rank }}. {{ row.name }}</b><small>净分 {{ row.net }} · {{ row.recordCount }} 条记录</small></span><el-button class="detail-button" text type="primary" @click="openStudentDetails(row)">查看明细</el-button></div></div></el-card>
         <div class="stats-grid">
-          <el-card shadow="never"><template #header><b>{{ statsPeriod === 'monthly' ? '学生月度排名' : '学生学期排名' }}</b></template><el-table :data="stats.ranking" size="small" border><el-table-column prop="rank" label="排名" width="65" /><el-table-column prop="name" label="学生" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /><el-table-column prop="recordCount" label="记录数" /></el-table></el-card>
+          <el-card shadow="never"><template #header><b>{{ statsPeriod === 'monthly' ? '学生月度排名' : '学生学期排名' }}</b></template><el-table :data="stats.ranking" size="small" border><el-table-column prop="rank" label="排名" width="65" /><el-table-column prop="name" label="学生" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /><el-table-column prop="recordCount" label="记录数" /><el-table-column label="操作" width="105" fixed="right"><template #default="{ row }"><el-button class="detail-button" text type="primary" @click="openStudentDetails(row)">查看明细</el-button></template></el-table-column></el-table></el-card>
           <el-card shadow="never"><template #header><b>行为分类贡献</b></template><el-table :data="stats.categories" size="small" border><el-table-column prop="categoryName" label="分类" /><el-table-column prop="recordCount" label="次数" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /></el-table></el-card>
         </div>
       </el-tab-pane>
@@ -197,11 +196,6 @@ watch(selectedCategoryId, () => { if (!selectedItems.value.some(item => item.id 
 .assessment-actions .row-btn-delete, .rule-actions .row-btn-delete { border-color:#8f6b55; color:#8f4c2d; background:#fff1e6; }
 .stats-chart-grid { display:grid; grid-template-columns:1.35fr 1fr; gap:14px; margin:14px 0; }
 .visual-card { min-width:0; }
-.ranking-detail-card { margin-top:14px; }
-.ranking-detail-list { display:grid; gap:8px; }
-.ranking-detail-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 10px; border:1px solid #eadfce; border-radius:10px; background:#fffdf4; }
-.ranking-detail-row span { display:grid; gap:3px; min-width:0; }
-.ranking-detail-row small { color:var(--muted); }
 .detail-button { font-weight:900; flex:0 0 auto; }
 .student-detail-drawer { display:grid; gap:16px; }
 .detail-period { padding:8px 10px; color:var(--muted); background:#fff8df; border-radius:9px; font-size:12px; }
