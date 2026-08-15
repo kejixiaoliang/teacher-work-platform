@@ -54,6 +54,13 @@ function nextDate(date) {
   return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
 
+function monthRange(month) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const from = `${month}-01`;
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+  return { from, to: lastDay };
+}
+
 function requireName(value, label) {
   const name = text(value, { max: 100 });
   return name ? name : { error: `${label}不能为空或过长` };
@@ -371,6 +378,19 @@ router.get('/stats/student/:id', (req, res) => {
   if (!student) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不属于当前班级' });
   const conditions = ['r.student_id=?', 'r.class_id=?', "r.status='active'"];
   const params = [studentId, classId];
+  if (req.query.month) {
+    if (!isMonthString(req.query.month)) return badRequest(res, '月份无效');
+    const range = monthRange(req.query.month);
+    conditions.push('r.behavior_date>=?', 'r.behavior_date<=?');
+    params.push(range.from, range.to);
+  }
+  if (req.query.academic_year !== undefined || req.query.term !== undefined) {
+    const academicYear = text(req.query.academic_year, { max: 30 });
+    const term = text(req.query.term, { max: 30 });
+    if (!academicYear || !term) return badRequest(res, '学年和学期不能为空');
+    conditions.push('r.academic_year_snapshot=?', 'r.term_snapshot=?');
+    params.push(academicYear, term);
+  }
   if (req.query.from) { if (!isDateString(req.query.from)) return badRequest(res, '起始日期无效'); conditions.push('r.behavior_date>=?'); params.push(req.query.from); }
   if (req.query.to) { if (!isDateString(req.query.to)) return badRequest(res, '结束日期无效'); conditions.push('r.behavior_date<=?'); params.push(req.query.to); }
   const records = db.prepare(`SELECT r.*, s.name AS student_name, s.school_no, i.allow_daily_repeat FROM assessment_records r JOIN students s ON s.id=r.student_id LEFT JOIN assessment_items i ON i.id=r.item_id WHERE ${conditions.join(' AND ')} ORDER BY r.behavior_date DESC, r.id DESC`).all(...params).map(publicRecord);

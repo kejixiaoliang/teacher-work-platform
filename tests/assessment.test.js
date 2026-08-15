@@ -179,10 +179,18 @@ test('aggregates monthly and term rankings from active records', async () => {
   assert.equal(monthly.body.data.ranking[1].net, 0);
   assert.equal(monthly.body.data.categories.length, 2);
 
+  const monthlyDetail = await apiRequest(port, 'GET', `/api/assessment/stats/student/${fixture.studentId}?class_id=${fixture.classId}&month=2026-08`);
+  assert.equal(monthlyDetail.status, 200);
+  assert.equal(monthlyDetail.body.data.summary.recordCount, 2);
+  assert.equal(monthlyDetail.body.data.summary.net, 4);
+
   const term = await apiRequest(port, 'GET', `/api/assessment/stats/term?class_id=${fixture.classId}&academic_year=2026-2027&term=第一学期`);
   assert.equal(term.status, 200);
   assert.equal(term.body.data.ranking[0].net, 4);
   assert.equal(term.body.data.ranking[0].recordCount, 2);
+  const termDetail = await apiRequest(port, 'GET', `/api/assessment/stats/student/${fixture.studentId}?class_id=${fixture.classId}&academic_year=2026-2027&term=第一学期`);
+  assert.equal(termDetail.status, 200);
+  assert.equal(termDetail.body.data.summary.recordCount, 2);
   assert.equal(secondStudent.body.data.id > 0, true);
   await stopServer(server.child);
 });

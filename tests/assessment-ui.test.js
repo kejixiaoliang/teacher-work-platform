@@ -10,6 +10,9 @@ test('exposes the assessment API and navigation entry', () => {
   assert.match(api, /assessment:/);
   assert.match(api, /batchCreate/);
   assert.match(api, /monthly/);
+  assert.match(api, /student: \(id, q\)/);
+  assert.match(view, /openStudentDetails/);
+  assert.match(view, /student-detail-drawer/);
   assert.match(router, /\/assessment/);
   assert.match(app, /表现量化/);
   assert.match(view, /学生表现量化/);

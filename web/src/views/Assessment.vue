@@ -62,6 +62,7 @@
           <el-card shadow="never" class="visual-card"><template #header><div class="card-title"><b><el-icon><TrendCharts /></el-icon> 学生净分走势</b><span class="muted">前 10 名</span></div></template><EChart v-if="hasStatsData" :option="rankingChartOption" height="280px" /><el-empty v-else description="本周期还没有记分记录" :image-size="70" /></el-card>
           <el-card shadow="never" class="visual-card"><template #header><div class="card-title"><b>分类贡献分布</b><span class="muted">净分</span></div></template><EChart v-if="hasStatsData" :option="categoryChartOption" height="280px" /><el-empty v-else description="本周期还没有分类数据" :image-size="70" /></el-card>
         </div>
+        <el-card shadow="never" class="ranking-detail-card"><template #header><div class="card-title"><b>学生排名明细</b><span class="muted">点击按钮查看当前统计周期的加分与扣分来源</span></div></template><div class="ranking-detail-list"><div v-for="row in stats.ranking" :key="row.studentId" class="ranking-detail-row"><span><b>{{ row.rank }}. {{ row.name }}</b><small>净分 {{ row.net }} · {{ row.recordCount }} 条记录</small></span><el-button class="detail-button" text type="primary" @click="openStudentDetails(row)">查看明细</el-button></div></div></el-card>
         <div class="stats-grid">
           <el-card shadow="never"><template #header><b>{{ statsPeriod === 'monthly' ? '学生月度排名' : '学生学期排名' }}</b></template><el-table :data="stats.ranking" size="small" border><el-table-column prop="rank" label="排名" width="65" /><el-table-column prop="name" label="学生" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /><el-table-column prop="recordCount" label="记录数" /></el-table></el-card>
           <el-card shadow="never"><template #header><b>行为分类贡献</b></template><el-table :data="stats.categories" size="small" border><el-table-column prop="categoryName" label="分类" /><el-table-column prop="recordCount" label="次数" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /></el-table></el-card>
@@ -88,6 +89,7 @@
     <el-dialog v-model="itemDialogVisible" :title="itemForm.id ? '编辑行为项目' : '新增行为项目'" width="460px"><el-form label-position="top"><el-form-item label="所属分类"><el-select v-model="itemForm.categoryId" style="width:100%"><el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" /></el-select></el-form-item><el-form-item label="行为名称"><el-input v-model="itemForm.name" /></el-form-item><el-form-item label="固定分值"><el-input-number v-model="itemForm.score" :min="-100" :max="100" :step="1" /></el-form-item><el-form-item label="说明"><el-input v-model="itemForm.description" /></el-form-item><el-checkbox v-model="itemForm.allowDailyRepeat">允许当天重复</el-checkbox></el-form><template #footer><el-button @click="itemDialogVisible = false">取消</el-button><el-button type="primary" @click="saveItem">保存</el-button></template></el-dialog>
     <el-dialog v-model="categoryDialogVisible" :title="categoryForm.id ? '编辑分类' : '新增分类'" width="420px"><el-form label-position="top"><el-form-item label="分类名称"><el-input v-model="categoryForm.name" /></el-form-item><el-checkbox v-model="categoryForm.isActive">启用</el-checkbox></el-form><template #footer><el-button @click="categoryDialogVisible = false">取消</el-button><el-button type="primary" @click="saveCategory">保存</el-button></template></el-dialog>
     <el-dialog v-model="historyVisible" title="查看修正历史" width="680px"><el-timeline><el-timeline-item v-for="revision in revisions" :key="revision.id" :timestamp="revision.createdAt" placement="top"><div class="revision-head"><b>{{ revision.action === 'edit' ? '编辑' : revision.action === 'void' ? '撤销' : '恢复' }}</b><el-tag size="small" :type="revision.action === 'void' ? 'danger' : revision.action === 'restore' ? 'success' : 'warning'">{{ revision.action === 'edit' ? '字段修正' : revision.action === 'void' ? '记录撤销' : '记录恢复' }}</el-tag></div><p class="revision-reason">修正原因：{{ revision.reason || '未填写' }}</p><div v-if="revision.action === 'edit'" class="revision-diff"><div v-for="change in revisionChanges(revision)" :key="change.key" class="revision-change"><span class="revision-field">{{ change.label }}</span><span class="revision-before">{{ change.before }}</span><span class="revision-arrow">→</span><span class="revision-after">{{ change.after }}</span></div></div><div v-else class="revision-status-note">状态已从「{{ revision.before?.status === 'voided' ? '已撤销' : '有效' }}」变更为「{{ revision.after?.status === 'voided' ? '已撤销' : '有效' }}」</div></el-timeline-item></el-timeline><el-empty v-if="!revisions.length" description="暂无修正历史" /></el-dialog>
+    <el-drawer v-model="detailVisible" :title="`${detailStudent?.name || '学生'}的表现明细`" size="min(620px, 92vw)"><div v-loading="detailLoading" class="student-detail-drawer"><div class="detail-period">{{ statsPeriod === 'monthly' ? `${statsMonth} 月度统计` : `${currentClass?.academic_year || ''} · ${currentClass?.term || ''} 学期累计` }}</div><div class="detail-summary"><div><b class="positive">{{ studentDetail.summary.positive }}</b><span>加分</span></div><div><b class="negative">{{ studentDetail.summary.negative }}</b><span>扣分</span></div><div><b>{{ studentDetail.summary.net }}</b><span>净分</span></div><div><b>{{ studentDetail.summary.recordCount }}</b><span>记录数</span></div></div><el-empty v-if="!detailLoading && !studentDetail.records.length" description="当前统计周期暂无明细" /><div v-else class="student-detail-list"><div v-for="record in studentDetail.records" :key="record.id" class="student-detail-row"><div><b>{{ record.itemName }}</b><span>{{ record.categoryName }} · {{ record.behaviorDate }}</span><small v-if="record.remark">备注：{{ record.remark }}</small></div><strong :class="record.scoreSnapshot < 0 ? 'negative' : 'positive'">{{ record.scoreSnapshot > 0 ? '+' : '' }}{{ record.scoreSnapshot }}</strong></div></div></div></el-drawer>
   </section>
 </template>
 
@@ -102,7 +104,7 @@ import EChart from '../components/EChart.vue';
 
 const loading = ref(false); const activeTab = ref('records'); const categories = ref([]); const students = ref([]); const duties = ref([]); const records = ref([]); const overviewRecords = ref([]); const stats = ref({ ranking: [], categories: [] });
 const selectedCategoryId = ref(null); const targetMode = ref('manual'); const selectedDutyGroup = ref(null); const recordMonth = ref(''); const includeVoided = ref(false); const statsPeriod = ref('monthly'); const statsMonth = ref(localMonth());
-const editVisible = ref(false); const historyVisible = ref(false); const itemDialogVisible = ref(false); const categoryDialogVisible = ref(false); const revisions = ref([]); const batchResult = ref(null);
+const editVisible = ref(false); const historyVisible = ref(false); const detailVisible = ref(false); const detailLoading = ref(false); const itemDialogVisible = ref(false); const categoryDialogVisible = ref(false); const revisions = ref([]); const batchResult = ref(null); const detailStudent = ref(null); const studentDetail = ref({ records: [], summary: { positive: 0, negative: 0, net: 0, recordCount: 0 } });
 const scoreForm = ref({ date: localToday(), itemId: null, studentIds: [], remark: '' }); const editForm = ref({ id: null, studentId: null, itemId: null, behaviorDate: '', remark: '', reason: '' });
 const itemForm = ref({ id: null, categoryId: null, name: '', score: 1, description: '', allowDailyRepeat: false }); const categoryForm = ref({ id: null, name: '', isActive: true });
 const activeCategories = computed(() => categories.value.filter(category => category.isActive)); const selectedCategory = computed(() => categories.value.find(category => category.id === selectedCategoryId.value)); const selectedItems = computed(() => selectedCategory.value?.items?.filter(item => item.isActive) || []); const allItems = computed(() => categories.value.flatMap(category => category.items || []).filter(item => item.isActive)); const selectedItem = computed(() => allItems.value.find(item => item.id === scoreForm.value.itemId)); const currentClassId = computed(() => store.currentClassId);
@@ -130,6 +132,20 @@ async function loadCategories() { categories.value = await api.assessment.catego
 async function loadStudents() { students.value = await api.students.list({ class_id: currentClassId.value, status: '在读' }); } async function loadGroups() { duties.value = await api.duties.list({ class_id: currentClassId.value }); if (!dutyGroups.value.some(group => group.no === selectedDutyGroup.value)) selectedDutyGroup.value = dutyGroups.value[0]?.no || null; } async function loadRecords() { if (!currentClassId.value) return; records.value = await api.assessment.records.list({ class_id: currentClassId.value, month: recordMonth.value || undefined, include_voided: includeVoided.value ? '1' : undefined }); }
 async function loadOverview() { if (!currentClassId.value) return; overviewRecords.value = await api.assessment.records.list({ class_id: currentClassId.value, month: localMonth() }); }
 async function loadStats() { if (!currentClassId.value) return; stats.value = statsPeriod.value === 'monthly' ? await api.assessment.stats.monthly({ class_id: currentClassId.value, month: statsMonth.value }) : await api.assessment.stats.term({ class_id: currentClassId.value, academic_year: currentClass.value?.academic_year, term: currentClass.value?.term }); }
+async function openStudentDetails(row) {
+  detailStudent.value = row;
+  detailVisible.value = true;
+  detailLoading.value = true;
+  try {
+    const filters = statsPeriod.value === 'monthly'
+      ? { class_id: currentClassId.value, month: statsMonth.value }
+      : { class_id: currentClassId.value, academic_year: currentClass.value?.academic_year, term: currentClass.value?.term };
+    studentDetail.value = await api.assessment.stats.student(row.studentId, filters);
+  } catch (error) {
+    detailVisible.value = false;
+    ElMessage.error(error.message);
+  } finally { detailLoading.value = false; }
+}
 async function exportCurrent(format) {
   const filters = statsPeriod.value === 'monthly' ? { classId: currentClassId.value, month: statsMonth.value } : { classId: currentClassId.value, academicYear: currentClass.value?.academic_year, term: currentClass.value?.term };
   const columns = ['behaviorDate', 'student_name', 'categoryName', 'itemName', 'score_snapshot', 'status', 'remark'];
@@ -181,6 +197,24 @@ watch(selectedCategoryId, () => { if (!selectedItems.value.some(item => item.id 
 .assessment-actions .row-btn-delete, .rule-actions .row-btn-delete { border-color:#8f6b55; color:#8f4c2d; background:#fff1e6; }
 .stats-chart-grid { display:grid; grid-template-columns:1.35fr 1fr; gap:14px; margin:14px 0; }
 .visual-card { min-width:0; }
+.ranking-detail-card { margin-top:14px; }
+.ranking-detail-list { display:grid; gap:8px; }
+.ranking-detail-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 10px; border:1px solid #eadfce; border-radius:10px; background:#fffdf4; }
+.ranking-detail-row span { display:grid; gap:3px; min-width:0; }
+.ranking-detail-row small { color:var(--muted); }
+.detail-button { font-weight:900; flex:0 0 auto; }
+.student-detail-drawer { display:grid; gap:16px; }
+.detail-period { padding:8px 10px; color:var(--muted); background:#fff8df; border-radius:9px; font-size:12px; }
+.detail-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.detail-summary > div { display:grid; gap:3px; padding:10px 8px; text-align:center; border:1px solid #eadfce; border-radius:10px; background:#fffdf4; }
+.detail-summary b { font-size:20px; }
+.detail-summary span { color:var(--muted); font-size:12px; }
+.student-detail-list { display:grid; gap:8px; }
+.student-detail-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 12px; border:2px solid #eadfce; border-radius:12px; background:#fffdf4; }
+.student-detail-row > div { display:grid; gap:4px; min-width:0; }
+.student-detail-row span, .student-detail-row small { color:var(--muted); font-size:12px; }
+.student-detail-row small { overflow-wrap:anywhere; }
+.student-detail-row strong { flex:0 0 auto; font-size:18px; }
 .visual-card :deep(.el-card__body) { padding:10px 14px 12px; }
 .visual-card .el-icon { color:var(--tomato); vertical-align:-2px; margin-right:4px; }
 .rule-title { display:flex; align-items:center; gap:10px; }
