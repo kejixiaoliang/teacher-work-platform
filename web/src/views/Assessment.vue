@@ -63,7 +63,7 @@
           <el-card shadow="never" class="visual-card"><template #header><div class="card-title"><b>分类贡献分布</b><span class="muted">净分</span></div></template><EChart v-if="hasStatsData" :option="categoryChartOption" height="280px" /><el-empty v-else description="本周期还没有分类数据" :image-size="70" /></el-card>
         </div>
         <div class="stats-grid">
-          <el-card shadow="never"><template #header><b>{{ statsPeriod === 'monthly' ? '学生月度排名' : '学生学期排名' }}</b></template><el-table :data="stats.ranking" size="small" border><el-table-column prop="rank" label="排名" width="65" /><el-table-column prop="name" label="学生" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /><el-table-column prop="recordCount" label="记录数" /><el-table-column label="操作" width="105" fixed="right"><template #default="{ row }"><el-button class="detail-button" text type="primary" @click="openStudentDetails(row)">查看明细</el-button></template></el-table-column></el-table></el-card>
+          <el-card shadow="never"><template #header><b>{{ statsPeriod === 'monthly' ? '学生月度排名' : '学生学期排名' }}</b></template><el-table class="ranking-table" :data="stats.ranking" size="small" border><el-table-column prop="rank" label="排名" width="62" align="center" /><el-table-column prop="name" label="学生" min-width="110" /><el-table-column prop="positive" label="加分" width="82" align="center" /><el-table-column prop="negative" label="扣分" width="82" align="center" /><el-table-column prop="net" label="净分" width="82" align="center" /><el-table-column prop="recordCount" label="记录数" width="82" align="center" /><el-table-column label="操作" width="112" align="center"><template #default="{ row }"><el-button class="detail-button" @click="openStudentDetails(row)">查看明细</el-button></template></el-table-column></el-table></el-card>
           <el-card shadow="never"><template #header><b>行为分类贡献</b></template><el-table :data="stats.categories" size="small" border><el-table-column prop="categoryName" label="分类" /><el-table-column prop="recordCount" label="次数" /><el-table-column prop="positive" label="加分" /><el-table-column prop="negative" label="扣分" /><el-table-column prop="net" label="净分" /></el-table></el-card>
         </div>
       </el-tab-pane>
@@ -196,7 +196,12 @@ watch(selectedCategoryId, () => { if (!selectedItems.value.some(item => item.id 
 .assessment-actions .row-btn-delete, .rule-actions .row-btn-delete { border-color:#8f6b55; color:#8f4c2d; background:#fff1e6; }
 .stats-chart-grid { display:grid; grid-template-columns:1.35fr 1fr; gap:14px; margin:14px 0; }
 .visual-card { min-width:0; }
-.detail-button { font-weight:900; flex:0 0 auto; }
+.ranking-table { width:100%; }
+.ranking-table :deep(.el-table__cell) { padding:8px 6px; }
+.ranking-table :deep(.cell) { line-height:1.35; }
+.detail-button { min-width:86px; height:28px; padding:3px 10px; border:2px solid var(--tomato); border-radius:999px; background:#fffdf4; box-shadow:2px 2px 0 var(--ink); color:var(--tomato-deep); font-size:12px; font-weight:900; }
+.detail-button:hover { color:var(--ink); background:var(--mustard); border-color:var(--ink); transform:translateY(-1px); }
+.detail-button:active { transform:translateY(2px); box-shadow:none; }
 .student-detail-drawer { display:grid; gap:16px; }
 .detail-period { padding:8px 10px; color:var(--muted); background:#fff8df; border-radius:9px; font-size:12px; }
 .detail-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
