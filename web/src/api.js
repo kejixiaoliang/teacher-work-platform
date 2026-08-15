@@ -121,6 +121,33 @@ export const api = {
     save: d => request('PUT', '/api/attendance', d),
     stats: (classId, month) => request('GET', `/api/attendance/stats?class_id=${classId}&month=${month}`),
   },
+  assessment: {
+    categories: {
+      list: includeInactive => request('GET', '/api/assessment/categories' + toQuery({ include_inactive: includeInactive ? '1' : '' })),
+      create: d => request('POST', '/api/assessment/categories', d),
+      update: (id, d) => request('PUT', `/api/assessment/categories/${id}`, d),
+    },
+    items: {
+      create: d => request('POST', '/api/assessment/items', d),
+      update: (id, d) => request('PUT', `/api/assessment/items/${id}`, d),
+      disable: id => request('POST', `/api/assessment/items/${id}/disable`, {}),
+    },
+    records: {
+      list: q => request('GET', '/api/assessment/records' + toQuery(q)),
+      batchCreate: d => request('POST', '/api/assessment/records/batch', d),
+      update: (id, d) => request('PUT', `/api/assessment/records/${id}`, d),
+      void: (id, reason) => request('POST', `/api/assessment/records/${id}/void`, { reason }),
+      restore: (id, reason) => request('POST', `/api/assessment/records/${id}/restore`, { reason }),
+      revisions: id => request('GET', `/api/assessment/records/${id}/revisions`),
+      voidBatch: (batchId, reason) => request('POST', `/api/assessment/batches/${batchId}/void`, { reason }),
+    },
+    stats: {
+      daily: q => request('GET', '/api/assessment/stats/daily' + toQuery(q)),
+      monthly: q => request('GET', '/api/assessment/stats/monthly' + toQuery(q)),
+      term: q => request('GET', '/api/assessment/stats/term' + toQuery(q)),
+      student: (id, q) => request('GET', `/api/assessment/stats/student/${id}` + toQuery(q)),
+    },
+  },
   leaves: {
     list: q => request('GET', '/api/leaves' + toQuery(q)),
     create: d => request('POST', '/api/leaves', d),
