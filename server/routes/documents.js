@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { badRequest, positiveInt, text } from '../validation.js';
+import { issueFileAccess, consumeFileAccess } from '../security/file-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const filesDir = getDataPaths().filesDir;
@@ -213,8 +214,21 @@ router.post('/purge', (req, res) => {
 });
 
 // 文件流（?dl=1 下载；否则预览：图片/PDF/文本 inline）
+router.get('/:id/file-token', (req, res) => {
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
+  const row = db.prepare('SELECT id FROM documents WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!row) return res.status(404).json({ ok: false, code: 'DOCUMENT_NOT_FOUND', error: '文件不存在' });
+  res.json({ ok: true, data: issueFileAccess(id) });
+});
+
 router.get('/:id/file', (req, res) => {
-  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(Number(req.params.id));
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
+  if (req.oneTimeFileAccess && !consumeFileAccess(req.oneTimeFileAccess.token, id)) {
+    return res.status(401).json({ ok: false, code: 'FILE_ACCESS_EXPIRED', error: '文件访问授权已失效，请重新打开' });
+  }
+  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(id);
   if (!row || row.deleted_at) return res.status(404).json({ ok: false, error: '文件不存在' });
   const filePath = path.join(filesDir, row.stored_name);
   if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: '物理文件缺失' });

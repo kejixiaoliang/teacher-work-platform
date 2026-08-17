@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import Database from 'better-sqlite3';
+import { extractBackupArchive } from '../server/utils/backup-archive.js';
 
 function startServer(dataDir) {
   const child = spawn(process.execPath, ['server/index.js'], {
@@ -49,6 +50,15 @@ async function apiRequest(port, method, url, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return { status: response.status, body: await response.json() };
+}
+
+async function apiBackupExport(port, dataDir) {
+  const response = await fetch(`http://127.0.0.1:${port}/api/backup/export`, {
+    headers: { 'x-teacher-work-token': 'test-token' },
+  });
+  const zipPath = path.join(dataDir, 'assessment-export.zip');
+  fs.writeFileSync(zipPath, Buffer.from(await response.arrayBuffer()));
+  return extractBackupArchive(zipPath, path.join(dataDir, 'assessment-export'));
 }
 
 async function createFixture(port) {
@@ -203,9 +213,8 @@ test('includes assessment rules, records, and revisions in backups', async () =>
   const categories = await apiRequest(port, 'GET', '/api/assessment/categories');
   const item = categories.body.data.flatMap(category => category.items).find(candidate => candidate.name === '积极发言');
   await apiRequest(port, 'POST', '/api/assessment/records/batch', { classId: fixture.classId, date: '2026-08-15', itemId: item.id, studentIds: [fixture.studentId] });
-  const exported = await apiRequest(port, 'GET', '/api/backup/export');
-  assert.equal(exported.status, 200);
-  const tables = exported.body.data.tables;
+  const exported = await apiBackupExport(port, dataDir);
+  const tables = exported.payload.tables;
   assert.deepEqual(tables.map(table => table.table).filter(name => name.startsWith('assessment_')), [
     'assessment_categories', 'assessment_items', 'assessment_records', 'assessment_record_revisions',
   ]);

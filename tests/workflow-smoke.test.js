@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { extractBackupArchive } from '../server/utils/backup-archive.js';
 
 test('核心教学工作流通过统一 API 完成持久化与备份', async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-work-workflow-'));
@@ -212,8 +213,15 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.deepEqual(skippedScores.skipped, [{ studentId: 999999, subject: '语文', reason: '学生不属于该班级或已删除' }]);
     assert.equal((await request('GET', `/api/scores?exam_id=${exam.id}`)).length, 2);
 
-    const backup = await request('GET', '/api/backup/export');
+    const backupResponse = await fetch(`${running.baseUrl}/api/backup/export`, {
+      headers: { 'x-teacher-work-token': token },
+    });
+    assert.equal(backupResponse.status, 200);
+    const zipPath = path.join(dataDir, 'workflow-export.zip');
+    fs.writeFileSync(zipPath, Buffer.from(await backupResponse.arrayBuffer()));
+    const backup = (await extractBackupArchive(zipPath, path.join(dataDir, 'workflow-export'))).payload;
     assert.equal(backup.app, 'teacher-work');
+    assert.equal(backup.version, 2);
     assert.ok(backup.tables.find(item => item.table === 'classes').rows.length >= 1);
     assert.ok(backup.tables.find(item => item.table === 'students').rows.length >= 2);
     await expectBackupRejected({ app: 'teacher-work', version: 1, tables: [] });

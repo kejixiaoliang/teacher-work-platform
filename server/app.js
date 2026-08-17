@@ -15,6 +15,7 @@ import contactsRouter from './routes/contacts.js';
 import backupRouter from './routes/backup.js';
 import overviewRouter from './routes/overview.js';
 import assessmentRouter from './routes/assessment.js';
+import { hasFileAccess } from './security/file-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,9 +40,14 @@ export function createApp({ apiToken = '' } = {}) {
   });
   app.use('/api', (req, res, next) => {
     if (!apiToken) return next();
-    const supplied = req.get('x-teacher-work-token') || req.query.__token;
-    if (supplied !== apiToken) return res.status(401).json({ ok: false, error: '未授权的本地请求' });
-    next();
+    const headerToken = req.get('x-teacher-work-token');
+    if (headerToken === apiToken) return next();
+    const filePath = req.path.match(/^\/documents\/(\d+)\/file$/);
+    if (req.method === 'GET' && filePath && hasFileAccess(req.query.__token)) {
+      req.oneTimeFileAccess = { token: req.query.__token, documentId: Number(filePath[1]) };
+      return next();
+    }
+    return res.status(401).json({ ok: false, error: '未授权的本地请求' });
   });
   app.get('/api/health', (req, res) => res.json({ ok: true }));
   app.use('/api/classes', classesRouter);

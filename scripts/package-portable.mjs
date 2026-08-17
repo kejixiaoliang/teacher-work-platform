@@ -28,8 +28,10 @@ const runtimePackage = {
   name: 'teacher-work-runtime', private: true, type: 'module',
   dependencies: {
     'better-sqlite3': pkg.dependencies['better-sqlite3'],
+    archiver: pkg.dependencies.archiver,
     express: pkg.dependencies.express,
     multer: pkg.dependencies.multer,
+    unzipper: pkg.dependencies.unzipper,
   },
 };
 fs.writeFileSync(path.join(productDir, 'resources', 'app', 'package.json'), JSON.stringify(runtimePackage, null, 2));

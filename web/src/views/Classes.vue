@@ -126,11 +126,10 @@ async function remove(row) {
   // A3：删除前自动导出该班全部数据（兜底，防误删后无法找回）
   let backupOk = true;
   try {
-    const data = await api.backup.exportClass(row.id);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = await api.backup.exportClass(row.id);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.zip`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     ElMessage.success('已下载该班数据备份');

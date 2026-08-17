@@ -6,9 +6,6 @@ export function configureRuntime(next) {
 
 export function getRuntimeConfig() { return { ...config }; }
 
-export function toApiUrl(apiPath, queryToken = false) {
-  const url = `${config.apiBaseUrl}${apiPath}`;
-  if (!queryToken || !config.apiToken) return url;
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}${new URLSearchParams({ __token: config.apiToken }).toString()}`;
+export function toApiUrl(apiPath) {
+  return `${config.apiBaseUrl}${apiPath}`;
 }
