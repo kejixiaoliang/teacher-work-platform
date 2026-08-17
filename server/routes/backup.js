@@ -4,10 +4,10 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import db from '../db.js';
-import { getDataDir } from '../config/paths.js';
+import { getDataPaths } from '../config/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = getDataDir();
+const { dataDir, filesDir } = getDataPaths();
 
 const router = Router();
 
@@ -40,6 +40,19 @@ function dumpTable(name) {
   return { table: name, rows };
 }
 
+function listFileManifest() {
+  if (!fs.existsSync(filesDir)) return [];
+  return fs.readdirSync(filesDir, { withFileTypes: true }).filter(entry => entry.isFile()).map(entry => {
+    const filePath = path.join(filesDir, entry.name);
+    const stat = fs.statSync(filePath);
+    return {
+      storedName: entry.name,
+      size: stat.size,
+      sha256: crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex'),
+    };
+  });
+}
+
 function invalidBackup(res, error) {
   return res.status(400).json({ ok: false, code: 'INVALID_BACKUP', error });
 }
@@ -47,6 +60,17 @@ function invalidBackup(res, error) {
 function validatePayload(payload) {
   if (!payload || payload.app !== 'teacher-work' || payload.version !== 1 || !Array.isArray(payload.tables)) {
     return '备份版本或文件格式不正确';
+  }
+  if (payload.files !== undefined && !Array.isArray(payload.files)) return '备份文件清单格式不正确';
+  for (const file of payload.files || []) {
+    if (!file || typeof file.storedName !== 'string' || file.storedName !== path.basename(file.storedName)
+      || !Number.isSafeInteger(file.size) || file.size < 0 || !/^[a-f0-9]{64}$/.test(file.sha256 || '')) {
+      return '备份包含无效文件清单';
+    }
+    const filePath = path.join(filesDir, file.storedName);
+    if (!fs.existsSync(filePath)) return `备份引用的文件不存在：${file.storedName}`;
+    const stat = fs.statSync(filePath);
+    if (stat.size !== file.size) return `备份引用的文件大小不匹配：${file.storedName}`;
   }
   if (payload.tables.length !== TABLES.length) return '备份数据表数量不正确';
   const seen = new Set();
@@ -62,10 +86,15 @@ function validatePayload(payload) {
     totalRows += table.rows.length;
     if (totalRows > MAX_TOTAL_ROWS) return '备份记录总数超出限制';
     const columns = new Set(db.prepare(`PRAGMA table_info(${table.table})`).all().map(column => column.name));
+    const ids = new Set();
     for (const row of table.rows) {
       if (!row || typeof row !== 'object' || Array.isArray(row) || !Object.prototype.hasOwnProperty.call(row, 'id')) {
         return `数据表 ${table.table} 存在无效记录`;
       }
+      if (!Number.isSafeInteger(row.id) || row.id < 1 || ids.has(row.id)) {
+        return `数据表 ${table.table} 存在无效或重复的主键`;
+      }
+      ids.add(row.id);
       for (const [key, value] of Object.entries(row)) {
         if (!columns.has(key) || (value !== null && typeof value === 'object')) {
           return `数据表 ${table.table} 存在无效字段`;
@@ -84,6 +113,7 @@ router.get('/export', (req, res) => {
       app: 'teacher-work',
       version: 1,
       exportedAt: new Date().toISOString(),
+      files: listFileManifest(),
       tables: TABLES.map(dumpTable),
     };
     res.json({ ok: true, data: payload });

@@ -156,7 +156,7 @@ router.delete('/:id', (req, res) => {
 // 今日请假统计（未销假且在有效期内的）
 router.get('/today', (req, res) => {
   const { class_id } = req.query;
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  if (!class_id) return badRequest(res, '缺少班级');
   const today = new Date();
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, '0');

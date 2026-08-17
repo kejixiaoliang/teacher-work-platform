@@ -91,9 +91,9 @@ router.put('/', (req, res) => {
 // 自动排座（返回建议布局，不落库；前端确认后 PUT 保存）
 router.post('/auto', (req, res) => {
   const { classId, options } = req.body || {};
-  if (!classId) return res.json({ ok: false, error: '缺少班级' });
+  if (!classId) return badRequest(res, '缺少班级');
   const cls = getClass(classId);
-  if (!cls) return res.json({ ok: false, error: '班级不存在' });
+  if (!cls) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
 
   const students = db.prepare(`
     SELECT s.id, s.name, s.gender, s.height_cm, s.vision_left, s.vision_right,
@@ -117,12 +117,12 @@ router.post('/auto', (req, res) => {
 // 平移轮换（返回建议布局，不落库；锁定座位不动；满座时保留原位不丢人）
 router.post('/shift', (req, res) => {
   const { classId, dr = 0, dc = 0 } = req.body || {};
-  if (!classId) return res.json({ ok: false, error: '缺少班级' });
+  if (!classId) return badRequest(res, '缺少班级');
   // dr/dc 数值化并取整，防止字符串拼接/NaN 破坏模运算（M5）
   const drN = Number.isInteger(Number(dr)) ? Number(dr) : 0;
   const dcN = Number.isInteger(Number(dc)) ? Number(dc) : 0;
   const cls = getClass(classId);
-  if (!cls) return res.json({ ok: false, error: '班级不存在' });
+  if (!cls) return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在' });
   const rows = cls.seat_rows, cols = cls.seat_cols;
 
   const seats = db.prepare(`
@@ -210,7 +210,7 @@ function findNearestFree(grid, r, c, rows, cols) {
 // 历史布局列表
 router.get('/layouts', (req, res) => {
   const { class_id } = req.query;
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  if (!class_id) return badRequest(res, '缺少班级');
   const rows = db.prepare(`
     SELECT id, rule_snapshot, remark, created_at, seats_snapshot
     FROM seat_layouts WHERE class_id = ? ORDER BY id DESC
@@ -226,7 +226,7 @@ router.get('/layouts', (req, res) => {
 // 历史布局详情（快照 + 学生名）
 router.get('/layouts/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM seat_layouts WHERE id = ?').get(Number(req.params.id));
-  if (!row) return res.json({ ok: false, error: '记录不存在' });
+  if (!row) return res.status(404).json({ ok: false, code: 'SEAT_LAYOUT_NOT_FOUND', error: '记录不存在' });
   let seats = [];
   try { seats = JSON.parse(row.seats_snapshot); } catch { /* 忽略 */ }
   const ids = seats.map(s => s.studentId).filter(v => v != null);

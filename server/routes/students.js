@@ -159,7 +159,7 @@ router.delete('/:id', (req, res) => {
 // 恢复
 router.post('/restore', (req, res) => {
   const { ids } = req.body || {};
-  if (!Array.isArray(ids) || ids.length === 0) return res.json({ ok: false, error: '未选择学生' });
+  if (!Array.isArray(ids) || ids.length === 0) return badRequest(res, '未选择学生');
   const skipped = [];
   let restored = 0;
   const tx = db.transaction(() => {
@@ -184,7 +184,7 @@ router.post('/restore', (req, res) => {
 // 彻底删除
 router.post('/purge', (req, res) => {
   const { ids } = req.body || {};
-  if (!Array.isArray(ids) || ids.length === 0) return res.json({ ok: false, error: '未选择学生' });
+  if (!Array.isArray(ids) || ids.length === 0) return badRequest(res, '未选择学生');
   for (const rawId of ids) {
     const id = Number(rawId);
     if (Number.isSafeInteger(id) && id > 0 && db.prepare('SELECT 1 FROM assessment_records WHERE student_id=? LIMIT 1').get(id)) {
@@ -252,7 +252,7 @@ router.post('/import', (req, res) => {
 // 学期存档：全班当前指标快照入历史
 router.post('/archive', (req, res) => {
   const { class_id, term } = req.body || {};
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  if (!class_id) return badRequest(res, '缺少班级');
   const t = term || `${new Date().getFullYear()}学年度`;
   const list = db.prepare(`
     SELECT id, height_cm, vision_left, vision_right, grade_level, is_myopia
@@ -298,7 +298,7 @@ router.get('/:id/metrics', (req, res) => {
 // 按学期统计平均身高/平均视力/近视率，数据来自「学期存档」快照。
 router.get('/class-metrics', (req, res) => {
   const { class_id } = req.query;
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  if (!class_id) return badRequest(res, '缺少班级');
   const rows = db.prepare(`
     SELECT m.term,
       ROUND(AVG(m.height_cm), 1) AS avg_height,

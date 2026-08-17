@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { positiveInt } from '../validation.js';
+import { badRequest, positiveInt } from '../validation.js';
 
 const router = Router();
 
@@ -31,7 +31,7 @@ router.get('/', (req, res) => {
 // 班级统计：某月沟通次数 + 涉及学生数
 router.get('/stats', (req, res) => {
   const { class_id, month } = req.query;
-  if (!class_id) return res.json({ ok: false, error: '缺少班级' });
+  if (!class_id) return badRequest(res, '缺少班级');
   const conds = ['c.student_id IN (SELECT id FROM students WHERE class_id = @class_id)'];
   const params = { class_id: Number(class_id) };
   if (month) { conds.push("substr(c.date, 1, 7) = @month"); params.month = month; }
@@ -48,10 +48,10 @@ router.get('/stats', (req, res) => {
 // 新增沟通记录
 router.post('/', (req, res) => {
   const { student_id, date, method, topic, result, remark } = req.body || {};
-  if (!student_id) return res.json({ ok: false, error: '请选择学生' });
-  if (!topic && !result && !method) return res.json({ ok: false, error: '请至少填写事由或结果' });
+  if (!student_id) return badRequest(res, '请选择学生');
+  if (!topic && !result && !method) return badRequest(res, '请至少填写事由或结果');
   const stu = db.prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL').get(Number(student_id));
-  if (!stu) return res.json({ ok: false, error: '学生不存在' });
+  if (!stu) return res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不存在' });
   const info = db.prepare(`
     INSERT INTO contacts (student_id, date, method, topic, result, remark)
     VALUES (?, ?, ?, ?, ?, ?)
