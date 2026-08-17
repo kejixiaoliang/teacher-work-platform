@@ -1,6 +1,6 @@
 {
   "name": "teacher-work",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "班主任教师工作台：班级/学生/座位/文档/值日管理（单机 Web 应用）",
   "type": "module",
@@ -36,7 +36,7 @@
     "vite": "^6.0.7"
   },
   "overrides": {
-    "nanoid": "3.3.17",
+    "nanoid": "3.3.18",
     "uuid": "11.1.1"
   }
 }
