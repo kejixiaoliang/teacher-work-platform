@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { badRequest, positiveInt, text } from '../validation.js';
+import { issueFileAccess, consumeFileAccess } from '../security/file-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const filesDir = getDataPaths().filesDir;
@@ -46,8 +47,11 @@ function hasSignature(ext, filePath) {
   if (['.jpg', '.jpeg'].includes(ext)) return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
   if (ext === '.png') return head.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   if (ext === '.gif') return ascii.startsWith('GIF87a') || ascii.startsWith('GIF89a');
+  if (ext === '.bmp') return ascii.startsWith('BM');
+  if (ext === '.webp') return ascii.startsWith('RIFF') && head.subarray(8, 12).toString('ascii') === 'WEBP';
   if (ext === '.pdf') return ascii.startsWith('%PDF-');
   if (['.zip', '.docx', '.xlsx', '.pptx'].includes(ext)) return head.subarray(0, 4).equals(Buffer.from([80, 75, 3, 4]));
+  if (['.doc', '.xls', '.ppt'].includes(ext)) return head.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
   if (ext === '.7z') return head.subarray(0, 6).equals(Buffer.from([55, 122, 188, 175, 39, 28]));
   if (ext === '.rar') return ascii.startsWith('Rar!');
   if (ext === '.wav') return ascii.startsWith('RIFF') && head.subarray(8, 12).toString('ascii') === 'WAVE';
@@ -91,7 +95,7 @@ function pickDoc(row) {
 
 // 上传（multipart：file + class_id + tag）
 router.post('/', upload.single('file'), (req, res) => {
-  if (!req.file) return res.json({ ok: false, error: '未收到文件' });
+  if (!req.file) return badRequest(res, '未收到文件');
   const { class_id, tag, name } = req.body || {};
   const original = decodeName(name || req.file.originalname);
   const ext = path.extname(original).toLowerCase();
@@ -113,7 +117,7 @@ router.post('/', upload.single('file'), (req, res) => {
     // 校验班级存在，避免写入孤立文件/脏数据
     if (!db.prepare('SELECT id FROM classes WHERE id = ?').get(classId)) {
       unlinkUploaded(req.file);
-      return res.json({ ok: false, error: '班级不存在或未指定' });
+      return res.status(404).json({ ok: false, code: 'CLASS_NOT_FOUND', error: '班级不存在或未指定' });
     }
     const info = db.prepare(`
       INSERT INTO documents (class_id, original_name, stored_name, category, size, mime, tag)
@@ -131,7 +135,7 @@ router.post('/', upload.single('file'), (req, res) => {
   } catch (e) {
     // 写入失败：清理已落盘文件，避免孤儿文件
     try { fs.unlinkSync(path.join(filesDir, req.file.filename)); } catch { /* 忽略 */ }
-    res.json({ ok: false, error: '保存失败：' + e.message });
+    res.status(500).json({ ok: false, code: 'DOCUMENT_SAVE_FAILED', error: '保存失败：' + e.message });
   }
 });
 
@@ -184,7 +188,7 @@ router.delete('/:id', (req, res) => {
 // 恢复
 router.post('/restore', (req, res) => {
   const { ids } = req.body || {};
-  if (!Array.isArray(ids) || !ids.length) return res.json({ ok: false, error: '未选择文件' });
+  if (!Array.isArray(ids) || !ids.length) return badRequest(res, '未选择文件');
   const tx = db.transaction(() => {
     for (const id of ids) db.prepare(`UPDATE documents SET deleted_at=NULL WHERE id=?`).run(Number(id));
   });
@@ -195,7 +199,7 @@ router.post('/restore', (req, res) => {
 // 彻底删除（含物理文件）
 router.post('/purge', (req, res) => {
   const { ids } = req.body || {};
-  if (!Array.isArray(ids) || !ids.length) return res.json({ ok: false, error: '未选择文件' });
+  if (!Array.isArray(ids) || !ids.length) return badRequest(res, '未选择文件');
   const tx = db.transaction(() => {
     for (const id of ids) {
       const row = db.prepare('SELECT stored_name FROM documents WHERE id = ?').get(Number(id));
@@ -210,8 +214,21 @@ router.post('/purge', (req, res) => {
 });
 
 // 文件流（?dl=1 下载；否则预览：图片/PDF/文本 inline）
+router.get('/:id/file-token', (req, res) => {
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
+  const row = db.prepare('SELECT id FROM documents WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!row) return res.status(404).json({ ok: false, code: 'DOCUMENT_NOT_FOUND', error: '文件不存在' });
+  res.json({ ok: true, data: issueFileAccess(id) });
+});
+
 router.get('/:id/file', (req, res) => {
-  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(Number(req.params.id));
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
+  if (req.oneTimeFileAccess && !consumeFileAccess(req.oneTimeFileAccess.token, id)) {
+    return res.status(401).json({ ok: false, code: 'FILE_ACCESS_EXPIRED', error: '文件访问授权已失效，请重新打开' });
+  }
+  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(id);
   if (!row || row.deleted_at) return res.status(404).json({ ok: false, error: '文件不存在' });
   const filePath = path.join(filesDir, row.stored_name);
   if (!fs.existsSync(filePath)) return res.status(404).json({ ok: false, error: '物理文件缺失' });
@@ -227,6 +244,8 @@ router.get('/:id/file', (req, res) => {
   const mime = SAFE_MIME[ext] || 'application/octet-stream';
   res.setHeader('Content-Type', mime);
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cache-Control', 'no-store');
   const encoded = encodeURIComponent(row.original_name).replace(/['()]/g, escape);
   // 可执行风险类型一律强制下载，不 inline 渲染（防存储型 XSS）
   const inlineSafe = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.pdf'].includes(ext);

@@ -104,11 +104,11 @@
     </el-dialog>
 
     <!-- 预览弹窗 -->
-    <el-dialog v-model="previewVisible" :title="current?.original_name" width="80%" top="4vh">
+    <el-dialog v-model="previewVisible" :title="current?.original_name" width="80%" top="4vh" @closed="releasePreviewUrl">
       <div v-if="current" class="preview-body">
-        <img v-if="current.category === '图片'" :src="api.documents.fileUrl(current.id)"
+        <img v-if="current.category === '图片'" :src="previewUrl"
              style="max-width:100%; max-height:72vh" />
-        <iframe v-else-if="current.category === 'PDF'" :src="api.documents.fileUrl(current.id)"
+        <iframe v-else-if="current.category === 'PDF'" :src="previewUrl"
                 style="width:100%; height:72vh; border:none" />
         <pre v-else class="text-preview">{{ textContent }}</pre>
       </div>
@@ -143,6 +143,7 @@ import { store } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 
 const { seq, isStale } = useSeqLoad();
+const previewUrl = ref('');
 
 const categories = ['图片', 'PDF', '文档', '表格', '演示', '文本', '其他'];
 /* 标签预设模板：上传/筛选时快速选用 */
@@ -257,19 +258,32 @@ async function preview(f) {
   current.value = f;
   previewVisible.value = true;
   textContent.value = '';
-  if (f.category === '文本') {
-    try {
-      const r = await fetch(api.documents.fileUrl(f.id));
-      textContent.value = await r.text();
-    } catch { textContent.value = '（读取失败）'; }
+  releasePreviewUrl();
+  try {
+    const blob = await api.documents.readFile(f.id);
+    if (f.category === '文本') textContent.value = await blob.text();
+    else previewUrl.value = URL.createObjectURL(blob);
+  } catch (error) {
+    textContent.value = '（读取失败）';
+    ElMessage.error(error.message);
   }
 }
-function download(f) {
-  const a = document.createElement('a');
-  a.href = api.documents.fileDl(f.id);
-  a.download = f.original_name;
-  a.click();
+async function download(f) {
+  try {
+    const blob = await api.documents.readFile(f.id, { download: true });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.original_name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (error) { ElMessage.error(error.message); }
 }
+function releasePreviewUrl() {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  previewUrl.value = '';
+}
+onBeforeUnmount(() => releasePreviewUrl());
 
 /* ---------- 重命名 / 删除 ---------- */
 function openRename(f) {

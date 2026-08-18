@@ -24,3 +24,12 @@ test('assessment view exposes rule management, batch scoring, and revision actio
     assert.match(view, new RegExp(text));
   }
 });
+
+test('assessment reloads discard stale class and period responses', () => {
+  const view = fs.readFileSync('web/src/views/Assessment.vue', 'utf8');
+  assert.match(view, /useSeqLoad/);
+  assert.match(view, /recordsSeq\.seq\(\)/);
+  assert.match(view, /statsSeq\.seq\(\)/);
+  assert.match(view, /recordsSeq\.isStale/);
+  assert.match(view, /statsSeq\.isStale/);
+});

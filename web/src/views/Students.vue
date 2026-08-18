@@ -683,10 +683,15 @@ async function batchDelete() {
   const ok = await ElMessageBox.confirm(`确定删除选中的 ${selected.value.length} 名学生？`, '批量删除', { type: 'warning' }).catch(() => false);
   if (!ok) return;
   try {
-    await Promise.all(selected.value.map(id => api.students.remove(id))); // 并行（P2-15）
-    ElMessage.success('已删除');
-  } catch (e) {
-    ElMessage.error('部分删除失败：' + e.message);
+    const results = await Promise.allSettled(selected.value.map(id => api.students.remove(id)));
+    const succeeded = results.filter(result => result.status === 'fulfilled').length;
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length) {
+      const firstError = failed[0].reason?.message || '未知错误';
+      ElMessage.warning(`删除成功 ${succeeded} 人，失败 ${failed.length} 人：${firstError}`);
+    } else {
+      ElMessage.success(`删除成功 ${succeeded} 人`);
+    }
   } finally {
     selected.value = [];
     load(); // 部分失败也要刷新，保持 UI 与服务器一致

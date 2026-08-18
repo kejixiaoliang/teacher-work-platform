@@ -218,12 +218,16 @@ async function removeGroup(no) {
   const ok = await ElMessageBox.confirm(`删除第 ${no} 组及其全部成员？`, '确认', { type: 'warning' }).catch(() => false);
   if (!ok) return;
   try {
-    // 并行删除（P2-15）
     const list = dutyList.value.filter(d => d.group_no === no);
-    await Promise.all(list.map(d => api.duties.remove(d.id)));
-    ElMessage.success('已删除');
-  } catch (e) {
-    ElMessage.error('部分删除失败：' + e.message);
+    const results = await Promise.allSettled(list.map(d => api.duties.remove(d.id)));
+    const succeeded = results.filter(result => result.status === 'fulfilled').length;
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length) {
+      const firstError = failed[0].reason?.message || '未知错误';
+      ElMessage.warning(`删除成功 ${succeeded} 条，失败 ${failed.length} 条：${firstError}`);
+    } else {
+      ElMessage.success(`删除成功 ${succeeded} 条`);
+    }
   } finally {
     load(); // 部分失败也要刷新，保持 UI 与服务器一致
   }

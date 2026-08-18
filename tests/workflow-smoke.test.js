@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { extractBackupArchive } from '../server/utils/backup-archive.js';
 
 test('核心教学工作流通过统一 API 完成持久化与备份', async () => {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-work-workflow-'));
@@ -75,8 +76,16 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     await expectStatus('POST', '/api/classes', {}, 400, 'INVALID_INPUT');
     await expectStatus('DELETE', '/api/classes/999999', {}, 404, 'CLASS_NOT_FOUND');
     await expectStatus('GET', '/api/seats?class_id=not-an-id', undefined, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/seats/auto', {}, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/seats/shift', {}, 400, 'INVALID_INPUT');
+    await expectStatus('GET', '/api/seats/layouts', undefined, 400, 'INVALID_INPUT');
     await expectStatus('PUT', '/api/seats', { classId: 999999, seats: [] }, 404, 'CLASS_NOT_FOUND');
     await expectStatus('GET', '/api/overview/alerts', undefined, 400, 'INVALID_INPUT');
+    await expectStatus('GET', '/api/leaves/today', undefined, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/documents/restore', { ids: [] }, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/documents/purge', { ids: [] }, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/students/restore', { ids: [] }, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/students/purge', { ids: [] }, 400, 'INVALID_INPUT');
     await expectStatus('POST', '/api/students', { name: '无班级' }, 400, 'INVALID_INPUT');
     await expectStatus('PUT', '/api/students/999999', { name: '不存在' }, 404, 'STUDENT_NOT_FOUND');
     await expectStatus('POST', '/api/students/import', { class_id: 999999, students: [{ name: '不存在' }] }, 400, 'INVALID_INPUT');
@@ -96,6 +105,14 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     });
     assert.equal(spoofedResponse.status, 400);
     assert.equal((await spoofedResponse.json()).code, 'INVALID_FILE_CONTENT');
+    const spoofedWebp = new FormData();
+    spoofedWebp.append('class_id', String(createdClass.id));
+    spoofedWebp.append('file', new Blob(['not a webp'], { type: 'image/webp' }), 'spoof.webp');
+    const spoofedWebpResponse = await fetch(`${running.baseUrl}/api/documents`, {
+      method: 'POST', headers: { 'x-teacher-work-token': token }, body: spoofedWebp,
+    });
+    assert.equal(spoofedWebpResponse.status, 400);
+    assert.equal((await spoofedWebpResponse.json()).code, 'INVALID_FILE_CONTENT');
 
     const documentForm = new FormData();
     documentForm.append('class_id', String(createdClass.id));
@@ -106,6 +123,12 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.equal(documentResponse.status, 200);
     const documentPayload = await documentResponse.json();
     assert.equal(documentPayload.ok, true);
+    const documentFileResponse = await fetch(`${running.baseUrl}/api/documents/${documentPayload.data.id}/file`, {
+      headers: { 'x-teacher-work-token': token },
+    });
+    assert.equal(documentFileResponse.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(documentFileResponse.headers.get('cache-control'), 'no-store');
+    await documentFileResponse.arrayBuffer();
     await request('DELETE', `/api/documents/${documentPayload.data.id}`);
     await expectStatus('PUT', '/api/documents/999999', { name: '不存在文件' }, 404, 'DOCUMENT_NOT_FOUND');
     const first = await request('POST', '/api/students', {
@@ -114,6 +137,9 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const second = await request('POST', '/api/students', {
       class_id: createdClass.id, school_no: '002', name: '乙同学', status: '在读',
     });
+    await expectStatus('POST', '/api/contacts', { student_id: first.id }, 400, 'INVALID_INPUT');
+    await expectStatus('POST', `/api/students/${first.id}/records`, { content: '' }, 400, 'INVALID_INPUT');
+    await expectStatus('POST', '/api/duties', { class_id: createdClass.id, student_id: first.id }, 400, 'INVALID_INPUT');
     await expectStatus('DELETE', '/api/leaves/999999', {}, 404, 'LEAVE_NOT_FOUND');
     await expectStatus('DELETE', '/api/duties/999999', {}, 404, 'DUTY_NOT_FOUND');
     await expectStatus('DELETE', `/api/students/${first.id}/records/999999`, {}, 404, 'RECORD_NOT_FOUND');
@@ -187,8 +213,15 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     assert.deepEqual(skippedScores.skipped, [{ studentId: 999999, subject: '语文', reason: '学生不属于该班级或已删除' }]);
     assert.equal((await request('GET', `/api/scores?exam_id=${exam.id}`)).length, 2);
 
-    const backup = await request('GET', '/api/backup/export');
+    const backupResponse = await fetch(`${running.baseUrl}/api/backup/export`, {
+      headers: { 'x-teacher-work-token': token },
+    });
+    assert.equal(backupResponse.status, 200);
+    const zipPath = path.join(dataDir, 'workflow-export.zip');
+    fs.writeFileSync(zipPath, Buffer.from(await backupResponse.arrayBuffer()));
+    const backup = (await extractBackupArchive(zipPath, path.join(dataDir, 'workflow-export'))).payload;
     assert.equal(backup.app, 'teacher-work');
+    assert.equal(backup.version, 2);
     assert.ok(backup.tables.find(item => item.table === 'classes').rows.length >= 1);
     assert.ok(backup.tables.find(item => item.table === 'students').rows.length >= 2);
     await expectBackupRejected({ app: 'teacher-work', version: 1, tables: [] });
@@ -199,6 +232,11 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const invalidRowBackup = structuredClone(backup);
     invalidRowBackup.tables.find(item => item.table === 'classes').rows[0].unexpected = true;
     await expectBackupRejected(invalidRowBackup);
+    const duplicateIdBackup = structuredClone(backup);
+    duplicateIdBackup.tables.find(item => item.table === 'classes').rows.push(
+      structuredClone(duplicateIdBackup.tables.find(item => item.table === 'classes').rows[0]),
+    );
+    await expectBackupRejected(duplicateIdBackup);
     assert.equal((await request('GET', '/api/classes')).length, 1);
   } finally {
     await running.close();

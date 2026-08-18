@@ -31,6 +31,29 @@ async function request(method, url, body) {
   return j.data;
 }
 
+async function requestBlob(method, url) {
+  const opts = { method, headers: {} };
+  const { apiToken } = getRuntimeConfig();
+  if (apiToken) opts.headers['x-teacher-work-token'] = apiToken;
+  const r = await fetch(toApiUrl(url), opts);
+  if (!r.ok) {
+    const j = await r.json().catch(() => null);
+    throw new Error((j && j.error) || `请求失败（${r.status}）`);
+  }
+  return r.blob();
+}
+
+async function requestMultipart(url, file) {
+  const form = new FormData();
+  form.append('backup', file);
+  const { apiToken } = getRuntimeConfig();
+  const headers = apiToken ? { 'x-teacher-work-token': apiToken } : {};
+  const r = await fetch(toApiUrl(url), { method: 'POST', headers, body: form });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j?.ok) throw new Error((j && j.error) || `请求失败（${r.status}）`);
+  return j.data;
+}
+
 function toQuery(q = {}) {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(q)) {
@@ -92,8 +115,15 @@ export const api = {
     remove: id => request('DELETE', `/api/documents/${id}`),
     restore: ids => request('POST', '/api/documents/restore', { ids }),
     purge: ids => request('POST', '/api/documents/purge', { ids }),
-    fileUrl: id => toApiUrl(`/api/documents/${id}/file`, true),
-    fileDl: id => toApiUrl(`/api/documents/${id}/file?dl=1`, true),
+    fileToken: id => request('GET', `/api/documents/${id}/file-token`),
+    readFile: async (id, { download = false } = {}) => {
+      const { token } = await request('GET', `/api/documents/${id}/file-token`);
+      const query = new URLSearchParams({ __token: token });
+      if (download) query.set('dl', '1');
+      const r = await fetch(toApiUrl(`/api/documents/${id}/file?${query}`));
+      if (!r.ok) throw new Error(`文件读取失败（${r.status}）`);
+      return r.blob();
+    },
   },
   duties: {
     list: q => request('GET', '/api/duties' + toQuery(q)),
@@ -176,9 +206,10 @@ export const api = {
     removeContact: (id, cid) => request('DELETE', `/api/students/${id}/contacts/${cid}`),
   },
   backup: {
-    export: () => request('GET', '/api/backup/export'),
+    export: () => requestBlob('GET', '/api/backup/export'),
     import: payload => request('POST', '/api/backup/import', payload),
-    exportClass: id => request('GET', `/api/backup/export-class/${id}`),
+    importFile: file => requestMultipart('/api/backup/import', file),
+    exportClass: id => requestBlob('GET', `/api/backup/export-class/${id}`),
   },
   overview: {
     alerts: classId => request('GET', `/api/overview/alerts?class_id=${classId}`),

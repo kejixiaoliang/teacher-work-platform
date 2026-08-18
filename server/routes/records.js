@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { badRequest } from '../validation.js';
 
 const router = Router();
 
 function hasStudent(id, res) {
   const s = db.prepare('SELECT id FROM students WHERE id = ?').get(Number(id));
-  if (!s) { res.json({ ok: false, error: '学生不存在' }); return false; }
+  if (!s) { res.status(404).json({ ok: false, code: 'STUDENT_NOT_FOUND', error: '学生不存在' }); return false; }
   return true;
 }
 
@@ -51,7 +52,7 @@ router.get('/:id/records', (req, res) => {
 router.post('/:id/records', (req, res) => {
   if (!hasStudent(req.params.id, res)) return;
   const { type, content, date, remark } = req.body || {};
-  if (!content || !String(content).trim()) return res.json({ ok: false, error: '记录内容不能为空' });
+  if (!content || !String(content).trim()) return badRequest(res, '记录内容不能为空');
   const info = db.prepare(`
     INSERT INTO student_records (student_id, type, content, date, remark) VALUES (?, ?, ?, ?, ?)
   `).run(Number(req.params.id), type || '表现', String(content).trim(), date || '', remark || '');
@@ -96,7 +97,7 @@ router.get('/:id/contacts', (req, res) => {
 router.post('/:id/contacts', (req, res) => {
   if (!hasStudent(req.params.id, res)) return;
   const { date, method, topic, result, remark } = req.body || {};
-  if (!topic && !result && !method) return res.json({ ok: false, error: '请至少填写事由或结果' });
+  if (!topic && !result && !method) return badRequest(res, '请至少填写事由或结果');
   const info = db.prepare(`
     INSERT INTO contacts (student_id, date, method, topic, result, remark) VALUES (?, ?, ?, ?, ?, ?)
   `).run(Number(req.params.id), date || '', method || '', topic || '', result || '', remark || '');
