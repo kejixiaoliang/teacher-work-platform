@@ -23,6 +23,7 @@ const router = Router();
 const TABLES = [
   'classes',
   'students',
+  'follow_up_tasks',
   'student_metrics_history',
   'assessment_categories',
   'assessment_items',
@@ -154,7 +155,7 @@ function clearFiles(root) {
   }
 }
 
-// 全量导出（含全部 13 张业务表，用于应用内备份）
+// 全量导出（含全部业务表，用于应用内备份）
 router.get('/export', async (req, res) => {
   try {
     const payload = fullPayload();
@@ -275,6 +276,7 @@ router.get('/export-class/:id', async (req, res) => {
       tables: [
         { table: 'classes', rows: [cls] },
         { table: 'students', rows: db.prepare(`SELECT * FROM students WHERE class_id = ?`).all(classId) },
+        { table: 'follow_up_tasks', rows: db.prepare(`SELECT * FROM follow_up_tasks WHERE class_id = ?`).all(classId) },
         { table: 'seats', rows: db.prepare(`SELECT * FROM seats WHERE class_id = ?`).all(classId) },
         { table: 'seat_layouts', rows: db.prepare(`SELECT * FROM seat_layouts WHERE class_id = ?`).all(classId) },
         { table: 'documents', rows: documents },

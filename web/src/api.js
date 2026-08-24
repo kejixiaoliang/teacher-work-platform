@@ -214,4 +214,13 @@ export const api = {
   overview: {
     alerts: classId => request('GET', `/api/overview/alerts?class_id=${classId}`),
   },
+  followUpTasks: {
+    list: q => request('GET', '/api/follow-up-tasks' + toQuery(q)),
+    create: d => request('POST', '/api/follow-up-tasks', d),
+    update: (id, d) => request('PUT', `/api/follow-up-tasks/${id}`, d),
+    remove: id => request('DELETE', `/api/follow-up-tasks/${id}`),
+  },
+  workbench: {
+    today: classId => request('GET', `/api/workbench/today?class_id=${classId}`),
+  },
 };

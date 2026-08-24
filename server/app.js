@@ -15,6 +15,8 @@ import contactsRouter from './routes/contacts.js';
 import backupRouter from './routes/backup.js';
 import overviewRouter from './routes/overview.js';
 import assessmentRouter from './routes/assessment.js';
+import followUpTasksRouter from './routes/follow-up-tasks.js';
+import workbenchRouter from './routes/workbench.js';
 import { hasFileAccess } from './security/file-access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,6 +65,8 @@ export function createApp({ apiToken = '' } = {}) {
   app.use('/api/backup', backupRouter);
   app.use('/api/overview', overviewRouter);
   app.use('/api/assessment', assessmentRouter);
+  app.use('/api/follow-up-tasks', followUpTasksRouter);
+  app.use('/api/workbench', workbenchRouter);
   app.use('/api', (err, req, res, next) => {
     console.error('[api error]', req.method, req.path, err.message);
     const safe = err.code === 'LIMIT_FILE_SIZE' ? '文件超过大小限制（200MB）'

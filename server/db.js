@@ -17,7 +17,7 @@ const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-export const DATABASE_VERSION = 4;
+export const DATABASE_VERSION = 5;
 const openingVersion = db.pragma('user_version', { simple: true });
 if (!isFreshDb && openingVersion < DATABASE_VERSION) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -76,6 +76,22 @@ CREATE TABLE IF NOT EXISTS students (
   updated_at TEXT DEFAULT (datetime('now','localtime'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_students_school_no ON students(school_no) WHERE school_no <> '' AND deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS follow_up_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+  due_date TEXT DEFAULT '',
+  result TEXT DEFAULT '',
+  source_type TEXT DEFAULT '',
+  source_id INTEGER,
+  created_at TEXT DEFAULT (datetime('now','localtime')),
+  updated_at TEXT DEFAULT (datetime('now','localtime')),
+  completed_at TEXT
+);
 
 CREATE TABLE IF NOT EXISTS student_metrics_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -256,6 +272,8 @@ CREATE TABLE IF NOT EXISTS assessment_record_revisions (
 
 -- 常用查询索引（P2-16）：必须在所有建表之后，否则全新库会报 no such table
 CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_id);
+CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_class_status ON follow_up_tasks(class_id, status, due_date);
+CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_student ON follow_up_tasks(student_id, status, due_date);
 CREATE INDEX IF NOT EXISTS idx_documents_class ON documents(class_id);
 CREATE INDEX IF NOT EXISTS idx_duties_class ON duties(class_id);
 CREATE INDEX IF NOT EXISTS idx_seat_layouts_class ON seat_layouts(class_id);
@@ -356,6 +374,29 @@ function migrate() {
     }
     db.pragma('user_version = 4');
     console.log('[migrate] 学生行为量化表迁移完成 → user_version 4');
+  }
+  if (db.pragma('user_version', { simple: true }) < 5) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS follow_up_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        content TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+        due_date TEXT DEFAULT '',
+        result TEXT DEFAULT '',
+        source_type TEXT DEFAULT '',
+        source_id INTEGER,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        completed_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_class_status ON follow_up_tasks(class_id, status, due_date);
+      CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_student ON follow_up_tasks(student_id, status, due_date);
+    `);
+    db.pragma('user_version = 5');
+    console.log('[migrate] 学生跟进事项表迁移完成 → user_version 5');
   }
 }
 migrate();
