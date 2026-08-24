@@ -238,7 +238,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Grid, Upload, Calendar, UserFilled, Camera, Download, Picture, Document, DocumentCopy, DataAnalysis, VideoCamera, Memo, Box } from '@element-plus/icons-vue';
 import { api } from '../api.js';
-import { store, currentClass } from '../store.js';
+import { store, currentClass, loadClasses } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 
 const { seq, isStale } = useSeqLoad();
@@ -453,9 +453,15 @@ async function restorePick(e) {
   restoreLoading.value = true;
   try {
     const r = isZip ? await api.backup.importFile(file) : await api.backup.import(payload);
-    ElMessage.success(`恢复成功：${r.classes} 个班级`);
-    await store.loadClasses();
-    load(); // 恢复后强制刷新首页（classId 可能未变，watch 不会触发）
+    try {
+      await loadClasses({ throwOnError: true });
+      await load(); // 恢复后强制刷新首页（classId 可能未变，watch 不会触发）
+      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+    } catch (refreshError) {
+      console.error('[backup/restore] refresh after restore failed', refreshError);
+      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+      ElMessage.warning('数据已恢复，但首页刷新失败，请刷新页面');
+    }
   } catch (err) {
     ElMessage.error('恢复失败：' + err.message);
   } finally {

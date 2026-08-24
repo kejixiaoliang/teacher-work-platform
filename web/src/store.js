@@ -17,10 +17,11 @@ watch(() => store.currentClassId, id => {
   else localStorage.removeItem('current-class-id');
 });
 
-export async function loadClasses() {
+export async function loadClasses({ throwOnError = false } = {}) {
   try {
     store.classes = await api.classes.list();
   } catch (e) {
+    if (throwOnError) throw e;
     // 启动失败兜底：保留空列表，避免应用崩溃（后续页面会各自提示）
     store.classes = [];
   }
