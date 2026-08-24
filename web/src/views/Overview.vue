@@ -28,6 +28,35 @@
       <div class="stat-chip"><b class="stat-num">{{ avgHeight }}</b><span class="stat-lbl">平均身高</span></div>
     </div>
 
+    <!-- V0.5.0 今日工作台：聚合可执行事项 -->
+    <div class="workbench-panel" v-if="workbenchToday" style="margin-bottom:16px">
+      <div class="alert-panel-head">
+        <span class="alert-panel-title">今日工作台</span>
+        <span class="text-muted">{{ workbenchToday.generatedAt }} · {{ workbenchToday.counts.pendingFollowUps }} 项跟进事项</span>
+      </div>
+      <div class="workbench-grid">
+        <div class="workbench-item" @click="go('/attendance')">
+          <b>今日考勤</b><strong>{{ workbenchToday.attendance.total }}</strong><span>人待确认</span>
+        </div>
+        <div class="workbench-item" @click="go('/leaves')">
+          <b>今日请假</b><strong>{{ workbenchToday.counts.leaves }}</strong><span>人</span>
+        </div>
+        <div class="workbench-item" @click="go('/duties')">
+          <b>值日安排</b><strong>{{ workbenchToday.counts.duties }}</strong><span>条</span>
+        </div>
+        <div class="workbench-item" @click="go('/scores')">
+          <b>近期考试</b><strong>{{ workbenchToday.counts.exams }}</strong><span>场</span>
+        </div>
+      </div>
+      <div v-if="workbenchToday.pendingFollowUps.length || workbenchToday.overdueFollowUps.length" class="workbench-tasks">
+        <div v-for="task in [...workbenchToday.overdueFollowUps, ...workbenchToday.pendingFollowUps].slice(0, 6)" :key="task.id" class="workbench-task" @click="goStudentTask(task)">
+          <el-tag size="small" round :type="task.due_date && task.due_date < workbenchToday.generatedAt ? 'danger' : 'warning'">{{ task.due_date && task.due_date < workbenchToday.generatedAt ? '已逾期' : '待跟进' }}</el-tag>
+          <b>{{ task.student_name }}</b><span>{{ task.title }}</span><small>{{ task.due_date || '无截止日期' }}</small>
+        </div>
+      </div>
+      <el-empty v-else description="今天没有待处理跟进事项" :image-size="40" />
+    </div>
+
     <!-- 智能预警中心（方向 4） -->
     <div class="alert-panel" v-if="alerts.total" style="margin-bottom:16px">
       <div class="alert-panel-head">
@@ -209,7 +238,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Grid, Upload, Calendar, UserFilled, Camera, Download, Picture, Document, DocumentCopy, DataAnalysis, VideoCamera, Memo, Box } from '@element-plus/icons-vue';
 import { api } from '../api.js';
-import { store, currentClass } from '../store.js';
+import { store, currentClass, loadClasses } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 
 const { seq, isStale } = useSeqLoad();
@@ -225,6 +254,7 @@ const recentContacts = ref([]);
 const todayAttendance = ref(null); // 今日考勤简况（B5）
 const latestExam = ref(null);     // 最近一次考试概况（B5）
 const alerts = ref({ total: 0, danger: 0, warning: 0, info: 0, alerts: [] }); // 预警中心（方向 4）
+const workbenchToday = ref(null);
 const week = ref(Number(localStorage.getItem('duty-week') || 1));
 
 /* 班级概况统计 */
@@ -278,7 +308,7 @@ onMounted(load);
 async function load() {
   if (!store.currentClassId) {
     seats.value = []; recentDocs.value = []; duties.value = []; students.value = [];
-    todayLeaves.value = []; recentContacts.value = []; todayAttendance.value = null; latestExam.value = null;
+    todayLeaves.value = []; recentContacts.value = []; todayAttendance.value = null; latestExam.value = null; workbenchToday.value = null;
     return;
   }
   const mySeq = seq();
@@ -288,7 +318,7 @@ async function load() {
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     // 竞态防护：多请求任一失败不整体丢弃（allSettled 逐项落值）
-    const [s, d2, dy, st, lv, ct, at, ex, al] = await Promise.allSettled([
+    const [s, d2, dy, st, lv, ct, at, ex, al, wb] = await Promise.allSettled([
       api.seats.get(store.currentClassId),
       api.documents.list({ class_id: store.currentClassId }),
       api.duties.list({ class_id: store.currentClassId }),
@@ -298,6 +328,7 @@ async function load() {
       api.attendance.get(store.currentClassId, today),
       api.scores.exams(store.currentClassId),
       api.overview.alerts(store.currentClassId),
+      api.workbench.today(store.currentClassId),
     ]);
     if (isStale(mySeq)) return;
     if (s.status === 'fulfilled') seats.value = s.value;
@@ -308,6 +339,7 @@ async function load() {
     if (ct.status === 'fulfilled') recentContacts.value = ct.value;
     // 预警中心
     if (al.status === 'fulfilled') alerts.value = al.value;
+    if (wb.status === 'fulfilled') workbenchToday.value = wb.value;
     // 今日考勤简况
     if (at.status === 'fulfilled') {
       const rows = at.value.rows || [];
@@ -349,6 +381,9 @@ function iconOf(c) {
 function go(p) { router.push(p); }
 function goStudentAlert(alert) {
   if (alert?.studentName) router.push({ path: '/students', query: { kw: alert.studentName } });
+}
+function goStudentTask(task) {
+  if (task?.student_name) router.push({ path: '/students', query: { kw: task.student_name } });
 }
 
 /* ---------- 数据管理 ---------- */
@@ -418,9 +453,15 @@ async function restorePick(e) {
   restoreLoading.value = true;
   try {
     const r = isZip ? await api.backup.importFile(file) : await api.backup.import(payload);
-    ElMessage.success(`恢复成功：${r.classes} 个班级`);
-    await store.loadClasses();
-    load(); // 恢复后强制刷新首页（classId 可能未变，watch 不会触发）
+    try {
+      await loadClasses({ throwOnError: true });
+      await load(); // 恢复后强制刷新首页（classId 可能未变，watch 不会触发）
+      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+    } catch (refreshError) {
+      console.error('[backup/restore] refresh after restore failed', refreshError);
+      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+      ElMessage.warning('数据已恢复，但首页刷新失败，请刷新页面');
+    }
   } catch (err) {
     ElMessage.error('恢复失败：' + err.message);
   } finally {
@@ -524,6 +565,23 @@ async function restorePick(e) {
 .alert-danger { background: var(--el-color-danger-light-9); }
 .alert-warning { background: var(--el-color-warning-light-9); }
 .alert-info { background: var(--el-color-info-light-9); }
+.workbench-panel {
+  background: #fff; border: 4px solid var(--ink); border-radius: 18px;
+  padding: 14px 16px; box-shadow: var(--shadow-sm);
+}
+.workbench-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; }
+.workbench-item {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; cursor: pointer;
+  background: var(--paper); border: 2px solid var(--ink); border-radius: 10px; padding: 9px 10px;
+}
+.workbench-item:hover, .workbench-task:hover { background: var(--mustard); }
+.workbench-item b { width: 100%; font-size: 12px; }
+.workbench-item strong { font-size: 22px; color: var(--tomato-deep); }
+.workbench-item span { color: var(--muted); font-size: 12px; }
+.workbench-tasks { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.workbench-task { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.workbench-task span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workbench-task small { color: var(--muted); }
 .ov-list { display: flex; flex-direction: column; gap: 4px; }
 .ov-item {
   display: flex; justify-content: space-between; align-items: center;
@@ -573,4 +631,8 @@ async function restorePick(e) {
 }
 .doc-item:hover { background: var(--mustard); }
 .doc-name { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 700px) {
+  .workbench-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+}
 </style>

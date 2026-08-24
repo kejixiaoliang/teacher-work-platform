@@ -228,6 +228,33 @@
               </div>
             </div>
           </el-tab-pane>
+          <el-tab-pane label="跟进事项" name="tasks">
+            <div class="profile-section-head">
+              <div>
+                <b>跟进事项</b>
+                <p>把需要持续处理的事情记录下来，并保留完成结果。</p>
+              </div>
+              <el-button size="small" type="primary" @click="openFollowUpTask()">新增事项</el-button>
+            </div>
+            <el-empty v-if="!followUpTasks.length" description="暂无跟进事项" :image-size="50" />
+            <div v-else class="record-list">
+              <div v-for="task in followUpTasks" :key="task.id" class="record-item">
+                <div class="record-card-head">
+                  <el-tag size="small" round :type="taskStatusType(task.status)">{{ taskStatusLabel(task.status) }}</el-tag>
+                  <b>{{ task.title }}</b>
+                  <span class="rec-meta">{{ task.due_date ? `截止 ${task.due_date}` : '未设置截止日期' }}</span>
+                </div>
+                <div>{{ task.content || '—' }}</div>
+                <div v-if="task.result" class="text-muted">处理结果：{{ task.result }}</div>
+                <div class="record-actions">
+                  <el-button v-if="task.status !== 'completed'" size="small" @click="completeFollowUpTask(task)">标记完成</el-button>
+                  <el-button v-if="task.status === 'completed'" size="small" @click="reopenFollowUpTask(task)">重新打开</el-button>
+                  <el-button size="small" @click="openFollowUpTask(task)">编辑</el-button>
+                  <el-button v-if="task.status !== 'cancelled'" size="small" type="danger" plain @click="cancelFollowUpTask(task)">取消</el-button>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
           <el-tab-pane label="基本信息" name="info">
             <el-descriptions :column="2" border size="small">
               <el-descriptions-item label="学号">{{ detail.school_no || '—' }}</el-descriptions-item>
@@ -323,6 +350,22 @@
         </el-tabs>
       </template>
     </el-drawer>
+
+    <el-dialog v-model="followUpDialogVisible" :title="followUpForm.id ? '编辑跟进事项' : '新增跟进事项'" width="520px" destroy-on-close>
+      <el-form :model="followUpForm" label-width="90px">
+        <el-form-item label="标题" required><el-input v-model="followUpForm.title" maxlength="120" show-word-limit /></el-form-item>
+        <el-form-item label="内容"><el-input v-model="followUpForm.content" type="textarea" :rows="3" maxlength="2000" show-word-limit /></el-form-item>
+        <el-form-item label="截止日期"><el-date-picker v-model="followUpForm.due_date" type="date" value-format="YYYY-MM-DD" clearable /></el-form-item>
+        <el-form-item v-if="followUpForm.id" label="状态">
+          <el-select v-model="followUpForm.status" style="width:180px">
+            <el-option label="待处理" value="pending" /><el-option label="跟进中" value="in_progress" />
+            <el-option label="已完成" value="completed" /><el-option label="已取消" value="cancelled" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="followUpForm.id" label="处理结果"><el-input v-model="followUpForm.result" type="textarea" :rows="2" maxlength="2000" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="followUpDialogVisible = false">取消</el-button><el-button type="primary" @click="saveFollowUpTask">保存</el-button></template>
+    </el-dialog>
 
     <el-dialog v-model="metricDialogVisible" title="记录本次测量" width="420px">
       <p class="metric-dialog-note">保存后会立即更新学生档案，并新增一条“手动测量”历史记录。</p>
@@ -468,6 +511,9 @@ const recordDialogVisible = ref(false);
 const recordForm = ref({ id: null, type: '表现', content: '', date: '', remark: '' });
 const contactDialogVisible = ref(false);
 const contactForm = ref({ id: null, date: '', method: '电话', topic: '', result: '', remark: '' });
+const followUpTasks = ref([]);
+const followUpDialogVisible = ref(false);
+const followUpForm = ref({ id: null, title: '', content: '', due_date: '', status: 'pending', result: '' });
 
 const importVisible = ref(false);
 const parsed = ref([]);
@@ -508,6 +554,7 @@ watch(() => store.currentClassId, () => {
   recordDialogVisible.value = false;
   contactDialogVisible.value = false;
   metricDialogVisible.value = false;
+  followUpDialogVisible.value = false;
 });
 
 watch(() => store.currentClassId, load);
@@ -531,6 +578,37 @@ function openDetail(row) {
   api.records.list(row.id).then(r => { if (!detailSeq.isStale(mySeq)) records.value = r; }).catch(() => {});
   api.records.contacts(row.id).then(c => { if (!detailSeq.isStale(mySeq)) contacts.value = c; }).catch(() => {});
   api.records.timeline(row.id).then(t => { if (!detailSeq.isStale(mySeq)) timeline.value = t; }).catch(() => {});
+  api.followUpTasks.list({ student_id: row.id }).then(tasks => { if (!detailSeq.isStale(mySeq)) followUpTasks.value = tasks; }).catch(() => {});
+}
+function taskStatusLabel(status) { return { pending: '待处理', in_progress: '跟进中', completed: '已完成', cancelled: '已取消' }[status] || status; }
+function taskStatusType(status) { return { pending: 'warning', in_progress: 'primary', completed: 'success', cancelled: 'info' }[status] || 'info'; }
+function openFollowUpTask(task) {
+  followUpForm.value = task
+    ? { id: task.id, title: task.title || '', content: task.content || '', due_date: task.due_date || '', status: task.status, result: task.result || '' }
+    : { id: null, title: '', content: '', due_date: '', status: 'pending', result: '' };
+  followUpDialogVisible.value = true;
+}
+async function saveFollowUpTask() {
+  if (!followUpForm.value.title.trim()) return ElMessage.warning('请填写跟进事项标题');
+  try {
+    if (followUpForm.value.id) await api.followUpTasks.update(followUpForm.value.id, followUpForm.value);
+    else await api.followUpTasks.create({ class_id: store.currentClassId, student_id: detail.value.id, ...followUpForm.value });
+    followUpTasks.value = await api.followUpTasks.list({ student_id: detail.value.id });
+    followUpDialogVisible.value = false;
+    ElMessage.success('跟进事项已保存');
+  } catch (e) { ElMessage.error('保存跟进事项失败：' + e.message); }
+}
+async function updateFollowUpTask(task, patch) {
+  try {
+    await api.followUpTasks.update(task.id, patch);
+    followUpTasks.value = await api.followUpTasks.list({ student_id: detail.value.id });
+  } catch (e) { ElMessage.error('更新跟进事项失败：' + e.message); }
+}
+function completeFollowUpTask(task) { updateFollowUpTask(task, { status: 'completed', result: task.result || '已完成' }); }
+function reopenFollowUpTask(task) { updateFollowUpTask(task, { status: 'in_progress' }); }
+async function cancelFollowUpTask(task) {
+  const ok = await ElMessageBox.confirm(`确定取消「${task.title}」？`, '确认', { type: 'warning' }).catch(() => false);
+  if (ok) updateFollowUpTask(task, { status: 'cancelled' });
 }
 function timelineLabel(type) { return { record: '成长记录', contact: '家校沟通', metrics: '健康快照' }[type] || '档案'; }
 function timelineType(type) { return { record: 'warning', contact: 'info', metrics: 'success' }[type] || ''; }
@@ -662,9 +740,10 @@ async function saveEdit() {
     editVisible.value = false;
     await load();
     if (f.id && detailVisible.value && detail.value.id === f.id) {
-      detail.value = { ...detail.value, ...f };
+  detail.value = { ...detail.value, ...f };
       metrics.value = await api.students.metrics(f.id);
       timeline.value = await api.records.timeline(f.id);
+      followUpTasks.value = await api.followUpTasks.list({ student_id: f.id });
     }
   } catch (e) { ElMessage.error(e.message); }
 }

@@ -27,6 +27,6 @@ test('creates a recovery backup before upgrading an old database', async () => {
   const backups = fs.readdirSync(path.join(dataDir, 'backups'), { recursive: true });
   assert.ok(backups.some(name => path.basename(name) === 'teacher.db'));
   const migrated = new Database(file, { readonly: true });
-  assert.equal(migrated.pragma('user_version', { simple: true }), 4);
+  assert.equal(migrated.pragma('user_version', { simple: true }), 5);
   migrated.close();
 });

@@ -6,7 +6,7 @@
 
 支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机。
 
-[![Version](https://img.shields.io/badge/version-0.4.2-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2)
+[![Version](https://img.shields.io/badge/version-0.5.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0)
 ![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=white)
 ![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)
@@ -16,7 +16,7 @@
 
 ## 下载最新版
 
-当前稳定版本为 **v0.4.2**。
+当前开发版本为 **v0.5.0**，稳定版本为 **v0.4.2**。
 
 - [下载教师工作台 v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2)
 - [查看历史版本 v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0)
@@ -237,6 +237,7 @@ npm run qa:portable -- -ZipPath 'release\教师工作台-v0.4.2-windows-x64-port
 
 | 版本 | 状态 | 说明 |
 | --- | --- | --- |
+| [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | 开发中 | 班主任今日工作台、结构化跟进事项和首页工作流聚合 |
 | [v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2) | Latest | 完整备份恢复、附件迁移、一次性文件授权与 Blob 预览下载 |
 | [v0.4.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0) | 历史 | 学生表现量化、值日组精准记分、统计可视化、规则启用停用闭环与操作列优化 |
 | [v0.2.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0) | 历史 | 统一 Web 与 EXE 版本和业务代码，完善座位拖拽、班级前置校验、数据库迁移备份与便携 QA |

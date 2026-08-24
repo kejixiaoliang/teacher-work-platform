@@ -23,6 +23,9 @@ test('exports and restores database plus document files as a zip', async () => {
   };
   try {
     const cls = await json('POST', '/api/classes', { name: '备份附件班', seat_rows: 1, seat_cols: 1 });
+    const student = await json('POST', '/api/students', {
+      class_id: cls.data.id, school_no: '001', name: '恢复校验学生', status: '在读',
+    });
     const form = new FormData();
     form.append('class_id', String(cls.data.id));
     form.append('file', new Blob(['backup attachment']), '附件.txt');
@@ -49,7 +52,30 @@ test('exports and restores database plus document files as a zip', async () => {
       method: 'POST', headers: { 'x-teacher-work-token': token }, body: restoreForm,
     });
     assert.equal(restored.status, 200);
+    const restoredBody = await restored.json();
+    assert.equal(restoredBody.ok, true);
+    assert.equal(restoredBody.data.classes, 1);
+    const classesAfterRestore = await json('GET', '/api/classes');
+    assert.equal(classesAfterRestore.data.length, 1);
+    assert.equal(classesAfterRestore.data[0].name, '备份附件班');
     assert.equal(fs.readFileSync(path.join(dataDir, 'files', storedName), 'utf8'), 'backup attachment');
+    const snapshots = fs.readdirSync(path.join(dataDir, 'backups')).filter(name => name.endsWith('.db'));
+    assert.ok(snapshots.length >= 1, '恢复前应保留数据库快照');
+
+    const invalidPayload = structuredClone(extracted.payload);
+    const restoredStudent = invalidPayload.tables.find(t => t.table === 'students').rows.find(row => row.id === student.data.id);
+    restoredStudent.class_id = 999999;
+    const invalidRestore = await fetch(`${running.baseUrl}/api/backup/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
+      body: JSON.stringify(invalidPayload),
+    });
+    assert.equal(invalidRestore.status, 500);
+    assert.match((await invalidRestore.json()).error, /恢复失败/);
+    const classesAfterRejectedRestore = await json('GET', '/api/classes');
+    assert.equal(classesAfterRejectedRestore.data[0].name, '备份附件班');
+    const studentsAfterRejectedRestore = await json('GET', `/api/students?class_id=${cls.data.id}`);
+    assert.equal(studentsAfterRejectedRestore.data[0].name, '恢复校验学生');
   } finally {
     await running.close();
   }

@@ -48,7 +48,13 @@ async function requestMultipart(url, file) {
   form.append('backup', file);
   const { apiToken } = getRuntimeConfig();
   const headers = apiToken ? { 'x-teacher-work-token': apiToken } : {};
-  const r = await fetch(toApiUrl(url), { method: 'POST', headers, body: form });
+  let r;
+  try {
+    r = await fetch(toApiUrl(url), { method: 'POST', headers, body: form });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw new Error('恢复请求超时，请检查程序状态后重试');
+    throw new Error('无法连接到本地服务，请确认程序仍在运行');
+  }
   const j = await r.json().catch(() => null);
   if (!r.ok || !j?.ok) throw new Error((j && j.error) || `请求失败（${r.status}）`);
   return j.data;
@@ -213,5 +219,14 @@ export const api = {
   },
   overview: {
     alerts: classId => request('GET', `/api/overview/alerts?class_id=${classId}`),
+  },
+  followUpTasks: {
+    list: q => request('GET', '/api/follow-up-tasks' + toQuery(q)),
+    create: d => request('POST', '/api/follow-up-tasks', d),
+    update: (id, d) => request('PUT', `/api/follow-up-tasks/${id}`, d),
+    remove: id => request('DELETE', `/api/follow-up-tasks/${id}`),
+  },
+  workbench: {
+    today: classId => request('GET', `/api/workbench/today?class_id=${classId}`),
   },
 };
