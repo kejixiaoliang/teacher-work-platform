@@ -16,9 +16,9 @@
 
 ## 下载最新版
 
-当前开发版本为 **v0.5.0**，稳定版本为 **v0.4.2**。
+当前最新稳定版本为 **v0.5.0**。
 
-- [下载教师工作台 v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2)
+- [下载教师工作台 v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0)
 - [查看历史版本 v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0)
 
 普通用户请从 GitHub Releases 下载 Windows x64 绿色便携 ZIP。使用发布包不需要安装 Node.js、Rust，也不需要运行安装器。
@@ -27,8 +27,8 @@
 
 ## 快速开始
 
-1. 打开 [v0.4.2 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2)。
-2. 下载 `教师工作台-v0.4.2-windows-x64-portable.zip`。
+1. 打开 [v0.5.0 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0)。
+2. 下载 `teacher-work-v0.5.0-windows-x64-portable.zip`（Release 页面显示的中文标签为“教师工作台-v0.5.0-windows-x64-portable.zip”）。
 3. 将整个 ZIP 解压到桌面、文档目录或其他有写入权限的位置。
 4. 保持 EXE、`resources`、`data`、`backup` 和 `logs` 的相对位置不变。
 5. 双击“教师工作台.exe”。
@@ -211,7 +211,7 @@ npm run package:portable
 `tauri dev` 能启动不代表发布完成。最终验收对象必须是 Release EXE 和 GitHub Release 使用的 ZIP。
 
 ```powershell
-npm run qa:portable -- -ZipPath 'release\教师工作台-v0.4.2-windows-x64-portable.zip'
+npm run qa:portable -- -ZipPath 'release\教师工作台-v0.5.0-windows-x64-portable.zip'
 ```
 
 发布前至少检查以下场景。
@@ -237,8 +237,8 @@ npm run qa:portable -- -ZipPath 'release\教师工作台-v0.4.2-windows-x64-port
 
 | 版本 | 状态 | 说明 |
 | --- | --- | --- |
-| [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | 开发中 | 班主任今日工作台、结构化跟进事项和首页工作流聚合 |
-| [v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2) | Latest | 完整备份恢复、附件迁移、一次性文件授权与 Blob 预览下载 |
+| [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | Latest | 班主任今日工作台、结构化跟进事项和首页工作流聚合 |
+| [v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2) | 历史 | 完整备份恢复、附件迁移、一次性文件授权与 Blob 预览下载 |
 | [v0.4.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0) | 历史 | 学生表现量化、值日组精准记分、统计可视化、规则启用停用闭环与操作列优化 |
 | [v0.2.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0) | 历史 | 统一 Web 与 EXE 版本和业务代码，完善座位拖拽、班级前置校验、数据库迁移备份与便携 QA |
 | [v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0) | 历史版本 | 首个 Windows x64 绿色便携版本 |
