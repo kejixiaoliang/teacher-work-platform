@@ -18,11 +18,14 @@ import assessmentRouter from './routes/assessment.js';
 import followUpTasksRouter from './routes/follow-up-tasks.js';
 import workbenchRouter from './routes/workbench.js';
 import { hasFileAccess } from './security/file-access.js';
+import { createAccessRouter } from './routes/access-control.js';
+import { DEFAULT_MODULE_POLICIES } from './access-control.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export function createApp({ apiToken = '' } = {}) {
+export function createApp({ apiToken = '', accessController = null } = {}) {
   const app = express();
+  const sessions = new Set();
   app.use(express.json({ limit: '50mb' }));
   app.use('/api', (req, res, next) => {
     const origin = req.get('origin');
@@ -40,6 +43,22 @@ export function createApp({ apiToken = '' } = {}) {
     }
     next();
   });
+  if (accessController) {
+    app.use('/api/access', createAccessRouter({ controller: accessController, sessions }));
+    app.use('/api', (req, res, next) => {
+      if (!accessController.hasPassword()) return next();
+      accessController.touchActivity();
+      req.classroomMode = accessController.getMode() === 'classroom';
+      const pathModule = req.path.split('/').filter(Boolean)[0];
+      const module = pathModule === 'students' && req.path.startsWith('/students/') ? 'students' : pathModule;
+      const supportingRead = req.method === 'GET'
+        && ((module === 'students' && (req.path === '/students' || req.path === '/students/'))
+          || (module === 'classes' && (req.path === '/classes' || req.path === '/classes/')));
+      if (supportingRead) return next();
+      if (!DEFAULT_MODULE_POLICIES[module] || accessController.isAllowed(module)) return next();
+      return res.status(403).json({ ok: false, code: 'MODULE_LOCKED', error: '当前模块需要教师授权' });
+    });
+  }
   app.use('/api', (req, res, next) => {
     if (!apiToken) return next();
     const headerToken = req.get('x-teacher-work-token');

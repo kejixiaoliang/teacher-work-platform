@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-use tauri::{Manager, State};
+use tauri::{Manager, State, WindowEvent};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -123,7 +123,7 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         api_token: token,
         data_dir: data_dir.to_string_lossy().into_owned(),
         app_version: env!("CARGO_PKG_VERSION").into(),
-        database_version: 5,
+            database_version: 6,
     };
     Ok((child, bootstrap))
 }
@@ -135,16 +135,50 @@ pub fn run() {
             bootstrap,
             child: Mutex::new(child),
         })
-        .invoke_handler(tauri::generate_handler![desktop_bootstrap])
-        .build(tauri::generate_context!())
-        .expect("failed to build application")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Some(state) = app.try_state::<DesktopState>() {
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                if let Some(state) = window.app_handle().try_state::<DesktopState>() {
                     if let Ok(mut child) = state.child.lock() {
                         let _ = child.kill();
                     }
                 }
+                window.app_handle().exit(0);
+                std::process::exit(0);
+            }
+        })
+        .invoke_handler(tauri::generate_handler![desktop_bootstrap])
+        .build(tauri::generate_context!())
+        .expect("failed to build application")
+        .run(|app, event| {
+            match event {
+                tauri::RunEvent::WindowEvent {
+                    event: WindowEvent::CloseRequested { .. },
+                    ..
+                } => {
+                    if let Some(state) = app.try_state::<DesktopState>() {
+                        if let Ok(mut child) = state.child.lock() {
+                            let _ = child.kill();
+                        }
+                    }
+                    app.exit(0);
+                    std::process::exit(0);
+                }
+                    tauri::RunEvent::Exit => {
+                        if let Some(state) = app.try_state::<DesktopState>() {
+                            if let Ok(mut child) = state.child.lock() {
+                                let _ = child.kill();
+                            }
+                        }
+                    }
+                    tauri::RunEvent::ExitRequested { .. } => {
+                        if let Some(state) = app.try_state::<DesktopState>() {
+                            if let Ok(mut child) = state.child.lock() {
+                                let _ = child.kill();
+                            }
+                        }
+                        std::process::exit(0);
+                    }
+                    _ => {}
             }
         });
 }

@@ -17,7 +17,7 @@ const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-export const DATABASE_VERSION = 5;
+export const DATABASE_VERSION = 6;
 const openingVersion = db.pragma('user_version', { simple: true });
 if (!isFreshDb && openingVersion < DATABASE_VERSION) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS classes (
   head_teacher TEXT DEFAULT '',
   remark TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now','localtime')),
+  updated_at TEXT DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',
   updated_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
@@ -398,6 +404,17 @@ function migrate() {
     db.pragma('user_version = 5');
     console.log('[migrate] 学生跟进事项表迁移完成 → user_version 5');
   }
+  if (db.pragma('user_version', { simple: true }) < 6) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL DEFAULT '',
+        updated_at TEXT DEFAULT (datetime('now','localtime'))
+      );
+    `);
+    db.pragma('user_version = 6');
+    console.log('[migrate] 访问控制设置表迁移完成 → user_version 6');
+  }
 }
 migrate();
 
@@ -446,6 +463,18 @@ export function seedIfEmpty() {
   });
   tx();
   console.log('[seed] 已写入示例班级与 20 名学生');
+}
+
+export function getAppSetting(key, fallback = '') {
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key);
+  return row?.value ?? fallback;
+}
+
+export function setAppSetting(key, value) {
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, datetime('now','localtime'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(key, String(value ?? ''));
 }
 
 export default db;

@@ -4,9 +4,9 @@
 
 面向班主任的本地班级管理工具
 
-支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机。
+支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机；v0.6.0 新增班级隐私模式和教师密码保护。
 
-[![Version](https://img.shields.io/badge/version-0.5.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0)
+[![Version](https://img.shields.io/badge/version-0.6.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.6.0)
 ![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=white)
 ![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)

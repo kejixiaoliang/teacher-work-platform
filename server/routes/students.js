@@ -22,6 +22,10 @@ function pickStudent(row) {
   return o;
 }
 
+function pickClassroomStudent(row) {
+  return { id: row.id, class_id: row.class_id, name: row.name, gender: row.gender, status: row.status };
+}
+
 function sameMetricValue(before, after) {
   const empty = value => value === null || value === undefined || value === '';
   if (empty(before) || empty(after)) return empty(before) && empty(after);
@@ -68,7 +72,7 @@ router.get('/', (req, res) => {
     WHERE ${conds.join(' AND ')}
     ORDER BY s.deleted_at IS NOT NULL, s.status='在读' DESC, CAST(s.school_no AS INTEGER), s.school_no, s.id
   `).all(params);
-  res.json({ ok: true, data: rows.map(pickStudent) });
+  res.json({ ok: true, data: rows.map(req.classroomMode ? pickClassroomStudent : pickStudent) });
 });
 
 // 新增

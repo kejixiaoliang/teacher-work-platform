@@ -26,7 +26,10 @@ router.get('/', (req, res) => {
       (SELECT COUNT(*) FROM seats t WHERE t.class_id = c.id AND t.student_id IS NOT NULL) AS seated_count
     FROM classes c ORDER BY c.id DESC
   `).all();
-  res.json({ ok: true, data: rows });
+  const data = req.classroomMode
+    ? rows.map(row => ({ id: row.id, name: row.name, student_count: row.student_count, seated_count: row.seated_count }))
+    : rows;
+  res.json({ ok: true, data });
 });
 
 // 新建班级

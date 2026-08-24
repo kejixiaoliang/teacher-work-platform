@@ -70,6 +70,19 @@ function toQuery(q = {}) {
 }
 
 export const api = {
+  access: {
+    status: () => request('GET', '/api/access/status'),
+    setupPassword: password => request('POST', '/api/access/password', { password }),
+    changePassword: (oldPassword, newPassword) => request('POST', '/api/access/password/change', { oldPassword, newPassword }),
+    switchMode: (mode, password) => request('POST', '/api/access/mode', { mode, password }),
+    enableClassroomMode: () => request('POST', '/api/access/classroom-mode', {}),
+    enterTeacherSession: password => request('POST', '/api/access/teacher-session', { password }),
+    leaveTeacherSession: () => request('DELETE', '/api/access/teacher-session'),
+    resetPassword: (recoveryKey, nextPassword) => request('POST', '/api/access/password/reset', { recoveryKey, nextPassword }),
+    unlockModule: (module, password) => request('POST', '/api/access/unlock-module', { module, password }),
+    setPolicies: policies => request('PUT', '/api/access/policies', { policies }),
+    lock: () => request('POST', '/api/access/lock', {}),
+  },
   classes: {
     list: () => request('GET', '/api/classes'),
     create: d => request('POST', '/api/classes', d),

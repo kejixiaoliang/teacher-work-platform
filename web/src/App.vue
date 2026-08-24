@@ -74,6 +74,12 @@
           <span class="title-dot"></span>{{ $route.meta.title }}
         </div>
         <div class="topbar-right">
+          <el-tag :type="accessState.mode === 'teacher' ? 'success' : 'warning'" effect="dark">
+            {{ accessState.mode === 'teacher' ? '教师模式' : '班级公开模式' }}
+          </el-tag>
+          <el-button v-if="!accessState.configured" size="small" type="primary" @click="openAccessDialog('setup')">设置教师密码</el-button>
+          <el-button v-else-if="accessState.mode === 'teacher'" size="small" type="warning" @click="openAccessDialog('classroom')">开启班级公开模式</el-button>
+          <el-button v-else size="small" type="primary" @click="openAccessDialog('teacher')">教师入口</el-button>
           <el-input v-model="globalKw" placeholder="搜索：学生/文档/请假/沟通" clearable style="width:230px"
                     :prefix-icon="Search" @keyup.enter="openGlobalSearch" @clear="openGlobalSearch" @focus="openGlobalSearch" />
           <template v-if="store.classes.length > 1">
@@ -142,6 +148,19 @@
         <el-button type="primary" @click="go('/students')">前往学生管理</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="accessDialogVisible" :title="accessDialogTitle" width="420px" destroy-on-close>
+      <p class="text-muted">{{ accessTargetMode === 'setup' ? '首次开启班级公开模式前，需要先设置教师主密码。' : accessTargetMode === 'classroom' ? '开启后，成绩、家校沟通等隐私模块将暂时隐藏。' : '请输入教师主密码进入教师工作台。' }}</p>
+      <template v-if="accessTargetMode === 'setup'">
+        <el-input v-model="accessPassword" type="password" show-password autofocus placeholder="教师主密码" @keyup.enter="submitAccessAction" />
+        <el-input v-model="accessPasswordConfirm" type="password" show-password style="margin-top:12px" placeholder="确认教师主密码" @keyup.enter="submitAccessAction" />
+      </template>
+      <el-input v-else-if="accessTargetMode === 'teacher'" v-model="accessPassword" type="password" show-password autofocus placeholder="教师主密码" @keyup.enter="submitAccessAction" />
+      <template #footer>
+        <el-button @click="accessDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="accessLoading" @click="submitAccessAction">确认</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
@@ -155,13 +174,53 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from './api.js';
 import { store, currentClass, loadClasses } from './store.js';
+import { accessState, refreshAccessStatus, setupPassword, startAutoLockMonitor, switchMode } from './accessControl.js';
 
 const route = useRoute();
 const router = useRouter();
 const menuRef = ref(null);
 const globalKw = ref('');
 
-onMounted(loadClasses);
+onMounted(async () => {
+  await Promise.allSettled([loadClasses(), refreshAccessStatus()]);
+  startAutoLockMonitor();
+});
+
+const accessDialogVisible = ref(false);
+const accessPassword = ref('');
+const accessPasswordConfirm = ref('');
+const accessLoading = ref(false);
+const accessTargetMode = ref('teacher');
+const accessDialogTitle = computed(() => accessTargetMode.value === 'setup' ? '设置教师主密码' : accessTargetMode.value === 'teacher' ? '进入教师工作台' : '开启班级公开模式');
+
+function openAccessDialog(mode) {
+  accessTargetMode.value = mode;
+  accessPassword.value = '';
+  accessPasswordConfirm.value = '';
+  accessDialogVisible.value = true;
+}
+
+async function submitAccessAction() {
+  if (accessTargetMode.value === 'setup' && accessPassword.value !== accessPasswordConfirm.value) return ElMessage.warning('两次输入的密码不一致');
+  if (accessTargetMode.value !== 'classroom' && !accessPassword.value) return ElMessage.warning('请输入教师主密码');
+  accessLoading.value = true;
+  try {
+    const result = accessTargetMode.value === 'setup'
+      ? await setupPassword(accessPassword.value)
+      : await switchMode(accessTargetMode.value, accessPassword.value);
+    accessDialogVisible.value = false;
+    await router.replace('/overview');
+    if (accessTargetMode.value === 'setup' && result.recoveryKey) {
+      try { await navigator.clipboard?.writeText(result.recoveryKey); } catch {}
+      await ElMessageBox.alert(`请立即保存恢复密钥：\n${result.recoveryKey}\n\n恢复密钥只显示这一次，可用于重置教师主密码。`, '请保存密码恢复密钥', { confirmButtonText: '我已保存' });
+    }
+    ElMessage.success(accessTargetMode.value === 'teacher' ? '已进入教师工作台' : accessTargetMode.value === 'classroom' ? '已开启班级公开模式' : '教师密码设置成功');
+  } catch (e) {
+    ElMessage.error(e.message);
+  } finally {
+    accessLoading.value = false;
+  }
+}
 
 // 非菜单导航（如首页快捷入口）后，菜单高亮跟随路由
 watch(() => route.path, p => {

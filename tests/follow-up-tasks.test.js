@@ -48,7 +48,7 @@ test('v5 creates follow-up task table and preserves it on restart', async () => 
   await stopServer(server.child);
 
   const db = new Database(path.join(dataDir, 'teacher.db'), { readonly: true });
-  assert.equal(db.pragma('user_version', { simple: true }), 5);
+  assert.equal(db.pragma('user_version', { simple: true }), 6);
   assert.deepEqual(db.prepare("PRAGMA table_info(follow_up_tasks)").all().map(column => column.name), [
     'id', 'class_id', 'student_id', 'title', 'content', 'status', 'due_date', 'result',
     'source_type', 'source_id', 'created_at', 'updated_at', 'completed_at',
