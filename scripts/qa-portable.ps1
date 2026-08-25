@@ -17,6 +17,7 @@ $process.Refresh()
 $windowDeadline = (Get-Date).AddSeconds(30)
 while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $windowDeadline) { Start-Sleep -Milliseconds 500; $process.Refresh() }
 if ($process.MainWindowHandle -eq 0) { throw 'Main window did not become ready' }
+Start-Sleep -Seconds 5
 if (-not $process.CloseMainWindow()) { throw 'Unable to request a normal window close' }
 if (-not $process.WaitForExit(10000)) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'Main app did not exit after closing its window' }
 Start-Sleep -Seconds 2

@@ -10,6 +10,32 @@
       </div>
     </div>
 
+    <el-card class="privacy-panel" shadow="never">
+      <template #header>
+        <div class="privacy-head">
+          <div>
+            <b>隐私与访问控制</b>
+            <p>设置班级电脑可使用的模块。教师模式闲置 30 分钟后会自动回到班级模式。</p>
+          </div>
+          <el-tag :type="accessState.mode === 'teacher' ? 'success' : 'warning'">
+            {{ accessState.mode === 'teacher' ? '教师模式' : '班级模式' }}
+          </el-tag>
+        </div>
+      </template>
+      <div class="privacy-actions">
+      <el-button size="small" @click="passwordDialogVisible = true">修改教师主密码</el-button>
+      <el-button size="small" text @click="recoveryDialogVisible = true">忘记密码</el-button>
+        <span class="text-muted">班级模式开放模块</span>
+      </div>
+      <el-checkbox-group v-model="openModules" class="module-checks">
+        <el-checkbox v-for="item in configurableModules" :key="item.key" :label="item.key">{{ item.label }}</el-checkbox>
+      </el-checkbox-group>
+      <div class="privacy-footer">
+        <span class="text-muted">自动回锁：30 分钟无操作</span>
+        <el-button type="primary" size="small" :loading="policySaving" @click="savePolicies">保存隐私设置</el-button>
+      </div>
+    </el-card>
+
     <el-table :data="store.classes" stripe>
       <el-table-column prop="name" label="班级名称" width="150">
         <template #default="{ row }">
@@ -62,18 +88,104 @@
         <el-button type="primary" @click="save">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="passwordDialogVisible" title="修改教师主密码" width="420px" destroy-on-close>
+      <el-form label-width="100px">
+        <el-form-item label="旧密码"><el-input v-model="passwordForm.oldPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="新密码"><el-input v-model="passwordForm.newPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="确认密码"><el-input v-model="passwordForm.confirmPassword" type="password" show-password /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="passwordSaving" @click="changePassword">保存密码</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="recoveryDialogVisible" title="使用恢复密钥重置密码" width="420px" destroy-on-close>
+      <p class="text-muted">恢复密码不会删除班级、学生和其他业务数据。重置成功后会生成新的恢复密钥，请妥善保存。</p>
+      <el-form label-width="100px">
+        <el-form-item label="恢复密钥"><el-input v-model="recoveryForm.recoveryKey" placeholder="输入 32 位恢复密钥" /></el-form-item>
+        <el-form-item label="新密码"><el-input v-model="recoveryForm.nextPassword" type="password" show-password /></el-form-item>
+        <el-form-item label="确认密码"><el-input v-model="recoveryForm.confirmPassword" type="password" show-password /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="recoveryDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="recoverySaving" @click="resetPassword">重置密码</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store, loadClasses } from '../store.js';
+import { accessState, refreshAccessStatus, setPolicies } from '../accessControl.js';
 
 const editVisible = ref(false);
+const passwordDialogVisible = ref(false);
+const recoveryDialogVisible = ref(false);
+const passwordSaving = ref(false);
+const recoverySaving = ref(false);
+const policySaving = ref(false);
+const passwordForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' });
+const recoveryForm = ref({ recoveryKey: '', nextPassword: '', confirmPassword: '' });
+const configurableModules = [
+  { key: 'documents', label: '文档管理' },
+  { key: 'leaves', label: '请假管理' },
+  { key: 'duties', label: '值日管理' },
+  { key: 'leaders', label: '班委学委' },
+  { key: 'subject-leaders', label: '课代表选择' },
+];
+const openModules = ref([]);
 const form = ref({ id: null, name: '', academic_year: '', term: '上', seat_rows: 6, seat_cols: 8, aisle_mode: 1, head_teacher: '', remark: '' });
+
+onMounted(async () => {
+  const status = await refreshAccessStatus();
+  openModules.value = configurableModules.filter(item => status.policies[item.key] === 'open').map(item => item.key);
+});
+
+async function savePolicies() {
+  policySaving.value = true;
+  try {
+    const open = new Set(openModules.value);
+    const policies = { ...accessState.policies };
+    configurableModules.forEach(item => { policies[item.key] = open.has(item.key) ? 'open' : 'protected'; });
+    await setPolicies(policies);
+    ElMessage.success('隐私设置已保存');
+  } catch (e) { ElMessage.error(e.message); }
+  finally { policySaving.value = false; }
+}
+
+async function changePassword() {
+  if (!passwordForm.value.oldPassword || !passwordForm.value.newPassword) return ElMessage.warning('请填写旧密码和新密码');
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) return ElMessage.warning('两次输入的新密码不一致');
+  passwordSaving.value = true;
+  try {
+    const status = await api.access.changePassword(passwordForm.value.oldPassword, passwordForm.value.newPassword);
+    Object.assign(accessState, status);
+    passwordDialogVisible.value = false;
+    passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' };
+    ElMessage.success('教师主密码已修改，当前已回到班级公开模式');
+  } catch (e) { ElMessage.error(e.message); }
+  finally { passwordSaving.value = false; }
+}
+
+async function resetPassword() {
+  if (!recoveryForm.value.recoveryKey || !recoveryForm.value.nextPassword) return ElMessage.warning('请填写恢复密钥和新密码');
+  if (recoveryForm.value.nextPassword !== recoveryForm.value.confirmPassword) return ElMessage.warning('两次输入的新密码不一致');
+  recoverySaving.value = true;
+  try {
+    const status = await api.access.resetPassword(recoveryForm.value.recoveryKey, recoveryForm.value.nextPassword);
+    Object.assign(accessState, status);
+    recoveryDialogVisible.value = false;
+    recoveryForm.value = { recoveryKey: '', nextPassword: '', confirmPassword: '' };
+    if (status.recoveryKey) await ElMessageBox.alert(`新的恢复密钥：\n${status.recoveryKey}\n\n请立即保存，旧恢复密钥已经失效。`, '密码已重置', { confirmButtonText: '我已保存' });
+  } catch (e) { ElMessage.error(e.message); }
+  finally { recoverySaving.value = false; }
+}
 
 function aisleLabel(m) {
   return { 0: '均分无走道', 1: '中间走道', 2: '双走道' }[m] ?? '中间走道';
