@@ -482,11 +482,15 @@ async function restorePick(e) {
   const isZip = file.name.toLowerCase().endsWith('.zip');
   if (!isZip) {
     try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('备份文件不是有效的 JSON 或 ZIP'); }
-    if (!payload || payload.app !== 'teacher-work' || !Array.isArray(payload.tables)) {
-      return ElMessage.error('不是本应用的备份文件（缺少 tables 字段）');
+    const isV1Exchange = payload?.format === 'teacher-work-backup' && payload?.formatVersion === 1;
+    const isLegacyBackup = payload?.app === 'teacher-work' && Array.isArray(payload?.tables);
+    if (!isV1Exchange && !isLegacyBackup) {
+      return ElMessage.error('不是支持的教师工作台 JSON 备份（需要 v1 或旧版格式）');
     }
   }
-  const clsCount = isZip ? 'ZIP' : (payload.tables.find(t => t.table === 'classes')?.rows?.length ?? 0);
+  const clsCount = isZip ? 'ZIP' : payload.format === 'teacher-work-backup'
+    ? (payload.content?.classes?.length ?? 0)
+    : (payload.tables.find(t => t.table === 'classes')?.rows?.length ?? 0);
   const ok = await ElMessageBox.confirm(
     `将用该备份覆盖当前全部数据（${clsCount} 个班级/归档）。恢复前会先自动快照当前库到 data/backups/，确定继续吗？`,
     '从备份恢复', { type: 'warning', confirmButtonText: '恢复', cancelButtonText: '取消' }
