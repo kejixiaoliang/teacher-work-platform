@@ -300,15 +300,33 @@ function insertAsNewDataset(payload) {
       const tableMap = new Map(); idMaps.set(table, tableMap);
       const columns = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name).filter(k => k !== 'id');
       for (const source of rows) {
+        const sourceKey = source.sourceId ?? source.id;
+        // 空白工作台也会预置评价分类；更新导入时按唯一名称复用已有分类，
+        // 否则整份 JSON 会因 assessment_categories.name 冲突而回滚。
+        if (table === 'assessment_categories') {
+          const existing = db.prepare('SELECT id FROM assessment_categories WHERE name = ?').get(source.name);
+          if (existing) {
+            tableMap.set(sourceKey, existing.id);
+            continue;
+          }
+        }
         const row = { ...source };
         delete row.uuid; delete row.sourceId; delete row.id;
         for (const [field, parentTable] of Object.entries(UPDATE_FK[table] || {})) {
           if (row[field] != null) row[field] = mapId(parentTable, row[field]);
         }
+        // 评价项目同样有“分类 + 名称”唯一约束，复用已存在项目并保留引用映射。
+        if (table === 'assessment_items') {
+          const existing = db.prepare('SELECT id FROM assessment_items WHERE category_id = ? AND name = ?').get(row.category_id, row.name);
+          if (existing) {
+            tableMap.set(sourceKey, existing.id);
+            continue;
+          }
+        }
         const keys = columns.filter(key => Object.prototype.hasOwnProperty.call(row, key));
         const ins = db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map(k => `@${k}`).join(', ')})`);
         const result = ins.run(Object.fromEntries(keys.map(k => [k, row[k] === undefined ? null : row[k]])));
-        tableMap.set(source.sourceId ?? source.id, Number(result.lastInsertRowid));
+        tableMap.set(sourceKey, Number(result.lastInsertRowid));
         if (source.uuid) db.prepare('INSERT OR REPLACE INTO record_uuids (table_name, record_id, uuid) VALUES (?, ?, ?)').run(table, result.lastInsertRowid, source.uuid);
       }
     }

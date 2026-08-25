@@ -57,6 +57,18 @@ test('exports and restores database plus document files as a zip', async () => {
     assert.equal(exchange.attachments.included, false);
     assert.equal(exchange.content.classes.length, 1);
     assert.equal(exchange.content.students[0].uuid.length, 36);
+    const removeSeededSourceClass = await fetch(`${running.baseUrl}/api/classes/${cls.data.id}`, {
+      method: 'DELETE', headers: { 'x-teacher-work-token': token },
+    });
+    assert.equal(removeSeededSourceClass.status, 200);
+    const updateOnSeededBlank = await fetch(`${running.baseUrl}/api/backup/update`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
+      body: JSON.stringify(exchange),
+    });
+    assert.equal(updateOnSeededBlank.status, 200);
+    const seededUpdateClasses = await json('GET', '/api/classes');
+    assert.equal(seededUpdateClasses.data.length, 1);
     const legacyPayload = {
       app: 'teacher-work',
       version: 1,
@@ -135,8 +147,8 @@ test('exports and restores database plus document files as a zip', async () => {
     assert.equal(studentsAfterFreshJsonRestore.data.length, 1);
     assert.equal(studentsAfterFreshJsonRestore.data[0].name, '恢复校验学生');
 
-    const storedName = fs.readdirSync(path.join(dataDir, 'files'))[0];
-    fs.rmSync(path.join(dataDir, 'files', storedName));
+    const storedName = extracted.files[0].storedName;
+    fs.rmSync(path.join(dataDir, 'files', storedName), { force: true });
     const restoreForm = new FormData();
     restoreForm.append('backup', new Blob([fs.readFileSync(zipPath)]), 'teacher-work-backup.zip');
     const restored = await fetch(`${running.baseUrl}/api/backup/import`, {
