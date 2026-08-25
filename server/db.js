@@ -17,7 +17,7 @@ const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-export const DATABASE_VERSION = 6;
+export const DATABASE_VERSION = 7;
 const openingVersion = db.pragma('user_version', { simple: true });
 if (!isFreshDb && openingVersion < DATABASE_VERSION) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -414,6 +414,21 @@ function migrate() {
     `);
     db.pragma('user_version = 6');
     console.log('[migrate] 访问控制设置表迁移完成 → user_version 6');
+  }
+  if (db.pragma('user_version', { simple: true }) < 7) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS record_uuids (
+        table_name TEXT NOT NULL,
+        record_id INTEGER NOT NULL,
+        uuid TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        PRIMARY KEY (table_name, record_id),
+        UNIQUE (uuid)
+      );
+      CREATE INDEX IF NOT EXISTS idx_record_uuids_uuid ON record_uuids(uuid);
+    `);
+    db.pragma('user_version = 7');
+    console.log('[migrate] 数据交换稳定 UUID 表迁移完成 → user_version 7');
   }
 }
 migrate();

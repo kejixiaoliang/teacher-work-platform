@@ -123,7 +123,7 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         api_token: token,
         data_dir: data_dir.to_string_lossy().into_owned(),
         app_version: env!("CARGO_PKG_VERSION").into(),
-            database_version: 6,
+            database_version: 7,
     };
     Ok((child, bootstrap))
 }
