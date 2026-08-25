@@ -4,9 +4,9 @@
 
 面向班主任的本地班级管理工具
 
-支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机；v0.6.0 新增班级隐私模式和教师密码保护。
+支持 Windows 免安装绿色便携版，也支持浏览器开发运行。学生、座位、成绩、考勤、文档等数据默认保存在本机；v0.7.0 重点完善数据备份、恢复、更新和导出能力。
 
-[![Version](https://img.shields.io/badge/version-0.6.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.6.0)
+[![Version](https://img.shields.io/badge/version-0.7.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0)
 ![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-6-646cff?logo=vite&logoColor=white)
 ![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)
@@ -16,10 +16,10 @@
 
 ## 下载最新版
 
-当前最新稳定版本为 **v0.5.0**。
+当前最新稳定版本为 **v0.7.0**。
 
-- [下载教师工作台 v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0)
-- [查看历史版本 v0.1.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.1.0)
+- [下载教师工作台 v0.7.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0)
+- [查看全部 GitHub Releases](https://github.com/kejixiaoliang/teacher-work-platform/releases)
 
 普通用户请从 GitHub Releases 下载 Windows x64 绿色便携 ZIP。使用发布包不需要安装 Node.js、Rust，也不需要运行安装器。
 
@@ -27,8 +27,8 @@
 
 ## 快速开始
 
-1. 打开 [v0.5.0 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0)。
-2. 下载 `teacher-work-v0.5.0-windows-x64-portable.zip`（Release 页面显示的中文标签为“教师工作台-v0.5.0-windows-x64-portable.zip”）。
+1. 打开 [v0.7.0 Release 页面](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0)。
+2. 下载 `teacher-work-v0.7.0-windows-x64-portable.zip`。
 3. 将整个 ZIP 解压到桌面、文档目录或其他有写入权限的位置。
 4. 保持 EXE、`resources`、`data`、`backup` 和 `logs` 的相对位置不变。
 5. 双击“教师工作台.exe”。
@@ -52,6 +52,9 @@
 教师工作台采用真正的便携数据目录。核心数据存放在应用目录旁的 `data/` 中，包括 SQLite 数据库和用户上传的文件。
 
 - 复制整个应用目录，可以一起移动程序和数据。
+- 日常备份优先使用工作台中的“完整备份（含附件）”，它包含数据库和 `data/files/` 附件；需要交换结构化数据时使用“导出 JSON（不含附件）”。
+- 恢复到空白工作台时使用“从备份恢复”；向现有工作台补充或更新数据时使用“更新导入 JSON”，导入完成后各模块会自动刷新。
+- 旧版本导出的 JSON 可以在新版本中导入；如果需要保留附件，必须使用完整备份 ZIP。
 - 日常备份至少应复制完整的 `data/`。
 - 涉及版本升级时，建议同时保留 `backup/` 和 `logs/`。
 - 不要把应用放在 `Program Files` 等普通用户可能没有写权限的位置。
@@ -237,7 +240,10 @@ npm run qa:portable -- -ZipPath 'release\教师工作台-v0.5.0-windows-x64-port
 
 | 版本 | 状态 | 说明 |
 | --- | --- | --- |
-| [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | Latest | 班主任今日工作台、结构化跟进事项和首页工作流聚合 |
+| [v0.7.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0) | Latest | 数据备份、恢复、更新与 JSON 兼容导入；统一导出并支持桌面端自定义保存路径；修复成绩持久化和学生 Excel 导入 |
+| [v0.6.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.6.0) | 历史 | 班级公开模式、教师工作台模式、教师密码保护、敏感模块访问控制和自动锁定 |
+| [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | 历史 | 班主任今日工作台、结构化跟进事项和首页工作流聚合 |
+| [v0.4.1](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.1) | 历史 | 稳定性审计与核心模块细节优化 |
 | [v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2) | 历史 | 完整备份恢复、附件迁移、一次性文件授权与 Blob 预览下载 |
 | [v0.4.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.0) | 历史 | 学生表现量化、值日组精准记分、统计可视化、规则启用停用闭环与操作列优化 |
 | [v0.2.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.2.0) | 历史 | 统一 Web 与 EXE 版本和业务代码，完善座位拖拽、班级前置校验、数据库迁移备份与便携 QA |
