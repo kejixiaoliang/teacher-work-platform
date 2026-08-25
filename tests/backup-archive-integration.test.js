@@ -41,8 +41,27 @@ test('exports and restores database plus document files as a zip', async () => {
     const zipPath = path.join(dataDir, 'export.zip');
     fs.writeFileSync(zipPath, Buffer.from(await archiveResponse.arrayBuffer()));
     const extracted = await extractBackupArchive(zipPath, path.join(dataDir, 'extracted'));
-    assert.equal(extracted.payload.version, 2);
+    assert.equal(extracted.payload.format, 'teacher-work-backup');
+    assert.equal(extracted.payload.formatVersion, 1);
+    assert.equal(extracted.payload.attachments.included, true);
     assert.equal(extracted.files.length, 1);
+
+    const jsonResponse = await fetch(`${running.baseUrl}/api/backup/export-json`, {
+      headers: { 'x-teacher-work-token': token },
+    });
+    assert.equal(jsonResponse.status, 200);
+    const exchange = await jsonResponse.json();
+    assert.equal(exchange.format, 'teacher-work-backup');
+    assert.equal(exchange.formatVersion, 1);
+    assert.equal(exchange.attachments.included, false);
+    assert.equal(exchange.content.classes.length, 1);
+    assert.equal(exchange.content.students[0].uuid.length, 36);
+    const jsonRestore = await fetch(`${running.baseUrl}/api/backup/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
+      body: JSON.stringify(exchange),
+    });
+    assert.equal(jsonRestore.status, 200);
 
     const storedName = fs.readdirSync(path.join(dataDir, 'files'))[0];
     fs.rmSync(path.join(dataDir, 'files', storedName));
@@ -63,15 +82,17 @@ test('exports and restores database plus document files as a zip', async () => {
     assert.ok(snapshots.length >= 1, '恢复前应保留数据库快照');
 
     const invalidPayload = structuredClone(extracted.payload);
-    const restoredStudent = invalidPayload.tables.find(t => t.table === 'students').rows.find(row => row.id === student.data.id);
+    invalidPayload.integrity.value = '';
+    const restoredStudent = invalidPayload.content.students.find(row => row.sourceId === student.data.id);
     restoredStudent.class_id = 999999;
+    invalidPayload.integrity.value = 'invalid';
     const invalidRestore = await fetch(`${running.baseUrl}/api/backup/import`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
       body: JSON.stringify(invalidPayload),
     });
-    assert.equal(invalidRestore.status, 500);
-    assert.match((await invalidRestore.json()).error, /恢复失败/);
+    assert.equal(invalidRestore.status, 400);
+    assert.match((await invalidRestore.json()).error, /完整性校验失败/);
     const classesAfterRejectedRestore = await json('GET', '/api/classes');
     assert.equal(classesAfterRejectedRestore.data[0].name, '备份附件班');
     const studentsAfterRejectedRestore = await json('GET', `/api/students?class_id=${cls.data.id}`);

@@ -5,7 +5,7 @@ export const EXCHANGE_FORMAT_VERSION = 1;
 
 export const EXCHANGE_COLLECTIONS = Object.freeze([
   'classes', 'students', 'studentHistory', 'seats', 'seatLayouts', 'documents',
-  'duties', 'exams', 'scores', 'attendance', 'leaves', 'contacts',
+  'duties', 'exams', 'scores', 'attendance', 'studentRecords', 'leaves', 'contacts',
   'assessment', 'followUpTasks', 'settings',
 ]);
 

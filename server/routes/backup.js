@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { createBackupArchive, extractBackupArchive, sha256File } from '../utils/backup-archive.js';
-import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, stableUuid } from '../utils/backup-format.js';
+import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, stableUuid, verifyIntegrity } from '../utils/backup-format.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { dataDir, filesDir } = getDataPaths();
@@ -48,7 +48,7 @@ const EXCHANGE_MAP = Object.freeze({
   classes: 'classes', students: 'students', student_metrics_history: 'studentHistory',
   seats: 'seats', seat_layouts: 'seatLayouts', documents: 'documents', duties: 'duties',
   exams: 'exams', exam_scores: 'scores', attendance: 'attendance', leaves: 'leaves',
-  contacts: 'contacts', follow_up_tasks: 'followUpTasks',
+  contacts: 'contacts', follow_up_tasks: 'followUpTasks', student_records: 'studentRecords',
 });
 
 function ensureRecordUuid(tableName, recordId) {
@@ -63,7 +63,7 @@ function exchangeRow(tableName, row) {
   return { ...row, uuid: ensureRecordUuid(tableName, row.id), sourceId: row.id };
 }
 
-function exchangePayload() {
+function exchangePayload({ includeAttachments = false } = {}) {
   const content = emptyContent();
   for (const tableName of TABLES) {
     const collection = EXCHANGE_MAP[tableName];
@@ -84,8 +84,47 @@ function exchangePayload() {
     exportedAt: new Date().toISOString(),
     source: { platform: 'desktop', product: 'teacher-work', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
     content,
-    attachments: { included: false, omittedCount: listFileManifest().length },
+    attachments: { included: includeAttachments, omittedCount: includeAttachments ? 0 : listFileManifest().length },
   });
+}
+
+function stripExchangeMeta(row) {
+  const next = { ...row };
+  delete next.uuid;
+  delete next.sourceId;
+  return next;
+}
+
+function normalizeExchangePayload(payload) {
+  if (!payload || payload.format !== EXCHANGE_FORMAT || payload.formatVersion !== EXCHANGE_FORMAT_VERSION) return payload;
+  if (!verifyIntegrity(payload)) throw new Error('JSON 备份完整性校验失败');
+  const groups = exchangeTableRows(payload);
+  return {
+    app: 'teacher-work', version: 2, exportedAt: payload.exportedAt, files: [],
+    tables: groups.map(([table, rows]) => ({ table, rows: rows.map(stripExchangeMeta) })),
+    sourceExportId: payload.exportId,
+    exchangeFormatVersion: payload.formatVersion,
+  };
+}
+
+function exchangeTableRows(payload) {
+  const c = payload.content || {};
+  const content = {
+    classes: c.classes || [], students: c.students || [], studentHistory: c.studentHistory || [],
+    seats: c.seats || [], seatLayouts: c.seatLayouts || [], documents: c.documents || [],
+    duties: c.duties || [], exams: c.exams || [], scores: c.scores || [], attendance: c.attendance || [],
+    leaves: c.leaves || [], contacts: c.contacts || [], studentRecords: c.studentRecords || [], followUpTasks: c.followUpTasks || [],
+    assessment: c.assessment || {},
+  };
+  return [
+    ['classes', content.classes], ['students', content.students], ['student_metrics_history', content.studentHistory],
+    ['seats', content.seats], ['seat_layouts', content.seatLayouts], ['documents', content.documents],
+    ['duties', content.duties], ['exams', content.exams], ['exam_scores', content.scores],
+    ['attendance', content.attendance], ['student_records', content.studentRecords], ['contacts', content.contacts],
+    ['leaves', content.leaves], ['follow_up_tasks', content.followUpTasks],
+    ['assessment_categories', content.assessment.categories || []], ['assessment_items', content.assessment.items || []],
+    ['assessment_records', content.assessment.records || []], ['assessment_record_revisions', content.assessment.revisions || []],
+  ];
 }
 
 // 每张表需要带 id 导出，保证恢复时外键关系完整
@@ -162,10 +201,6 @@ function validatePayload(payload, { fileRoot = filesDir, requireFiles = true } =
   return missing.length ? `备份缺少数据表：${missing.join('、')}` : null;
 }
 
-function fullPayload() {
-  return { app: 'teacher-work', version: 2, exportedAt: new Date().toISOString(), files: listFileManifest(), tables: TABLES.map(dumpTable) };
-}
-
 function archiveFiles(root, manifest) {
   return manifest.map(file => ({ storedName: file.storedName, sourcePath: path.join(root, file.storedName) }));
 }
@@ -203,8 +238,9 @@ function clearFiles(root) {
 // 全量导出（含全部业务表，用于应用内备份）
 router.get('/export', async (req, res) => {
   try {
-    const payload = fullPayload();
-    await sendArchive(res, payload, archiveFiles(filesDir, payload.files), `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
+    const files = listFileManifest();
+    const payload = exchangePayload({ includeAttachments: true });
+    await sendArchive(res, payload, archiveFiles(filesDir, files), `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
   } catch (e) {
     console.error('[backup/export]', e.message);
     res.status(500).json({ ok: false, error: '导出失败：' + e.message });
@@ -218,6 +254,59 @@ router.get('/export-json', (req, res) => {
   } catch (e) {
     console.error('[backup/export-json]', e.message);
     res.status(500).json({ ok: false, error: 'JSON 导出失败：' + e.message });
+  }
+});
+
+const UPDATE_FK = Object.freeze({
+  students: { class_id: 'classes' }, follow_up_tasks: { class_id: 'classes', student_id: 'students' },
+  student_metrics_history: { student_id: 'students' }, seats: { class_id: 'classes', student_id: 'students' },
+  seat_layouts: { class_id: 'classes' }, documents: { class_id: 'classes' }, duties: { class_id: 'classes', student_id: 'students' },
+  exams: { class_id: 'classes' }, exam_scores: { exam_id: 'exams', student_id: 'students' },
+  attendance: { class_id: 'classes', student_id: 'students' }, student_records: { student_id: 'students' },
+  contacts: { student_id: 'students' }, leaves: { class_id: 'classes', student_id: 'students' },
+  assessment_items: { category_id: 'assessment_categories' },
+  assessment_records: { class_id: 'classes', student_id: 'students', item_id: 'assessment_items' },
+  assessment_record_revisions: { record_id: 'assessment_records' },
+});
+
+function insertAsNewDataset(payload) {
+  const idMaps = new Map();
+  const mapId = (table, oldId) => oldId == null ? oldId : idMaps.get(table)?.get(oldId) ?? null;
+  const ordered = TABLES;
+  const inserted = db.transaction(() => {
+    for (const table of ordered) {
+      const rows = payload.get(table) || [];
+      const tableMap = new Map(); idMaps.set(table, tableMap);
+      const columns = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name).filter(k => k !== 'id');
+      for (const source of rows) {
+        const row = { ...source };
+        delete row.uuid; delete row.sourceId; delete row.id;
+        for (const [field, parentTable] of Object.entries(UPDATE_FK[table] || {})) {
+          if (row[field] != null) row[field] = mapId(parentTable, row[field]);
+        }
+        const keys = columns.filter(key => Object.prototype.hasOwnProperty.call(row, key));
+        const ins = db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map(k => `@${k}`).join(', ')})`);
+        const result = ins.run(Object.fromEntries(keys.map(k => [k, row[k] === undefined ? null : row[k]])));
+        tableMap.set(source.sourceId ?? source.id, Number(result.lastInsertRowid));
+        if (source.uuid) db.prepare('INSERT OR REPLACE INTO record_uuids (table_name, record_id, uuid) VALUES (?, ?, ?)').run(table, result.lastInsertRowid, source.uuid);
+      }
+    }
+  });
+  return inserted;
+}
+
+router.post('/update', (req, res) => {
+  try {
+    const payload = req.body;
+    if (!payload || payload.format !== EXCHANGE_FORMAT || payload.formatVersion !== EXCHANGE_FORMAT_VERSION || !verifyIntegrity(payload)) {
+      return invalidBackup(res, '仅支持完整且校验通过的 v1 JSON 数据更新导入');
+    }
+    const groups = new Map(exchangeTableRows(payload).map(([table, rows]) => [table, rows]));
+    insertAsNewDataset(groups);
+    res.json({ ok: true, data: { mode: 'append', exportId: payload.exportId, classes: groups.get('classes')?.length || 0 } });
+  } catch (e) {
+    console.error('[backup/update]', e.message);
+    res.status(500).json({ ok: false, error: '更新导入失败：' + e.message });
   }
 });
 
@@ -237,6 +326,13 @@ router.post('/import', upload.single('backup'), async (req, res) => {
       try { fs.rmSync(req.file.path, { force: true }); } catch { /* ignore */ }
       return invalidBackup(res, e.message);
     }
+  }
+  try {
+    payload = normalizeExchangePayload(payload);
+  } catch (e) {
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    if (req.file) { try { fs.rmSync(req.file.path, { force: true }); } catch { /* ignore */ } }
+    return invalidBackup(res, e.message);
   }
   const validationError = validatePayload(payload, extracted ? { fileRoot: path.join(tempDir, 'files'), requireFiles: true } : {});
   if (validationError) {

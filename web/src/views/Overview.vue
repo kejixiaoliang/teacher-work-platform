@@ -219,14 +219,19 @@
       <div class="card-title">数据管理</div>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
         <el-button type="primary" plain :icon="Camera" @click="archiveMetrics">学期存档</el-button>
-        <el-button type="primary" :icon="Download" @click="backupAll" :loading="backupLoading">完整备份（下载）</el-button>
+        <el-button type="primary" :icon="Download" @click="backupAll" :loading="backupLoading">完整备份（含附件）</el-button>
+        <el-button type="primary" plain :icon="DocumentCopy" @click="exportJson" :loading="jsonLoading">导出 JSON（不含附件）</el-button>
         <el-button type="warning" plain :icon="Upload" @click="restoreTrigger" :loading="restoreLoading">从备份恢复</el-button>
+        <el-button type="success" plain :icon="Upload" @click="updateTrigger" :loading="updateLoading">更新导入 JSON</el-button>
         <input ref="restoreInput" type="file" accept=".zip,.json" style="display:none" @change="restorePick" />
+        <input ref="updateInput" type="file" accept=".json" style="display:none" @change="updatePick" />
       </div>
       <p class="text-muted" style="margin:10px 0 0">
         学期存档：把全班当前身高/视力/成绩快照存入历史，供对比与回填。
         完整备份：下载包含全部班级、全部业务数据和 data/files 上传文件的 ZIP 文件；
-        从备份恢复：支持新版 ZIP 和旧版 JSON，可完整还原数据（恢复前会先自动快照当前库到 data/backups/）。
+        导出 JSON：只导出业务数据和附件元数据，不包含附件内容，适合跨版本迁移；
+        从备份恢复：支持新版 ZIP 和旧版 JSON，可完整还原数据（恢复前会先自动快照当前库到 data/backups/）；
+        更新导入 JSON：追加导入为新的数据集，不清空现有工作台。
         班级备份请到“班级设置”逐班下载，适合迁移或删除前留档；恢复时同样会覆盖当前库，不会自动合并。
       </p>
     </div>
@@ -404,8 +409,11 @@ async function archiveMetrics() {
 
 /* ---------- 完整备份 / 恢复（阶段一） ---------- */
 const backupLoading = ref(false);
+const jsonLoading = ref(false);
 const restoreLoading = ref(false);
+const updateLoading = ref(false);
 const restoreInput = ref(null);
+const updateInput = ref(null);
 
 function downloadBlob(blob, filename) {
   const a = document.createElement('a');
@@ -430,7 +438,40 @@ async function backupAll() {
   }
 }
 
+async function exportJson() {
+  if (!store.classes.length) return ElMessage.warning('还没有班级数据');
+  jsonLoading.value = true;
+  try {
+    const blob = await api.backup.exportJson();
+    downloadBlob(blob, `教师工作台数据-${new Date().toISOString().slice(0, 10)}.teacher-work.json`);
+    ElMessage.success('JSON 数据已下载（不含附件）');
+  } catch (e) { ElMessage.error('JSON 导出失败：' + e.message); }
+  finally { jsonLoading.value = false; }
+}
+
 function restoreTrigger() { restoreInput.value?.click(); }
+function updateTrigger() { updateInput.value?.click(); }
+
+async function updatePick(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  let payload;
+  try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('更新文件不是有效 JSON'); }
+  if (payload.format !== 'teacher-work-backup' || payload.formatVersion !== 1) return ElMessage.error('仅支持 v1 JSON 更新导入');
+  const classes = payload.content?.classes?.length || 0;
+  const students = payload.content?.students?.length || 0;
+  const ok = await ElMessageBox.confirm(`将追加导入 ${classes} 个班级、${students} 名学生，不清空现有工作台。是否继续？`, '更新导入预览', { type: 'warning', confirmButtonText: '继续导入', cancelButtonText: '取消' }).catch(() => false);
+  if (!ok) return;
+  updateLoading.value = true;
+  try {
+    const r = await api.backup.update(payload);
+    ElMessage.success(`更新导入完成：新增 ${r.classes} 个班级数据集`);
+    await loadClasses({ throwOnError: true });
+    await load();
+  } catch (err) { ElMessage.error('更新导入失败：' + err.message); }
+  finally { updateLoading.value = false; }
+}
 
 async function restorePick(e) {
   const file = e.target.files?.[0];
