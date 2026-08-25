@@ -294,7 +294,7 @@ function insertAsNewDataset(payload) {
   const idMaps = new Map();
   const mapId = (table, oldId) => oldId == null ? oldId : idMaps.get(table)?.get(oldId) ?? null;
   const ordered = TABLES;
-  const inserted = db.transaction(() => {
+  const insertTransaction = db.transaction(() => {
     for (const table of ordered) {
       const rows = payload.get(table) || [];
       const tableMap = new Map(); idMaps.set(table, tableMap);
@@ -313,7 +313,8 @@ function insertAsNewDataset(payload) {
       }
     }
   });
-  return inserted;
+  insertTransaction();
+  return true;
 }
 
 router.post('/update', (req, res) => {

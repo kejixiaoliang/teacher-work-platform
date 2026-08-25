@@ -101,6 +101,27 @@ test('exports and restores database plus document files as a zip', async () => {
     });
     assert.equal(clearResponse.status, 200);
     assert.equal((await json('GET', '/api/classes')).data.length, 0);
+    const freshJsonUpdate = await fetch(running.baseUrl + '/api/backup/update', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
+      body: JSON.stringify(exchange),
+    });
+    assert.equal(freshJsonUpdate.status, 200);
+    const freshJsonUpdateBody = await freshJsonUpdate.json();
+    assert.equal(freshJsonUpdateBody.data.classes, 1);
+    const classesAfterFreshJsonUpdate = await json('GET', '/api/classes');
+    assert.equal(classesAfterFreshJsonUpdate.data.length, 1);
+    assert.equal(classesAfterFreshJsonUpdate.data[0].name, '备份附件班');
+    const studentsAfterFreshJsonUpdate = await json('GET', '/api/students?class_id=' + classesAfterFreshJsonUpdate.data[0].id);
+    assert.equal(studentsAfterFreshJsonUpdate.data.length, 1);
+    assert.equal(studentsAfterFreshJsonUpdate.data[0].name, '恢复校验学生');
+
+    const clearBeforeRestore = await fetch(running.baseUrl + '/api/backup/import', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
+      body: JSON.stringify(emptyPayload),
+    });
+    assert.equal(clearBeforeRestore.status, 200);
     const freshJsonRestore = await fetch(running.baseUrl + '/api/backup/import', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
