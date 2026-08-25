@@ -107,6 +107,27 @@ function normalizeExchangePayload(payload) {
   };
 }
 
+function normalizeLegacyPayload(payload, { stripFiles = false } = {}) {
+  if (!payload || payload.app !== 'teacher-work' || ![1, 2].includes(payload.version) || !Array.isArray(payload.tables)) return payload;
+  if (!payload.tables.length) throw new Error('备份至少需要包含一张数据表');
+  const known = new Map();
+  for (const group of payload.tables) {
+    if (!group || !TABLES.includes(group.table)) throw new Error('备份包含未知数据表：' + (group?.table || '未命名'));
+    if (!Array.isArray(group.rows)) throw new Error('数据表 ' + group.table + ' 的 rows 不是数组');
+    if (known.has(group.table)) throw new Error('备份重复包含数据表：' + group.table);
+    known.set(group.table, group.rows);
+  }
+  return {
+    app: 'teacher-work',
+    version: 2,
+    exportedAt: payload.exportedAt || new Date().toISOString(),
+    files: stripFiles ? [] : (Array.isArray(payload.files) ? payload.files : []),
+    tables: TABLES.map(table => ({ table, rows: known.get(table) || [] })),
+    sourceExportId: payload.sourceExportId,
+    exchangeFormatVersion: payload.exchangeFormatVersion,
+  };
+}
+
 function exchangeTableRows(payload) {
   const c = payload.content || {};
   const content = {
@@ -297,13 +318,23 @@ function insertAsNewDataset(payload) {
 
 router.post('/update', (req, res) => {
   try {
-    const payload = req.body;
-    if (!payload || payload.format !== EXCHANGE_FORMAT || payload.formatVersion !== EXCHANGE_FORMAT_VERSION || !verifyIntegrity(payload)) {
-      return invalidBackup(res, '仅支持完整且校验通过的 v1 JSON 数据更新导入');
+    const incoming = req.body;
+    let payload;
+    let groups;
+    if (incoming?.format === EXCHANGE_FORMAT && incoming?.formatVersion === EXCHANGE_FORMAT_VERSION) {
+      if (!verifyIntegrity(incoming)) return invalidBackup(res, 'JSON 备份完整性校验失败');
+      payload = incoming;
+      groups = new Map(exchangeTableRows(incoming).map(([table, rows]) => [table, rows]));
+    } else {
+      payload = normalizeLegacyPayload(incoming, { stripFiles: true });
+      if (!payload || payload.app !== 'teacher-work' || !Array.isArray(payload.tables)) {
+        return invalidBackup(res, '仅支持 v1 JSON 或旧版 tables 格式的数据更新导入');
+      }
+      groups = new Map(payload.tables.map(({ table, rows }) => [table, rows]));
     }
-    const groups = new Map(exchangeTableRows(payload).map(([table, rows]) => [table, rows]));
     insertAsNewDataset(groups);
-    res.json({ ok: true, data: { mode: 'append', exportId: payload.exportId, classes: groups.get('classes')?.length || 0 } });
+    const counts = Object.fromEntries(TABLES.map(table => [table, groups.get(table)?.length || 0]));
+    res.json({ ok: true, data: { mode: 'append', exportId: payload.exportId, classes: counts.classes, counts } });
   } catch (e) {
     console.error('[backup/update]', e.message);
     res.status(500).json({ ok: false, error: '更新导入失败：' + e.message });
@@ -328,7 +359,7 @@ router.post('/import', upload.single('backup'), async (req, res) => {
     }
   }
   try {
-    payload = normalizeExchangePayload(payload);
+    payload = normalizeLegacyPayload(normalizeExchangePayload(payload), { stripFiles: !extracted });
   } catch (e) {
     try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
     if (req.file) { try { fs.rmSync(req.file.path, { force: true }); } catch { /* ignore */ } }
@@ -392,7 +423,8 @@ router.post('/import', upload.single('backup'), async (req, res) => {
     }
     tx();
 
-    res.json({ ok: true, data: { tables: TABLES.length, classes: tableMap.get('classes').rows.length } });
+    const counts = Object.fromEntries(TABLES.map(table => [table, tableMap.get(table).rows.length]));
+    res.json({ ok: true, data: { tables: TABLES.length, classes: counts.classes, counts } });
     if (rollbackFilesDir) fs.rmSync(rollbackFilesDir, { recursive: true, force: true });
     fs.rmSync(tempDir, { recursive: true, force: true });
     if (req.file) fs.rmSync(req.file.path, { force: true });

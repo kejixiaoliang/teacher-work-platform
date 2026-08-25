@@ -22,3 +22,11 @@ test('restore UI accepts canonical v1 JSON exported by the app', () => {
   assert.match(overview, /payload\.content\?\.classes\?\.length/);
   assert.doesNotMatch(overview, /不是本应用的备份文件（缺少 tables 字段）/);
 });
+
+test('restore UI accepts legacy tables JSON and reports restored counts', () => {
+  const overview = fs.readFileSync(new URL('../web/src/views/Overview.vue', import.meta.url), 'utf8');
+  assert.match(overview, /payload\?\.app === 'teacher-work'/);
+  assert.match(overview, /旧版 tables 格式/);
+  assert.match(overview, /r\.counts\?\.students/);
+  assert.match(overview, /附件未恢复/);
+});

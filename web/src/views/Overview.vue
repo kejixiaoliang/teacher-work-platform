@@ -229,9 +229,9 @@
       <p class="text-muted" style="margin:10px 0 0">
         学期存档：把全班当前身高/视力/成绩快照存入历史，供对比与回填。
         完整备份：下载包含全部班级、全部业务数据和 data/files 上传文件的 ZIP 文件；
-        导出 JSON：只导出业务数据和附件元数据，不包含附件内容，适合跨版本迁移；
-        从备份恢复：支持新版 ZIP 和旧版 JSON，可完整还原数据（恢复前会先自动快照当前库到 data/backups/）；
-        更新导入 JSON：追加导入为新的数据集，不清空现有工作台。
+        导出 JSON：导出全部结构化业务数据和附件元数据，不包含附件内容；可在全新工作台通过“从备份恢复”还原；
+        从备份恢复：支持新版 ZIP、v1 JSON 和旧版 tables JSON，会覆盖当前数据并自动刷新；JSON 恢复所有结构化数据，但不恢复附件文件；
+        更新导入 JSON：将 JSON 追加为新的数据集，不清空现有工作台。
         班级备份请到“班级设置”逐班下载，适合迁移或删除前留档；恢复时同样会覆盖当前库，不会自动合并。
       </p>
     </div>
@@ -458,15 +458,17 @@ async function updatePick(e) {
   if (!file) return;
   let payload;
   try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('更新文件不是有效 JSON'); }
-  if (payload.format !== 'teacher-work-backup' || payload.formatVersion !== 1) return ElMessage.error('仅支持 v1 JSON 更新导入');
-  const classes = payload.content?.classes?.length || 0;
-  const students = payload.content?.students?.length || 0;
+  const isV1Exchange = payload?.format === 'teacher-work-backup' && payload?.formatVersion === 1;
+  const isLegacyBackup = payload?.app === 'teacher-work' && Array.isArray(payload?.tables);
+  if (!isV1Exchange && !isLegacyBackup) return ElMessage.error('不是支持的 JSON 文件（需要 v1 或旧版 tables 格式）');
+  const classes = isV1Exchange ? (payload.content?.classes?.length || 0) : (payload.tables.find(t => t.table === 'classes')?.rows?.length || 0);
+  const students = isV1Exchange ? (payload.content?.students?.length || 0) : (payload.tables.find(t => t.table === 'students')?.rows?.length || 0);
   const ok = await ElMessageBox.confirm(`将追加导入 ${classes} 个班级、${students} 名学生，不清空现有工作台。是否继续？`, '更新导入预览', { type: 'warning', confirmButtonText: '继续导入', cancelButtonText: '取消' }).catch(() => false);
   if (!ok) return;
   updateLoading.value = true;
   try {
     const r = await api.backup.update(payload);
-    ElMessage.success(`更新导入完成：新增 ${r.classes} 个班级数据集`);
+    ElMessage.success('更新导入完成：新增 ' + r.classes + ' 个班级、' + (r.counts?.students || 0) + ' 名学生');
     await loadClasses({ throwOnError: true });
     await load();
   } catch (err) { ElMessage.error('更新导入失败：' + err.message); }
@@ -502,10 +504,10 @@ async function restorePick(e) {
     try {
       await loadClasses({ throwOnError: true });
       await load(); // 恢复后强制刷新首页（classId 可能未变，watch 不会触发）
-      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+      ElMessage.success('恢复成功：' + r.classes + ' 个班级、' + (r.counts?.students || 0) + ' 名学生、' + (r.counts?.exams || 0) + ' 场考试、' + (r.counts?.exam_scores || 0) + ' 条成绩；附件未恢复');
     } catch (refreshError) {
       console.error('[backup/restore] refresh after restore failed', refreshError);
-      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+      ElMessage.success('恢复成功：' + r.classes + ' 个班级、' + (r.counts?.students || 0) + ' 名学生、' + (r.counts?.exams || 0) + ' 场考试、' + (r.counts?.exam_scores || 0) + ' 条成绩；附件未恢复');
       ElMessage.warning('数据已恢复，但首页刷新失败，请刷新页面');
     }
   } catch (err) {
