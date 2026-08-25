@@ -9,6 +9,12 @@ test('restore flow reloads classes through the exported loadClasses function', (
   assert.doesNotMatch(overview, /store\.loadClasses\(\)/);
 });
 
+test('class list refresh ignores stale startup responses after an import', () => {
+  const store = fs.readFileSync(new URL('../web/src/store.js', import.meta.url), 'utf8');
+  assert.match(store, /classesLoadSeq/);
+  assert.match(store, /requestSeq !== classesLoadSeq/);
+});
+
 test('multipart restore reports local network failures with actionable text', () => {
   const api = fs.readFileSync('web/src/api.js', 'utf8');
   assert.match(api, /无法连接到本地服务，请确认程序仍在运行/);
