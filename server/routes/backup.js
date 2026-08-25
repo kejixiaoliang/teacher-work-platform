@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { createBackupArchive, extractBackupArchive, sha256File } from '../utils/backup-archive.js';
+import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, stableUuid, verifyIntegrity } from '../utils/backup-format.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { dataDir, filesDir } = getDataPaths();
@@ -42,6 +43,110 @@ const TABLES = [
 ];
 const MAX_TOTAL_ROWS = 200_000;
 const MAX_ROWS_PER_TABLE = 100_000;
+
+const EXCHANGE_MAP = Object.freeze({
+  classes: 'classes', students: 'students', student_metrics_history: 'studentHistory',
+  seats: 'seats', seat_layouts: 'seatLayouts', documents: 'documents', duties: 'duties',
+  exams: 'exams', exam_scores: 'scores', attendance: 'attendance', leaves: 'leaves',
+  contacts: 'contacts', follow_up_tasks: 'followUpTasks', student_records: 'studentRecords',
+});
+
+function ensureRecordUuid(tableName, recordId) {
+  const existing = db.prepare('SELECT uuid FROM record_uuids WHERE table_name = ? AND record_id = ?').get(tableName, recordId);
+  if (existing?.uuid) return existing.uuid;
+  const uuid = stableUuid(tableName, recordId);
+  db.prepare('INSERT OR IGNORE INTO record_uuids (table_name, record_id, uuid) VALUES (?, ?, ?)').run(tableName, recordId, uuid);
+  return db.prepare('SELECT uuid FROM record_uuids WHERE table_name = ? AND record_id = ?').get(tableName, recordId).uuid;
+}
+
+function exchangeRow(tableName, row) {
+  return { ...row, uuid: ensureRecordUuid(tableName, row.id), sourceId: row.id };
+}
+
+function exchangePayload({ includeAttachments = false } = {}) {
+  const content = emptyContent();
+  for (const tableName of TABLES) {
+    const collection = EXCHANGE_MAP[tableName];
+    if (collection) content[collection] = db.prepare(`SELECT * FROM ${tableName}`).all().map(row => exchangeRow(tableName, row));
+  }
+  content.assessment = {
+    categories: db.prepare('SELECT * FROM assessment_categories').all().map(row => exchangeRow('assessment_categories', row)),
+    items: db.prepare('SELECT * FROM assessment_items').all().map(row => exchangeRow('assessment_items', row)),
+    records: db.prepare('SELECT * FROM assessment_records').all().map(row => exchangeRow('assessment_records', row)),
+    revisions: db.prepare('SELECT * FROM assessment_record_revisions').all().map(row => exchangeRow('assessment_record_revisions', row)),
+  };
+  return attachIntegrity({
+    format: EXCHANGE_FORMAT,
+    formatVersion: EXCHANGE_FORMAT_VERSION,
+    appVersion: process.env.npm_package_version || '0.7.0',
+    databaseVersion: 7,
+    exportId: newExportId(),
+    exportedAt: new Date().toISOString(),
+    source: { platform: 'desktop', product: 'teacher-work', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
+    content,
+    attachments: { included: includeAttachments, omittedCount: includeAttachments ? 0 : listFileManifest().length },
+  });
+}
+
+function stripExchangeMeta(row) {
+  const next = { ...row };
+  delete next.uuid;
+  delete next.sourceId;
+  return next;
+}
+
+function normalizeExchangePayload(payload) {
+  if (!payload || payload.format !== EXCHANGE_FORMAT || payload.formatVersion !== EXCHANGE_FORMAT_VERSION) return payload;
+  if (!verifyIntegrity(payload)) throw new Error('JSON 备份完整性校验失败');
+  const groups = exchangeTableRows(payload);
+  return {
+    app: 'teacher-work', version: 2, exportedAt: payload.exportedAt, files: [],
+    tables: groups.map(([table, rows]) => ({ table, rows: rows.map(stripExchangeMeta) })),
+    sourceExportId: payload.exportId,
+    exchangeFormatVersion: payload.formatVersion,
+  };
+}
+
+function normalizeLegacyPayload(payload, { stripFiles = false } = {}) {
+  if (!payload || payload.app !== 'teacher-work' || ![1, 2].includes(payload.version) || !Array.isArray(payload.tables)) return payload;
+  if (!payload.tables.length) throw new Error('备份至少需要包含一张数据表');
+  const known = new Map();
+  for (const group of payload.tables) {
+    if (!group || !TABLES.includes(group.table)) throw new Error('备份包含未知数据表：' + (group?.table || '未命名'));
+    if (!Array.isArray(group.rows)) throw new Error('数据表 ' + group.table + ' 的 rows 不是数组');
+    if (known.has(group.table)) throw new Error('备份重复包含数据表：' + group.table);
+    known.set(group.table, group.rows);
+  }
+  return {
+    app: 'teacher-work',
+    version: 2,
+    exportedAt: payload.exportedAt || new Date().toISOString(),
+    files: stripFiles ? [] : (Array.isArray(payload.files) ? payload.files : []),
+    tables: TABLES.map(table => ({ table, rows: known.get(table) || [] })),
+    sourceExportId: payload.sourceExportId,
+    exchangeFormatVersion: payload.exchangeFormatVersion,
+  };
+}
+
+function exchangeTableRows(payload) {
+  const c = payload.content || {};
+  const content = {
+    classes: c.classes || [], students: c.students || [], studentHistory: c.studentHistory || [],
+    seats: c.seats || [], seatLayouts: c.seatLayouts || [], documents: c.documents || [],
+    duties: c.duties || [], exams: c.exams || [], scores: c.scores || [], attendance: c.attendance || [],
+    leaves: c.leaves || [], contacts: c.contacts || [], studentRecords: c.studentRecords || [], followUpTasks: c.followUpTasks || [],
+    assessment: c.assessment || {},
+  };
+  return [
+    ['classes', content.classes], ['students', content.students], ['student_metrics_history', content.studentHistory],
+    ['seats', content.seats], ['seat_layouts', content.seatLayouts], ['documents', content.documents],
+    ['duties', content.duties], ['exams', content.exams], ['exam_scores', content.scores],
+    ['attendance', content.attendance], ['student_records', content.studentRecords], ['contacts', content.contacts],
+    ['leaves', content.leaves], ['follow_up_tasks', content.followUpTasks],
+    ['assessment_categories', content.assessment.categories || []], ['assessment_items', content.assessment.items || []],
+    ['assessment_records', content.assessment.records || []], ['assessment_record_revisions', content.assessment.revisions || []],
+  ];
+}
 
 // 每张表需要带 id 导出，保证恢复时外键关系完整
 function dumpTable(name) {
@@ -117,10 +222,6 @@ function validatePayload(payload, { fileRoot = filesDir, requireFiles = true } =
   return missing.length ? `备份缺少数据表：${missing.join('、')}` : null;
 }
 
-function fullPayload() {
-  return { app: 'teacher-work', version: 2, exportedAt: new Date().toISOString(), files: listFileManifest(), tables: TABLES.map(dumpTable) };
-}
-
 function archiveFiles(root, manifest) {
   return manifest.map(file => ({ storedName: file.storedName, sourcePath: path.join(root, file.storedName) }));
 }
@@ -158,11 +259,104 @@ function clearFiles(root) {
 // 全量导出（含全部业务表，用于应用内备份）
 router.get('/export', async (req, res) => {
   try {
-    const payload = fullPayload();
-    await sendArchive(res, payload, archiveFiles(filesDir, payload.files), `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
+    const files = listFileManifest();
+    const payload = exchangePayload({ includeAttachments: true });
+    await sendArchive(res, payload, archiveFiles(filesDir, files), `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
   } catch (e) {
     console.error('[backup/export]', e.message);
     res.status(500).json({ ok: false, error: '导出失败：' + e.message });
+  }
+});
+
+router.get('/export-json', (req, res) => {
+  try {
+    const payload = exchangePayload();
+    res.type('application/json').set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(`教师工作台数据-${new Date().toISOString().slice(0, 10)}.teacher-work.json`)}`).send(JSON.stringify(payload, null, 2));
+  } catch (e) {
+    console.error('[backup/export-json]', e.message);
+    res.status(500).json({ ok: false, error: 'JSON 导出失败：' + e.message });
+  }
+});
+
+const UPDATE_FK = Object.freeze({
+  students: { class_id: 'classes' }, follow_up_tasks: { class_id: 'classes', student_id: 'students' },
+  student_metrics_history: { student_id: 'students' }, seats: { class_id: 'classes', student_id: 'students' },
+  seat_layouts: { class_id: 'classes' }, documents: { class_id: 'classes' }, duties: { class_id: 'classes', student_id: 'students' },
+  exams: { class_id: 'classes' }, exam_scores: { exam_id: 'exams', student_id: 'students' },
+  attendance: { class_id: 'classes', student_id: 'students' }, student_records: { student_id: 'students' },
+  contacts: { student_id: 'students' }, leaves: { class_id: 'classes', student_id: 'students' },
+  assessment_items: { category_id: 'assessment_categories' },
+  assessment_records: { class_id: 'classes', student_id: 'students', item_id: 'assessment_items' },
+  assessment_record_revisions: { record_id: 'assessment_records' },
+});
+
+function insertAsNewDataset(payload) {
+  const idMaps = new Map();
+  const mapId = (table, oldId) => oldId == null ? oldId : idMaps.get(table)?.get(oldId) ?? null;
+  const ordered = TABLES;
+  const insertTransaction = db.transaction(() => {
+    for (const table of ordered) {
+      const rows = payload.get(table) || [];
+      const tableMap = new Map(); idMaps.set(table, tableMap);
+      const columns = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name).filter(k => k !== 'id');
+      for (const source of rows) {
+        const sourceKey = source.sourceId ?? source.id;
+        // 空白工作台也会预置评价分类；更新导入时按唯一名称复用已有分类，
+        // 否则整份 JSON 会因 assessment_categories.name 冲突而回滚。
+        if (table === 'assessment_categories') {
+          const existing = db.prepare('SELECT id FROM assessment_categories WHERE name = ?').get(source.name);
+          if (existing) {
+            tableMap.set(sourceKey, existing.id);
+            continue;
+          }
+        }
+        const row = { ...source };
+        delete row.uuid; delete row.sourceId; delete row.id;
+        for (const [field, parentTable] of Object.entries(UPDATE_FK[table] || {})) {
+          if (row[field] != null) row[field] = mapId(parentTable, row[field]);
+        }
+        // 评价项目同样有“分类 + 名称”唯一约束，复用已存在项目并保留引用映射。
+        if (table === 'assessment_items') {
+          const existing = db.prepare('SELECT id FROM assessment_items WHERE category_id = ? AND name = ?').get(row.category_id, row.name);
+          if (existing) {
+            tableMap.set(sourceKey, existing.id);
+            continue;
+          }
+        }
+        const keys = columns.filter(key => Object.prototype.hasOwnProperty.call(row, key));
+        const ins = db.prepare(`INSERT INTO ${table} (${keys.join(', ')}) VALUES (${keys.map(k => `@${k}`).join(', ')})`);
+        const result = ins.run(Object.fromEntries(keys.map(k => [k, row[k] === undefined ? null : row[k]])));
+        tableMap.set(sourceKey, Number(result.lastInsertRowid));
+        if (source.uuid) db.prepare('INSERT OR REPLACE INTO record_uuids (table_name, record_id, uuid) VALUES (?, ?, ?)').run(table, result.lastInsertRowid, source.uuid);
+      }
+    }
+  });
+  insertTransaction();
+  return true;
+}
+
+router.post('/update', (req, res) => {
+  try {
+    const incoming = req.body;
+    let payload;
+    let groups;
+    if (incoming?.format === EXCHANGE_FORMAT && incoming?.formatVersion === EXCHANGE_FORMAT_VERSION) {
+      if (!verifyIntegrity(incoming)) return invalidBackup(res, 'JSON 备份完整性校验失败');
+      payload = incoming;
+      groups = new Map(exchangeTableRows(incoming).map(([table, rows]) => [table, rows]));
+    } else {
+      payload = normalizeLegacyPayload(incoming, { stripFiles: true });
+      if (!payload || payload.app !== 'teacher-work' || !Array.isArray(payload.tables)) {
+        return invalidBackup(res, '仅支持 v1 JSON 或旧版 tables 格式的数据更新导入');
+      }
+      groups = new Map(payload.tables.map(({ table, rows }) => [table, rows]));
+    }
+    insertAsNewDataset(groups);
+    const counts = Object.fromEntries(TABLES.map(table => [table, groups.get(table)?.length || 0]));
+    res.json({ ok: true, data: { mode: 'append', exportId: payload.exportId, classes: counts.classes, counts } });
+  } catch (e) {
+    console.error('[backup/update]', e.message);
+    res.status(500).json({ ok: false, error: '更新导入失败：' + e.message });
   }
 });
 
@@ -182,6 +376,13 @@ router.post('/import', upload.single('backup'), async (req, res) => {
       try { fs.rmSync(req.file.path, { force: true }); } catch { /* ignore */ }
       return invalidBackup(res, e.message);
     }
+  }
+  try {
+    payload = normalizeLegacyPayload(normalizeExchangePayload(payload), { stripFiles: !extracted });
+  } catch (e) {
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    if (req.file) { try { fs.rmSync(req.file.path, { force: true }); } catch { /* ignore */ } }
+    return invalidBackup(res, e.message);
   }
   const validationError = validatePayload(payload, extracted ? { fileRoot: path.join(tempDir, 'files'), requireFiles: true } : {});
   if (validationError) {
@@ -241,7 +442,8 @@ router.post('/import', upload.single('backup'), async (req, res) => {
     }
     tx();
 
-    res.json({ ok: true, data: { tables: TABLES.length, classes: tableMap.get('classes').rows.length } });
+    const counts = Object.fromEntries(TABLES.map(table => [table, tableMap.get(table).rows.length]));
+    res.json({ ok: true, data: { tables: TABLES.length, classes: counts.classes, counts } });
     if (rollbackFilesDir) fs.rmSync(rollbackFilesDir, { recursive: true, force: true });
     fs.rmSync(tempDir, { recursive: true, force: true });
     if (req.file) fs.rmSync(req.file.path, { force: true });

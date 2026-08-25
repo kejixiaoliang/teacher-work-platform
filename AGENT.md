@@ -17,3 +17,16 @@
 - 新功能必须遵循测试先行：先写失败测试，再写最小实现，再运行完整测试。
 - 涉及数据库迁移、备份、上传、桌面运行时或发布脚本时，必须补充对应集成测试和发布验证。
 - 不在 `master` 直接实现功能；功能开发使用 `.worktrees/` 下的 `codex/` 分支。
+
+## 强制发布构建规范
+
+- 任何前端、Vue、路由、导入导出、数据恢复或界面修复，都必须重新生成桌面应用可执行文件后才能制作便携版；禁止直接使用旧的 `src-tauri/target/release/teacher-work.exe` 打包。
+- 便携版的唯一合法构建顺序为：
+  1. `npm test`
+  2. `npm run build`
+  3. `npm run tauri:build`
+  4. `npm run package:portable`
+- `npm run package:portable` 不会编译 Tauri，也不会把最新 `dist` 自动嵌入旧 exe；执行前必须确认 `src-tauri/target/release/teacher-work.exe` 的修改时间晚于本次源码和 `dist` 构建时间。
+- 打包完成后必须核对：便携 ZIP 存在、文件大小大于 0、SHA-256 已记录，并确认 ZIP 内的 exe 是本次 `tauri:build` 生成的版本。
+- 未完成上述完整链路时，不得向用户声称“便携版已包含本次修复”，不得把只执行过 `npm run build` 的结果作为桌面应用验收包。
+- 发现便携包中的行为仍是旧版本时，第一优先级检查构建时间、exe 来源和 Tauri 编译是否执行，不得只重复修改前端源码。

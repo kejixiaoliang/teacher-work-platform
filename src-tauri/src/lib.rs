@@ -1,5 +1,5 @@
 use rand::RngCore;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
@@ -27,9 +27,36 @@ struct DesktopState {
     child: Mutex<Child>,
 }
 
+#[derive(Deserialize)]
+struct SaveFileFilter {
+    name: String,
+    extensions: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct SaveFileRequest {
+    filename: String,
+    data: Vec<u8>,
+    filters: Vec<SaveFileFilter>,
+}
+
 #[tauri::command]
 fn desktop_bootstrap(state: State<'_, DesktopState>) -> DesktopBootstrap {
     state.bootstrap.clone()
+}
+
+#[tauri::command]
+fn save_file(request: SaveFileRequest) -> Result<Option<String>, String> {
+    let mut dialog = rfd::FileDialog::new().set_file_name(&request.filename);
+    for filter in request.filters {
+        let extensions = filter.extensions.iter().map(String::as_str).collect::<Vec<_>>();
+        dialog = dialog.add_filter(&filter.name, &extensions);
+    }
+    let Some(path) = dialog.save_file() else {
+        return Ok(None);
+    };
+    std::fs::write(&path, request.data).map_err(|error| format!("文件保存失败: {error}"))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 fn portable_root() -> Result<PathBuf, String> {
@@ -123,7 +150,7 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         api_token: token,
         data_dir: data_dir.to_string_lossy().into_owned(),
         app_version: env!("CARGO_PKG_VERSION").into(),
-            database_version: 6,
+            database_version: 7,
     };
     Ok((child, bootstrap))
 }
@@ -146,7 +173,7 @@ pub fn run() {
                 std::process::exit(0);
             }
         })
-        .invoke_handler(tauri::generate_handler![desktop_bootstrap])
+        .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file])
         .build(tauri::generate_context!())
         .expect("failed to build application")
         .run(|app, event| {

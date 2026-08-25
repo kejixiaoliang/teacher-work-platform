@@ -220,22 +220,17 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     const zipPath = path.join(dataDir, 'workflow-export.zip');
     fs.writeFileSync(zipPath, Buffer.from(await backupResponse.arrayBuffer()));
     const backup = (await extractBackupArchive(zipPath, path.join(dataDir, 'workflow-export'))).payload;
-    assert.equal(backup.app, 'teacher-work');
-    assert.equal(backup.version, 2);
-    assert.ok(backup.tables.find(item => item.table === 'classes').rows.length >= 1);
-    assert.ok(backup.tables.find(item => item.table === 'students').rows.length >= 2);
+    assert.equal(backup.format, 'teacher-work-backup');
+    assert.equal(backup.formatVersion, 1);
+    assert.ok(backup.content.classes.length >= 1);
+    assert.ok(backup.content.students.length >= 2);
     await expectBackupRejected({ app: 'teacher-work', version: 1, tables: [] });
-    await expectBackupRejected({
-      ...backup,
-      tables: [...backup.tables, { table: 'unknown', rows: [] }],
-    });
+    await expectBackupRejected({ app: 'teacher-work', version: 2, tables: [{ table: 'unknown', rows: [] }] });
     const invalidRowBackup = structuredClone(backup);
-    invalidRowBackup.tables.find(item => item.table === 'classes').rows[0].unexpected = true;
+    invalidRowBackup.content.classes[0].unexpected = true;
     await expectBackupRejected(invalidRowBackup);
     const duplicateIdBackup = structuredClone(backup);
-    duplicateIdBackup.tables.find(item => item.table === 'classes').rows.push(
-      structuredClone(duplicateIdBackup.tables.find(item => item.table === 'classes').rows[0]),
-    );
+    duplicateIdBackup.content.classes.push(structuredClone(duplicateIdBackup.content.classes[0]));
     await expectBackupRejected(duplicateIdBackup);
     assert.equal((await request('GET', '/api/classes')).length, 1);
   } finally {

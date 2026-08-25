@@ -141,6 +141,7 @@ import { Search, Upload, UploadFilled, Picture, Document, DocumentCopy, DataAnal
 import { api } from '../api.js';
 import { store } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { saveFileContent } from '../utils/saveFile.js';
 
 const { seq, isStale } = useSeqLoad();
 const previewUrl = ref('');
@@ -271,12 +272,7 @@ async function preview(f) {
 async function download(f) {
   try {
     const blob = await api.documents.readFile(f.id, { download: true });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = f.original_name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    await saveFileContent(blob, f.original_name, { mimeType: f.mime_type || 'application/octet-stream' });
   } catch (error) { ElMessage.error(error.message); }
 }
 function releasePreviewUrl() {

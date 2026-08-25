@@ -90,7 +90,7 @@ test('v4 creates assessment tables and seeds rules once', async () => {
     'assessment_record_revisions',
     'assessment_records',
   ]);
-  assert.equal(db.pragma('user_version', { simple: true }), 6);
+  assert.equal(db.pragma('user_version', { simple: true }), 7);
   assert.ok(db.prepare('SELECT COUNT(*) AS c FROM assessment_items').get().c >= 5);
   const itemCount = db.prepare('SELECT COUNT(*) AS c FROM assessment_items').get().c;
   db.close();
@@ -214,11 +214,9 @@ test('includes assessment rules, records, and revisions in backups', async () =>
   const item = categories.body.data.flatMap(category => category.items).find(candidate => candidate.name === '积极发言');
   await apiRequest(port, 'POST', '/api/assessment/records/batch', { classId: fixture.classId, date: '2026-08-15', itemId: item.id, studentIds: [fixture.studentId] });
   const exported = await apiBackupExport(port, dataDir);
-  const tables = exported.payload.tables;
-  assert.deepEqual(tables.map(table => table.table).filter(name => name.startsWith('assessment_')), [
-    'assessment_categories', 'assessment_items', 'assessment_records', 'assessment_record_revisions',
-  ]);
-  assert.equal(tables.find(table => table.table === 'assessment_records').rows.length, 1);
+  const assessment = exported.payload.content.assessment;
+  assert.deepEqual(Object.keys(assessment), ['categories', 'items', 'records', 'revisions']);
+  assert.equal(assessment.records.length, 1);
   await stopServer(server.child);
 });
 

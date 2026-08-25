@@ -191,7 +191,7 @@ function markAllPresent() {
 // 导出月度统计（B2）
 async function exportStats() {
   try {
-    await exportExcel(
+    const result = await exportExcel(
       '考勤统计', `考勤统计-${month.value}`,
       [
         { title: '学号', key: 'school_no', width: 14 },
@@ -204,7 +204,7 @@ async function exportStats() {
       ],
       stats.value
     );
-    ElMessage.success('月度统计已导出');
+    if (result.saved) ElMessage.success('月度统计已保存');
   } catch (e) {
     ElMessage.error(e.message);
   }

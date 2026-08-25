@@ -219,14 +219,20 @@
       <div class="card-title">数据管理</div>
       <div style="display:flex; gap:10px; flex-wrap:wrap">
         <el-button type="primary" plain :icon="Camera" @click="archiveMetrics">学期存档</el-button>
-        <el-button type="primary" :icon="Download" @click="backupAll" :loading="backupLoading">完整备份（下载）</el-button>
+        <el-button type="primary" :icon="Download" @click="backupAll" :loading="backupLoading">完整备份（含附件）</el-button>
+        <el-button type="primary" plain :icon="DocumentCopy" @click="exportJson" :loading="jsonLoading">导出 JSON（不含附件）</el-button>
         <el-button type="warning" plain :icon="Upload" @click="restoreTrigger" :loading="restoreLoading">从备份恢复</el-button>
+        <el-button type="success" plain :icon="Upload" @click="updateTrigger" :loading="updateLoading">更新导入 JSON</el-button>
         <input ref="restoreInput" type="file" accept=".zip,.json" style="display:none" @change="restorePick" />
+        <input ref="updateInput" type="file" accept=".json" style="display:none" @change="updatePick" />
       </div>
       <p class="text-muted" style="margin:10px 0 0">
         学期存档：把全班当前身高/视力/成绩快照存入历史，供对比与回填。
-        完整备份：下载包含数据库和 data/files 上传文件的 ZIP 文件；
-        从备份恢复：支持新版 ZIP 和旧版 JSON，可完整还原数据（恢复前会先自动快照当前库到 data/backups/）。
+        完整备份：下载包含全部班级、全部业务数据和 data/files 上传文件的 ZIP 文件；
+        导出 JSON：导出全部结构化业务数据和附件元数据，不包含附件内容；可在全新工作台通过“从备份恢复”还原；
+        从备份恢复：支持新版 ZIP、v1 JSON 和旧版 tables JSON，会覆盖当前数据并自动刷新；JSON 恢复所有结构化数据，但不恢复附件文件；
+        更新导入 JSON：将 JSON 追加为新的数据集，不清空现有工作台。
+        班级备份请到“班级设置”逐班下载，适合迁移或删除前留档；恢复时同样会覆盖当前库，不会自动合并。
       </p>
     </div>
   </div>
@@ -240,6 +246,7 @@ import { Grid, Upload, Calendar, UserFilled, Camera, Download, Picture, Document
 import { api } from '../api.js';
 import { store, currentClass, loadClasses } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { saveFileContent } from '../utils/saveFile.js';
 
 const { seq, isStale } = useSeqLoad();
 
@@ -403,16 +410,11 @@ async function archiveMetrics() {
 
 /* ---------- 完整备份 / 恢复（阶段一） ---------- */
 const backupLoading = ref(false);
+const jsonLoading = ref(false);
 const restoreLoading = ref(false);
+const updateLoading = ref(false);
 const restoreInput = ref(null);
-
-function downloadBlob(blob, filename) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
+const updateInput = ref(null);
 
 // 完整备份：走服务端统一导出（含全部 13 张业务表）
 async function backupAll() {
@@ -420,8 +422,8 @@ async function backupAll() {
   backupLoading.value = true;
   try {
     const blob = await api.backup.export();
-    downloadBlob(blob, `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
-    ElMessage.success('完整备份已下载（含数据库和上传文件）');
+    const result = await saveFileContent(blob, `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
+    if (result.saved) ElMessage.success('完整备份已保存（含数据库和上传文件）');
   } catch (e) {
     ElMessage.error('备份失败：' + e.message);
   } finally {
@@ -429,7 +431,42 @@ async function backupAll() {
   }
 }
 
+async function exportJson() {
+  if (!store.classes.length) return ElMessage.warning('还没有班级数据');
+  jsonLoading.value = true;
+  try {
+    const blob = await api.backup.exportJson();
+    const result = await saveFileContent(blob, `教师工作台数据-${new Date().toISOString().slice(0, 10)}.teacher-work.json`, { mimeType: 'application/json' });
+    if (result.saved) ElMessage.success('JSON 数据已保存（不含附件）');
+  } catch (e) { ElMessage.error('JSON 导出失败：' + e.message); }
+  finally { jsonLoading.value = false; }
+}
+
 function restoreTrigger() { restoreInput.value?.click(); }
+function updateTrigger() { updateInput.value?.click(); }
+
+async function updatePick(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  let payload;
+  try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('更新文件不是有效 JSON'); }
+  const isV1Exchange = payload?.format === 'teacher-work-backup' && payload?.formatVersion === 1;
+  const isLegacyBackup = payload?.app === 'teacher-work' && Array.isArray(payload?.tables);
+  if (!isV1Exchange && !isLegacyBackup) return ElMessage.error('不是支持的 JSON 文件（需要 v1 或旧版 tables 格式）');
+  const classes = isV1Exchange ? (payload.content?.classes?.length || 0) : (payload.tables.find(t => t.table === 'classes')?.rows?.length || 0);
+  const students = isV1Exchange ? (payload.content?.students?.length || 0) : (payload.tables.find(t => t.table === 'students')?.rows?.length || 0);
+  const ok = await ElMessageBox.confirm(`将追加导入 ${classes} 个班级、${students} 名学生，不清空现有工作台。是否继续？`, '更新导入预览', { type: 'warning', confirmButtonText: '继续导入', cancelButtonText: '取消' }).catch(() => false);
+  if (!ok) return;
+  updateLoading.value = true;
+  try {
+    const r = await api.backup.update(payload);
+    ElMessage.success('更新导入完成：新增 ' + r.classes + ' 个班级、' + (r.counts?.students || 0) + ' 名学生');
+    await loadClasses({ throwOnError: true });
+    await load();
+  } catch (err) { ElMessage.error('更新导入失败：' + err.message); }
+  finally { updateLoading.value = false; }
+}
 
 async function restorePick(e) {
   const file = e.target.files?.[0];
@@ -440,11 +477,15 @@ async function restorePick(e) {
   const isZip = file.name.toLowerCase().endsWith('.zip');
   if (!isZip) {
     try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('备份文件不是有效的 JSON 或 ZIP'); }
-    if (!payload || payload.app !== 'teacher-work' || !Array.isArray(payload.tables)) {
-      return ElMessage.error('不是本应用的备份文件（缺少 tables 字段）');
+    const isV1Exchange = payload?.format === 'teacher-work-backup' && payload?.formatVersion === 1;
+    const isLegacyBackup = payload?.app === 'teacher-work' && Array.isArray(payload?.tables);
+    if (!isV1Exchange && !isLegacyBackup) {
+      return ElMessage.error('不是支持的教师工作台 JSON 备份（需要 v1 或旧版格式）');
     }
   }
-  const clsCount = isZip ? 'ZIP' : (payload.tables.find(t => t.table === 'classes')?.rows?.length ?? 0);
+  const clsCount = isZip ? 'ZIP' : payload.format === 'teacher-work-backup'
+    ? (payload.content?.classes?.length ?? 0)
+    : (payload.tables.find(t => t.table === 'classes')?.rows?.length ?? 0);
   const ok = await ElMessageBox.confirm(
     `将用该备份覆盖当前全部数据（${clsCount} 个班级/归档）。恢复前会先自动快照当前库到 data/backups/，确定继续吗？`,
     '从备份恢复', { type: 'warning', confirmButtonText: '恢复', cancelButtonText: '取消' }
@@ -456,10 +497,10 @@ async function restorePick(e) {
     try {
       await loadClasses({ throwOnError: true });
       await load(); // 恢复后强制刷新首页（classId 可能未变，watch 不会触发）
-      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+      ElMessage.success('恢复成功：' + r.classes + ' 个班级、' + (r.counts?.students || 0) + ' 名学生、' + (r.counts?.exams || 0) + ' 场考试、' + (r.counts?.exam_scores || 0) + ' 条成绩；附件未恢复');
     } catch (refreshError) {
       console.error('[backup/restore] refresh after restore failed', refreshError);
-      ElMessage.success(`恢复成功：${r.classes} 个班级`);
+      ElMessage.success('恢复成功：' + r.classes + ' 个班级、' + (r.counts?.students || 0) + ' 名学生、' + (r.counts?.exams || 0) + ' 场考试、' + (r.counts?.exam_scores || 0) + ' 条成绩；附件未恢复');
       ElMessage.warning('数据已恢复，但首页刷新失败，请刷新页面');
     }
   } catch (err) {

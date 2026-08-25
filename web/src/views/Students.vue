@@ -424,6 +424,7 @@
     <el-dialog v-model="importVisible" title="导入预览" width="620px">
       <el-alert type="info" :closable="false" style="margin-bottom:10px"
                 :title="`解析到 ${parsed.length} 行，其中 ${parsedFail.length} 行有误（有误的行会跳过）`" />
+      <el-alert v-if="parsedWarning" type="warning" :closable="false" style="margin-bottom:10px" :title="parsedWarning" />
       <el-table :data="parsed" size="small" max-height="320" border>
         <el-table-column prop="_row" label="行" width="50" />
         <el-table-column prop="school_no" label="学号" width="90" />
@@ -432,6 +433,10 @@
         <el-table-column prop="height_cm" label="身高" width="70" />
         <el-table-column prop="vision_left" label="左眼" width="60" />
         <el-table-column prop="vision_right" label="右眼" width="60" />
+      </el-table>
+      <el-table v-if="parsedFail.length" :data="parsedFail" size="small" max-height="150" border style="margin-top:10px">
+        <el-table-column prop="row" label="行" width="60" />
+        <el-table-column prop="reason" label="未导入原因" />
       </el-table>
       <template #footer>
         <el-button @click="importVisible = false">取消</el-button>
@@ -450,6 +455,8 @@ import { api } from '../api.js';
 import { store, currentClass } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 import { studentClassGuard } from '../domain/studentClassGuard.js';
+import { parseStudentWorksheet } from '../domain/studentImport.js';
+import { saveFileContent } from '../utils/saveFile.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const listSeq = useSeqLoad();
@@ -518,6 +525,7 @@ const followUpForm = ref({ id: null, title: '', content: '', due_date: '', statu
 const importVisible = ref(false);
 const parsed = ref([]);
 const parsedFail = ref([]);
+const parsedWarning = ref('');
 const importing = ref(false);
 
 let debounceTimer = null;
@@ -803,22 +811,6 @@ function fmtVision(v) { return v == null || v === '' ? '—' : Number(v).toFixed
 function gradeType(g) { return { 优: 'success', 良: 'primary', 中: 'warning', 待提高: 'danger' }[g] || 'info'; }
 
 /* ---------- Excel ---------- */
-function cellStr(cell) {
-  if (cell == null) return '';
-  let v = cell.value;
-  if (v && typeof v === 'object') v = v.text ?? v.result ?? v;
-  return v == null ? '' : String(v).trim();
-}
-function cellNum(cell) {
-  const s = cellStr(cell);
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-function cellBool(cell, yesValues = ['是', 'true', '1', 'y', 'yes']) {
-  const s = cellStr(cell).toLowerCase();
-  return s ? yesValues.includes(s) : false;
-}
 
 async function downloadTemplate() {
   const ExcelJS = (await import('exceljs')).default;
@@ -830,7 +822,7 @@ async function downloadTemplate() {
   ws.addRow(['20251001', '示例学生', '男', '2012-01-01', '', '', '是', '', '', '150', '4.8', '4.9', '否', '良', '', '']);
   TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
   const buf = await wb.xlsx.writeBuffer();
-  saveBlob(new Blob([buf]), '学生导入模板.xlsx');
+  await saveFileContent(buf, '学生导入模板.xlsx', { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
 async function onFileChange(e) {
@@ -842,35 +834,10 @@ async function onFileChange(e) {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await file.arrayBuffer());
     const ws = wb.worksheets[0];
-    const rows = [];
-    const fails = [];
-    ws.eachRow((row, rn) => {
-      if (rn === 1) return; // 表头
-      const cells = n => row.getCell(n).text ?? row.getCell(n).value;
-      const r = {
-        _row: rn,
-        school_no: cellStr(cells(1)),
-        name: cellStr(cells(2)),
-        gender: cellStr(cells(3)) || '男',
-        birth_date: cellStr(cells(4)),
-        phone: cellStr(cells(5)),
-        parent_phone: cellStr(cells(6)),
-        is_boarding: cellBool(cells(7)),
-        interest_duty: cellStr(cells(8)),
-        health_note: cellStr(cells(9)),
-        height_cm: cellNum(cells(10)),
-        vision_left: cellNum(cells(11)),
-        vision_right: cellNum(cells(12)),
-        is_myopia: cellBool(cells(13)),
-        grade_level: cellStr(cells(14)),
-        seat_note: cellStr(cells(15)),
-        remark: cellStr(cells(16)),
-      };
-      if (!r.name) { fails.push({ row: rn, reason: '姓名为空' }); return; }
-      rows.push(r);
-    });
-    parsed.value = rows;
-    parsedFail.value = fails;
+    const result = parseStudentWorksheet(ws);
+    parsed.value = result.rows;
+    parsedFail.value = result.fails;
+    parsedWarning.value = result.warning;
     importVisible.value = true;
   } catch (err) {
     ElMessage.error('文件解析失败：' + err.message);
@@ -911,15 +878,7 @@ async function exportExcel() {
   }
   TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
   const buf = await wb.xlsx.writeBuffer();
-  saveBlob(new Blob([buf]), `学生名单-${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
-
-function saveBlob(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  await saveFileContent(buf, `学生名单-${new Date().toISOString().slice(0, 10)}.xlsx`, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 </script>
 
