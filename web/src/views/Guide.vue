@@ -9,12 +9,15 @@
     <section class="guide-section backup-section">
       <h3>备份与恢复：先分清两种备份</h3>
       <div class="backup-grid">
-        <article class="backup-card"><el-tag type="warning" round>班级备份</el-tag><h4>只保存一个班级的业务数据</h4><p>包含该班的班级信息、学生、座位、成绩、考勤、请假、文档、值日、沟通、跟进和表现记录，以及该班引用的上传文件。</p><small>入口：班级设置 → 对应班级 → 备份。删除班级前也会自动下载一次。</small></article>
-        <article class="backup-card backup-card-full"><el-tag type="success" round>教师工作台完整备份</el-tag><h4>保存整个应用的全部数据</h4><p>包含所有班级、所有业务表和全部上传文件，适合换电脑、版本升级前和定期整体留档。</p><small>入口：概览首页 → 数据管理 → 完整备份（下载）。</small></article>
+        <article class="backup-card"><el-tag type="warning" round>班级备份</el-tag><h4>只保存一个班级的业务数据</h4><p>包含该班的班级信息、学生、座位、成绩、考勤、请假、文档、值日、沟通、跟进和表现记录，以及该班引用的上传文件。</p><small>入口：班级设置 → 对应班级 → 备份。它适合单班留档；恢复前必须确认是否会覆盖当前工作台。</small></article>
+        <article class="backup-card backup-card-full"><el-tag type="success" round>教师工作台完整备份</el-tag><h4>保存整个应用的全部数据</h4><p>包含所有班级、所有业务数据和全部上传文件，适合换电脑、版本升级前和定期整体留档。</p><small>入口：概览首页 → 数据管理 → 完整备份（含附件）。恢复会替换整个工作台。</small></article>
+        <article class="backup-card"><el-tag type="info" round>JSON 数据导出</el-tag><h4>只导出业务数据</h4><p>导出规范化 JSON 和附件元数据，不包含附件内容，适合跨版本迁移、数据交换和上传到未来的小程序或云端。</p><small>入口：概览首页 → 数据管理 → 导出 JSON（不含附件）。</small></article>
+        <article class="backup-card"><el-tag type="primary" round>更新导入</el-tag><h4>追加到当前工作台</h4><p>当前版本的 JSON 更新导入会作为新的数据集追加，不清空现有数据；恢复旧版数据前仍应先下载完整 ZIP。</p><small>入口：概览首页 → 数据管理 → 更新导入 JSON。</small></article>
       </div>
-      <div class="backup-warning"><b>重要：</b>当前“从备份恢复”是整体恢复，会覆盖当前库，<b>不会把班级备份自动合并</b>到现有数据中。恢复前请先下载一份当前的完整备份；不确定时不要直接恢复。</div>
-      <ol class="backup-list"><li><b>日常备份：</b>每周至少下载一次完整备份，并复制到应用目录之外的安全位置。</li><li><b>换电脑：</b>旧电脑下载完整备份，新电脑在概览首页选择“从备份恢复”，确认覆盖提示后选择 ZIP。</li><li><b>只迁移一个班：</b>下载该班备份；恢复前先保存新电脑当前完整备份，恢复后核对学生、成绩和附件。</li><li><b>升级前：</b>先备份，再升级程序；不要手动编辑或重新打包 ZIP。</li></ol>
+      <div class="backup-warning"><b>重要：</b>“恢复整个工作台”会覆盖当前库中的全部业务数据；“更新导入 JSON”会追加一个新数据集。执行恢复时不会把班级备份自动合并到现有工作台。恢复前请先下载当前完整 ZIP，并复制到应用目录之外的安全位置。密码、恢复密钥和访问模式不会被备份覆盖。</div>
+      <ol class="backup-list"><li><b>日常备份：</b>每周至少下载一次完整 ZIP，并另存到应用目录之外；需要跨版本迁移时再同时导出 JSON。</li><li><b>换电脑：</b>旧电脑下载完整 ZIP，新电脑在教师模式下选择“从备份恢复”，确认覆盖提示后选择 ZIP。</li><li><b>只迁移数据：</b>使用 JSON 导出和“更新导入 JSON”，它不包含附件，附件需要使用完整 ZIP。</li><li><b>升级前：</b>先备份，再升级程序；不要手动编辑 ZIP。导入前查看来源版本、数量和附件提示。</li></ol>
     </section>
+    <section class="guide-section access-section"><h3>教师工作台模式与班级公开模式</h3><div class="access-guide-grid"><article class="backup-card"><el-tag type="success" round>教师工作台模式</el-tag><h4>维护和保护完整数据</h4><p>输入教师密码后使用。可以管理学生隐私、成绩、文档、备份、恢复、更新导入和访问策略。完成工作后建议主动锁定。</p></article><article class="backup-card"><el-tag type="warning" round>班级公开模式</el-tag><h4>投屏和公开查看</h4><p>用于课堂现场或公开展示。只开放允许公开的模块，成绩、隐私档案、文档和数据管理默认锁定。需要处理敏感数据时先切换到教师模式。</p></article></div><p class="backup-warning"><b>安全提醒：</b>自动锁定后会回到班级公开模式；备份文件包含学生和成绩等敏感信息，不能发送到不可信位置。</p></section>
     <section class="guide-section guide-reminder"><h3>自动记录与使用提醒</h3><ul><li><b>学生体征：</b>保存学生时，身高、左右眼视力或近视状态变化会自动进入身高视力历史。</li><li><b>学期存档：</b>概览首页的“学期存档”会保存当前班级在读学生的体征与成绩快照，适合学期末操作。</li><li><b>考勤请假：</b>考勤按当天全员出勤起步，已批准且覆盖当天的请假会自动显示为请假。</li><li><b>成绩管理：</b>先新建考试和科目，再录入或导入 Excel；保存后可查看科目统计、总分排名和个人趋势。</li><li><b>表现量化：</b>行为项目按固定分值记分，批量记分支持全班、值日组和班委组，修改记录会保留修正历史。</li><li><b>本地数据：</b>应用默认把数据保存在本机，不会主动上传；请妥善保管备份 ZIP 和导出的学生资料。</li></ul></section>
   </div>
 </template>
