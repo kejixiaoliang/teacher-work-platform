@@ -226,6 +226,7 @@ export const api = {
   },
   backup: {
     export: () => requestBlob('GET', '/api/backup/export'),
+    exportJson: () => requestBlob('GET', '/api/backup/export-json'),
     import: payload => request('POST', '/api/backup/import', payload),
     importFile: file => requestMultipart('/api/backup/import', file),
     exportClass: id => requestBlob('GET', `/api/backup/export-class/${id}`),

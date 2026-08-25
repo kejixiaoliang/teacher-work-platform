@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { createBackupArchive, extractBackupArchive, sha256File } from '../utils/backup-archive.js';
+import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, stableUuid } from '../utils/backup-format.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { dataDir, filesDir } = getDataPaths();
@@ -42,6 +43,50 @@ const TABLES = [
 ];
 const MAX_TOTAL_ROWS = 200_000;
 const MAX_ROWS_PER_TABLE = 100_000;
+
+const EXCHANGE_MAP = Object.freeze({
+  classes: 'classes', students: 'students', student_metrics_history: 'studentHistory',
+  seats: 'seats', seat_layouts: 'seatLayouts', documents: 'documents', duties: 'duties',
+  exams: 'exams', exam_scores: 'scores', attendance: 'attendance', leaves: 'leaves',
+  contacts: 'contacts', follow_up_tasks: 'followUpTasks',
+});
+
+function ensureRecordUuid(tableName, recordId) {
+  const existing = db.prepare('SELECT uuid FROM record_uuids WHERE table_name = ? AND record_id = ?').get(tableName, recordId);
+  if (existing?.uuid) return existing.uuid;
+  const uuid = stableUuid(tableName, recordId);
+  db.prepare('INSERT OR IGNORE INTO record_uuids (table_name, record_id, uuid) VALUES (?, ?, ?)').run(tableName, recordId, uuid);
+  return db.prepare('SELECT uuid FROM record_uuids WHERE table_name = ? AND record_id = ?').get(tableName, recordId).uuid;
+}
+
+function exchangeRow(tableName, row) {
+  return { ...row, uuid: ensureRecordUuid(tableName, row.id), sourceId: row.id };
+}
+
+function exchangePayload() {
+  const content = emptyContent();
+  for (const tableName of TABLES) {
+    const collection = EXCHANGE_MAP[tableName];
+    if (collection) content[collection] = db.prepare(`SELECT * FROM ${tableName}`).all().map(row => exchangeRow(tableName, row));
+  }
+  content.assessment = {
+    categories: db.prepare('SELECT * FROM assessment_categories').all().map(row => exchangeRow('assessment_categories', row)),
+    items: db.prepare('SELECT * FROM assessment_items').all().map(row => exchangeRow('assessment_items', row)),
+    records: db.prepare('SELECT * FROM assessment_records').all().map(row => exchangeRow('assessment_records', row)),
+    revisions: db.prepare('SELECT * FROM assessment_record_revisions').all().map(row => exchangeRow('assessment_record_revisions', row)),
+  };
+  return attachIntegrity({
+    format: EXCHANGE_FORMAT,
+    formatVersion: EXCHANGE_FORMAT_VERSION,
+    appVersion: process.env.npm_package_version || '0.7.0',
+    databaseVersion: 7,
+    exportId: newExportId(),
+    exportedAt: new Date().toISOString(),
+    source: { platform: 'desktop', product: 'teacher-work', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
+    content,
+    attachments: { included: false, omittedCount: listFileManifest().length },
+  });
+}
 
 // 每张表需要带 id 导出，保证恢复时外键关系完整
 function dumpTable(name) {
@@ -163,6 +208,16 @@ router.get('/export', async (req, res) => {
   } catch (e) {
     console.error('[backup/export]', e.message);
     res.status(500).json({ ok: false, error: '导出失败：' + e.message });
+  }
+});
+
+router.get('/export-json', (req, res) => {
+  try {
+    const payload = exchangePayload();
+    res.type('application/json').set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(`教师工作台数据-${new Date().toISOString().slice(0, 10)}.teacher-work.json`)}`).send(JSON.stringify(payload, null, 2));
+  } catch (e) {
+    console.error('[backup/export-json]', e.message);
+    res.status(500).json({ ok: false, error: 'JSON 导出失败：' + e.message });
   }
 });
 
