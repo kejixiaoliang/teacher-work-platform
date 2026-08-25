@@ -124,6 +124,7 @@ import { Plus } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store, loadClasses } from '../store.js';
 import { accessState, refreshAccessStatus, setPolicies } from '../accessControl.js';
+import { saveFileContent } from '../utils/saveFile.js';
 
 const editVisible = ref(false);
 const passwordDialogVisible = ref(false);
@@ -232,12 +233,8 @@ function switchClass(row) {
 async function exportClassBackup(row) {
   try {
     const blob = await api.backup.exportClass(row.id);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.zip`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    ElMessage.success(`已下载「${row.name}」班级备份`);
+    const result = await saveFileContent(blob, `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.zip`);
+    if (result.saved) ElMessage.success(`已保存「${row.name}」班级备份`);
   } catch (e) {
     ElMessage.error('班级备份失败：' + e.message);
   }
@@ -254,12 +251,9 @@ async function remove(row) {
   let backupOk = true;
   try {
     const blob = await api.backup.exportClass(row.id);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.zip`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    ElMessage.success('已下载该班数据备份');
+    const result = await saveFileContent(blob, `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.zip`);
+    if (result.saved) ElMessage.success('已保存该班数据备份');
+    else backupOk = false;
   } catch (e) {
     backupOk = false;
     ElMessage.warning('该班数据备份下载失败，仍将尝试删除');

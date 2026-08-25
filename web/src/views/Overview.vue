@@ -246,6 +246,7 @@ import { Grid, Upload, Calendar, UserFilled, Camera, Download, Picture, Document
 import { api } from '../api.js';
 import { store, currentClass, loadClasses } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
+import { saveFileContent } from '../utils/saveFile.js';
 
 const { seq, isStale } = useSeqLoad();
 
@@ -415,22 +416,14 @@ const updateLoading = ref(false);
 const restoreInput = ref(null);
 const updateInput = ref(null);
 
-function downloadBlob(blob, filename) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
 // 完整备份：走服务端统一导出（含全部 13 张业务表）
 async function backupAll() {
   if (!store.classes.length) return ElMessage.warning('还没有班级数据');
   backupLoading.value = true;
   try {
     const blob = await api.backup.export();
-    downloadBlob(blob, `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
-    ElMessage.success('完整备份已下载（含数据库和上传文件）');
+    const result = await saveFileContent(blob, `教师工作台完整备份-${new Date().toISOString().slice(0, 10)}.zip`);
+    if (result.saved) ElMessage.success('完整备份已保存（含数据库和上传文件）');
   } catch (e) {
     ElMessage.error('备份失败：' + e.message);
   } finally {
@@ -443,8 +436,8 @@ async function exportJson() {
   jsonLoading.value = true;
   try {
     const blob = await api.backup.exportJson();
-    downloadBlob(blob, `教师工作台数据-${new Date().toISOString().slice(0, 10)}.teacher-work.json`);
-    ElMessage.success('JSON 数据已下载（不含附件）');
+    const result = await saveFileContent(blob, `教师工作台数据-${new Date().toISOString().slice(0, 10)}.teacher-work.json`, { mimeType: 'application/json' });
+    if (result.saved) ElMessage.success('JSON 数据已保存（不含附件）');
   } catch (e) { ElMessage.error('JSON 导出失败：' + e.message); }
   finally { jsonLoading.value = false; }
 }

@@ -155,10 +155,11 @@ async function exportCurrent(format) {
       ? { class_id: currentClassId.value, month: statsMonth.value }
       : { class_id: currentClassId.value, academic_year: currentClass.value?.academic_year, term: currentClass.value?.term };
     const exportRecords = await api.assessment.records.list(detailFilters);
-    if (format === 'csv') downloadAssessmentCsv(exportRecords, columns);
-    else if (format === 'json') downloadAssessmentJson(filters, stats.value, exportRecords, stats.value.categories);
-    else await downloadAssessmentExcel({ summary: stats.value, records: exportRecords, categories: stats.value.categories });
-    ElMessage.success('导出已开始');
+    let result;
+    if (format === 'csv') result = await downloadAssessmentCsv(exportRecords, columns);
+    else if (format === 'json') result = await downloadAssessmentJson(filters, stats.value, exportRecords, stats.value.categories);
+    else result = await downloadAssessmentExcel({ summary: stats.value, records: exportRecords, categories: stats.value.categories });
+    if (result.saved) ElMessage.success('文件已保存');
   } catch (error) { ElMessage.error('导出失败：' + error.message); }
 }
 async function reloadAll() { loading.value = true; try { await Promise.all([loadCategories(), loadStudents(), loadGroups(), loadRecords(), loadOverview(), loadStats()]); } catch (error) { ElMessage.error(error.message); } finally { loading.value = false; } }

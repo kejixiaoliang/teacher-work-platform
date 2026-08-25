@@ -202,7 +202,7 @@ async function load() {
 // 导出请假台账（B2）
 async function exportLeaves() {
   try {
-    await exportExcel(
+    const result = await exportExcel(
       '请假台账', '请假台账',
       [
         { title: '学生', key: 'student_name', width: 12 },
@@ -217,7 +217,7 @@ async function exportLeaves() {
       ],
       list.value
     );
-    ElMessage.success('请假台账已导出');
+    if (result.saved) ElMessage.success('请假台账已保存');
   } catch (e) {
     ElMessage.error(e.message);
   }

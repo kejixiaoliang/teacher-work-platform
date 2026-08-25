@@ -17,9 +17,8 @@ export async function exportExcel(sheetName, fileName, cols, rows) {
   }
   cols.forEach((c, i) => { if (c.width) ws.getColumn(i + 1).width = c.width; });
   const buf = await wb.xlsx.writeBuffer();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([buf]));
-  a.download = `${fileName}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  return saveFileContent(buf, `${fileName}-${new Date().toISOString().slice(0, 10)}.xlsx`, {
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
 }
+import { saveFileContent } from './saveFile.js';

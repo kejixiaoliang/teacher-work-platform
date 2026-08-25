@@ -152,7 +152,7 @@ async function load() {
 // 导出沟通台账（B2）
 async function exportContacts() {
   try {
-    await exportExcel(
+    const result = await exportExcel(
       '沟通台账', '家校沟通台账',
       [
         { title: '学生', key: 'student_name', width: 12 },
@@ -165,7 +165,7 @@ async function exportContacts() {
       ],
       list.value
     );
-    ElMessage.success('沟通台账已导出');
+    if (result.saved) ElMessage.success('沟通台账已保存');
   } catch (e) {
     ElMessage.error(e.message);
   }

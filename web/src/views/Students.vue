@@ -456,6 +456,7 @@ import { store, currentClass } from '../store.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 import { studentClassGuard } from '../domain/studentClassGuard.js';
 import { parseStudentWorksheet } from '../domain/studentImport.js';
+import { saveFileContent } from '../utils/saveFile.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const listSeq = useSeqLoad();
@@ -821,7 +822,7 @@ async function downloadTemplate() {
   ws.addRow(['20251001', '示例学生', '男', '2012-01-01', '', '', '是', '', '', '150', '4.8', '4.9', '否', '良', '', '']);
   TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
   const buf = await wb.xlsx.writeBuffer();
-  saveBlob(new Blob([buf]), '学生导入模板.xlsx');
+  await saveFileContent(buf, '学生导入模板.xlsx', { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
 async function onFileChange(e) {
@@ -877,15 +878,7 @@ async function exportExcel() {
   }
   TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
   const buf = await wb.xlsx.writeBuffer();
-  saveBlob(new Blob([buf]), `学生名单-${new Date().toISOString().slice(0, 10)}.xlsx`);
-}
-
-function saveBlob(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  await saveFileContent(buf, `学生名单-${new Date().toISOString().slice(0, 10)}.xlsx`, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 </script>
 

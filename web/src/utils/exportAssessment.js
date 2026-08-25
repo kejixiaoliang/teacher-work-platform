@@ -20,22 +20,12 @@ export function assessmentJson(filters = {}, summary = {}, records = [], categor
   }, null, 2);
 }
 
-function downloadBlob(content, filename, type) {
-  const blob = content instanceof Blob ? content : new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+export async function downloadAssessmentCsv(rows, columns, filename = '学生表现量化.csv') {
+  return saveFileContent(assessmentCsv(rows, columns), filename, { mimeType: 'text/csv;charset=utf-8' });
 }
 
-export function downloadAssessmentCsv(rows, columns, filename = '学生表现量化.csv') {
-  downloadBlob(assessmentCsv(rows, columns), filename, 'text/csv;charset=utf-8');
-}
-
-export function downloadAssessmentJson(filters, summary, records, categorySummary, filename = '学生表现量化.json') {
-  downloadBlob(assessmentJson(filters, summary, records, categorySummary), filename, 'application/json;charset=utf-8');
+export async function downloadAssessmentJson(filters, summary, records, categorySummary, filename = '学生表现量化.json') {
+  return saveFileContent(assessmentJson(filters, summary, records, categorySummary), filename, { mimeType: 'application/json;charset=utf-8' });
 }
 
 export async function downloadAssessmentExcel({ summary = {}, records = [], categories = [], filename = '学生表现量化.xlsx' } = {}) {
@@ -71,5 +61,6 @@ export async function downloadAssessmentExcel({ summary = {}, records = [], cate
   ];
   categorySheet.addRows(categories);
   const buffer = await workbook.xlsx.writeBuffer();
-  downloadBlob(buffer, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  return saveFileContent(buffer, filename, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
+import { saveFileContent } from './saveFile.js';

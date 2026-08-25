@@ -552,7 +552,7 @@ async function exportScores() {
   const e = currentExam.value;
   if (!e) return ElMessage.warning('请先选择考试');
   try {
-    await exportExcel(
+    const result = await exportExcel(
       '成绩表', `成绩表-${e.name}`,
       [
         { title: '姓名', key: 'name', width: 14 },
@@ -565,7 +565,7 @@ async function exportScores() {
         scores: scoreMatrix.value[r.id] || {},
       }))
     );
-    ElMessage.success('成绩表已导出');
+    if (result.saved) ElMessage.success('成绩表已保存');
   } catch (err) {
     ElMessage.error(err.message);
   }
@@ -576,7 +576,7 @@ async function exportRanking() {
   if (!e) return ElMessage.warning('请先选择考试');
   if (!ranking.value.length) return ElMessage.info('当前考试还没有可导出的排名数据');
   try {
-    await exportExcel(
+    const result = await exportExcel(
       '排名统计', `排名统计-${e.name}`,
       [
         { title: '排名', key: 'rank', width: 8 },
@@ -587,7 +587,7 @@ async function exportRanking() {
       ],
       ranking.value
     );
-    ElMessage.success('排名统计已导出');
+    if (result.saved) ElMessage.success('排名统计已保存');
   } catch (err) {
     ElMessage.error(err.message);
   }
