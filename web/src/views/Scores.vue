@@ -396,7 +396,7 @@ watch(() => store.currentClassId, async (newId, oldId) => {
   scoreDirty.value = false;
   loadExams();
   loadStudents();
-});
+}, { immediate: true });
 
 // 离开页面（路由切换）前拦截未保存成绩
 onBeforeRouteLeave(async () => {

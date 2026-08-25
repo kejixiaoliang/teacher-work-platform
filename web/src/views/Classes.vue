@@ -53,10 +53,11 @@
         <template #default="{ row }">{{ row.student_count }}</template>
       </el-table-column>
       <el-table-column prop="remark" label="备注" show-overflow-tooltip />
-      <el-table-column label="操作" width="180">
+      <el-table-column label="操作" width="270">
         <template #default="{ row }">
           <el-button class="row-btn" size="small" @click="openEdit(row)">编辑</el-button>
           <el-button v-if="row.id !== store.currentClassId" class="row-btn" size="small" @click="switchClass(row)">切换</el-button>
+          <el-button class="row-btn" size="small" @click="exportClassBackup(row)">备份</el-button>
           <el-button class="row-btn row-btn-del" size="small" @click="remove(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -226,6 +227,20 @@ async function save() {
 function switchClass(row) {
   store.currentClassId = row.id;
   ElMessage.success(`已切换到「${row.name}」`);
+}
+
+async function exportClassBackup(row) {
+  try {
+    const blob = await api.backup.exportClass(row.id);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `班级备份-${row.name}-${new Date().toISOString().slice(0, 10)}.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    ElMessage.success(`已下载「${row.name}」班级备份`);
+  } catch (e) {
+    ElMessage.error('班级备份失败：' + e.message);
+  }
 }
 
 async function remove(row) {
