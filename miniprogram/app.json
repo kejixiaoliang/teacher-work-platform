@@ -13,6 +13,7 @@
     ,"pages/business/index"
     ,"pages/scores/index"
     ,"pages/seats/index"
+    ,"pages/duties/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",

@@ -48,6 +48,16 @@ Page({
       wx.navigateTo({ url: `/pages/seats/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
+    if (name === '值日管理') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/duties/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
+    if (name === '值日管理') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/duties/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
     const featureNames = new Set(['成绩管理', '座位管理', '值日管理', '家校沟通', '文档管理', '数据分析']);
     if (featureNames.has(name)) {
       const datasetId = wx.getStorageSync('activeDatasetId') || '';

@@ -125,3 +125,16 @@ test('seat management has a mobile grid with placement and lock actions', () => 
   assert.match(template, /grid/);
   assert.match(template, /安排学生/);
 });
+
+test('duty management has a dedicated grouping and weekday workflow', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/duties/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/duties/index.wxml'), 'utf8');
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/duties/index'));
+  assert.match(page, /autoGroup/);
+  assert.match(page, /groupDays/);
+  assert.match(template, /一键自动分组/);
+  assert.match(template, /data-action="presetLeaders"/);
+  assert.match(template, /设置值日星期/);
+  assert.match(workbench, /pages\/duties\/index/);
+});
