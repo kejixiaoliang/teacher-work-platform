@@ -1,0 +1,7 @@
+{
+  "version": "0.8.0",
+  "url": "https://your-update-cdn.example/teacher-work-0.8.0.zip",
+  "sha256": "replace-with-64-character-package-sha256",
+  "size": 0,
+  "notes": "请替换为正式发布包信息"
+}
