@@ -1,6 +1,7 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/import/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",

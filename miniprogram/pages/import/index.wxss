@@ -1,0 +1,44 @@
+.page {
+  padding: 48rpx;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: 600;
+}
+
+.hint,
+.file-name,
+.preview {
+  margin-top: 24rpx;
+  line-height: 1.7;
+}
+
+.file-name {
+  color: #344054;
+}
+
+.error {
+  margin-top: 24rpx;
+  color: #b42318;
+}
+
+.preview {
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+}
+
+.section-title {
+  margin-bottom: 12rpx;
+  font-weight: 600;
+}
+
+.confirm {
+  margin-top: 24rpx;
+}
+
+.success {
+  margin-top: 24rpx;
+  color: #067647;
+}

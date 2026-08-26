@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="title">导入数据</view>
+  <view class="hint">仅支持结构化 JSON，不上传 ZIP 和附件文件。</view>
+  <button type="primary" loading="{{loading}}" bindtap="chooseFile">选择 JSON 文件</button>
+  <view wx:if="{{fileName}}" class="file-name">{{fileName}}</view>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+  <view wx:if="{{preview}}" class="preview">
+    <view class="section-title">导入预览</view>
+    <view>班级：{{preview.counts.classes}}</view>
+    <view>学生：{{preview.counts.students}}</view>
+    <view>省略附件：{{preview.omittedAttachmentCount}}</view>
+    <button wx:if="{{!committed}}" class="confirm" loading="{{loading}}" bindtap="confirmImport">确认导入为新数据集</button>
+    <view wx:if="{{committed}}" class="success">导入成功</view>
+  </view>
+</view>
