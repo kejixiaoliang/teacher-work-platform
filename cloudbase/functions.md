@@ -11,6 +11,7 @@
 | 函数 | 类型 | 运行时 | 入口 | 状态 | 触发器 |
 | --- | --- | --- | --- | --- | --- |
 | `import-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `query-data` | Event | Nodejs18.15 | `index.main` | 待部署 | 无 |
 
 部署配置：
 
@@ -47,3 +48,9 @@ wx.cloud.callFunction({
 - 查询到的触发器列表为空。
 
 后续实现真实导入写库前，必须先补充数据映射、幂等键、批次记录、失败恢复和权限规则，不能直接把预检函数改成无保护的批量写入函数。
+
+## 只读接口设计
+
+`query-data` 仅允许读取 `classes` 和 `students`，并且每次查询都由云函数从微信登录上下文取得 `ownerId`，客户端不能传入或覆盖所有者身份。查询必须同时提供 `datasetId`，分页上限为 100 条。
+
+该函数本地代码已完成并通过静态测试，部署前仍需经过 CloudBase 函数部署核验。
