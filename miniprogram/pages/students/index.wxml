@@ -1,7 +1,19 @@
 <view class="page">
   <view class="eyebrow">班级资料</view>
   <view class="title">学生管理</view>
+  <button wx:if="{{datasetId}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button>
   <input class="search" placeholder="搜索姓名或学号" value="{{keyword}}" bindinput="onKeywordInput" />
+
+  <view wx:if="{{editing}}" class="editor">
+    <view class="editor-title">新增学生</view>
+    <input placeholder="姓名（必填）" value="{{form.name}}" data-field="name" bindinput="onFormInput" />
+    <input placeholder="学号" value="{{form.schoolNo}}" data-field="schoolNo" bindinput="onFormInput" />
+    <input placeholder="性别" value="{{form.gender}}" data-field="gender" bindinput="onFormInput" />
+    <input placeholder="联系电话" value="{{form.phone}}" data-field="phone" bindinput="onFormInput" />
+    <input placeholder="家长电话" value="{{form.parentPhone}}" data-field="parentPhone" bindinput="onFormInput" />
+    <textarea placeholder="备注" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" />
+    <view class="editor-actions"><button size="mini" bindtap="cancelEdit">取消</button><button type="primary" size="mini" loading="{{loading}}" bindtap="saveStudent">保存</button></view>
+  </view>
   <view wx:if="{{loading}}" class="state">正在读取学生数据…</view>
   <view wx:elif="{{error}}" class="state error">
     <view>{{error}}</view>

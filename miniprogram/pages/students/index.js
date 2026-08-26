@@ -1,4 +1,4 @@
-import { loadTeacherData } from '../../services/teacher-data.js';
+import { loadTeacherData, writeStudentData } from '../../services/teacher-data.js';
 
 Page({
   data: {
@@ -8,6 +8,8 @@ Page({
     keyword: '',
     students: [],
     visibleStudents: [],
+    editing: false,
+    form: { name: '', schoolNo: '', gender: '', phone: '', parentPhone: '', remark: '' },
   },
 
   onLoad(options) {
@@ -46,6 +48,34 @@ Page({
     const uuid = event.currentTarget.dataset.uuid || '';
     if (!uuid) return;
     wx.navigateTo({ url: `/pages/student-detail/index?datasetId=${encodeURIComponent(this.data.datasetId)}&uuid=${encodeURIComponent(uuid)}` });
+  },
+
+  openCreate() {
+    this.setData({ editing: true, form: { name: '', schoolNo: '', gender: '', phone: '', parentPhone: '', remark: '' } });
+  },
+
+  onFormInput(event) {
+    const field = event.currentTarget.dataset.field;
+    this.setData({ [`form.${field}`]: event.detail.value });
+  },
+
+  cancelEdit() { this.setData({ editing: false }); },
+
+  async saveStudent() {
+    if (!this.data.form.name.trim()) {
+      wx.showToast({ title: '请填写姓名', icon: 'none' });
+      return;
+    }
+    this.setData({ loading: true, error: '' });
+    try {
+      const result = await writeStudentData({ action: 'create', datasetId: this.data.datasetId, student: this.data.form });
+      if (!result?.ok) throw new Error(result?.errors?.[0] || '保存学生失败');
+      this.setData({ editing: false });
+      wx.showToast({ title: '已保存', icon: 'success' });
+      await this.loadStudents();
+    } catch (error) {
+      this.setData({ loading: false, error: error?.message || '保存学生失败' });
+    }
   },
 
   retry() { this.loadStudents(); },

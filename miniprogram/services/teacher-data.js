@@ -1,5 +1,10 @@
 import { callCloudFunction } from './cloudbase.js';
 
+export async function writeStudentData(input) {
+  const result = await callCloudFunction('student-data', input);
+  return result?.result || result;
+}
+
 const ALLOWED_COLLECTIONS = new Set(['classes', 'students']);
 
 function normalizeResponse(response) {
