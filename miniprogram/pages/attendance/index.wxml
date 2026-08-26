@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="eyebrow">日常记录</view>
+  <view class="title">考勤管理</view>
+  <view class="filters">
+    <picker mode="date" value="{{date}}" start="2020-01-01" end="2099-12-31" bindchange="onDateChange"><view class="picker">日期：{{date}}</view></picker>
+    <picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">{{classUuid ? '切换班级' : '选择班级'}}</view></picker>
+  </view>
+  <view wx:if="{{loading}}" class="state">正在读取考勤…</view>
+  <view wx:elif="{{error}}" class="state error">{{error}}</view>
+  <view wx:elif="{{!rows.length}}" class="state">当前班级暂无学生</view>
+  <block wx:else>
+    <view wx:for="{{rows}}" wx:key="studentUuid" class="row">
+      <view class="student"><text class="name">{{item.name}}</text><text class="school-no">{{item.schoolNo}}</text></view>
+      <picker mode="selector" range="{{statuses}}" value="{{statuses.indexOf(item.status)}}" data-index="{{index}}" bindchange="onStatusChange"><view class="status">{{item.status}}</view></picker>
+      <input class="remark" placeholder="备注" value="{{item.remark}}" data-index="{{index}}" bindinput="onRemarkInput" />
+    </view>
+    <button type="primary" loading="{{saving}}" bindtap="save">保存当天考勤</button>
+  </block>
+</view>

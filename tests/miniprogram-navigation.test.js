@@ -47,6 +47,18 @@ test('student detail exposes update and soft-delete actions', () => {
   assert.match(template, /bindtap="deleteStudent"/);
 });
 
+test('attendance management exposes the existing four statuses and save flow', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/attendance/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/attendance/index.wxml'), 'utf8');
+  assert.ok(app.pages.includes('pages/attendance/index'));
+  assert.match(page, /出勤/);
+  assert.match(page, /迟到/);
+  assert.match(page, /请假/);
+  assert.match(page, /缺勤/);
+  assert.match(page, /action: 'save'/);
+  assert.match(template, /保存当天考勤/);
+});
+
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');

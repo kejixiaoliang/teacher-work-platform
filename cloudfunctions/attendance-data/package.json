@@ -1,0 +1,8 @@
+{
+  "name": "teacher-work-attendance-data",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

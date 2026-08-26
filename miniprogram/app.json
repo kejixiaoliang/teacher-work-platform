@@ -5,6 +5,7 @@
     "pages/settings/index",
     "pages/students/index",
     "pages/student-detail/index",
+    "pages/attendance/index",
     "pages/import/index"
   ],
   "window": {

@@ -41,6 +41,7 @@ source
 | --- | --- | --- | --- | --- |
 | `classes` | 班级设置 | `uuid` | `classes` | 已创建 |
 | `students` | 学生管理 | `classUuid` | `students` | 已创建 |
+| `attendance` | 考勤管理 | `classUuid`、`studentUuid`、`date` | `attendance` | 已创建 |
 | `studentHistory` | 学生健康/资料历史 | `studentUuid` | `student_history` | 待字段核对 |
 | `seats` | 座位管理当前布局 | `classUuid`、`studentUuid` | `seats` | 待字段核对 |
 | `seatLayouts` | 座位布局历史 | `classUuid` | `seat_layouts` | 待字段核对 |

@@ -13,6 +13,7 @@
 | `import_batches` | JSON 导入批次、预检和结果审计 | 0 条 |
 | `classes` | 教师所属班级基础数据 | 0 条 |
 | `students` | 班级下的学生基础数据 | 0 条 |
+| `attendance` | 学生每日考勤记录 | 0 条 |
 
 ## 统一字段约定
 
@@ -34,7 +35,7 @@ source
 ## 当前状态
 
 - 尚未写入真实教师、班级或学生数据；
-- 5 个集合当前均配置为 `PRIVATE`；
+- 6 个集合当前均配置为 `PRIVATE`；
 - 已创建并核验 `ownerId`、`datasetId` 相关业务索引；
 - 已部署 `import-data` 和 `query-data` 云函数；
 - 尚未启用附件云端存储，第一阶段只处理结构化数据。

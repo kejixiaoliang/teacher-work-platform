@@ -23,6 +23,11 @@ Page({
       wx.navigateTo({ url: `/pages/students/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
+    if (name === '考勤管理') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/attendance/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
     wx.showToast({ title: `${name}即将接入`, icon: 'none' });
   },
 });
