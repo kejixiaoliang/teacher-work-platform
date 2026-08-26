@@ -1,4 +1,9 @@
-const { envId } = require('./config/env.example.js');
+let envId = '';
+try {
+  ({ envId } = require('./config/env.js'));
+} catch {
+  ({ envId } = require('./config/env.example.js'));
+}
 
 App({
   globalData: {
