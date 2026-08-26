@@ -12,7 +12,7 @@
 
 ## 集合边界
 
-当前实际权限：`teacher_profiles`、`datasets`、`import_batches`、`classes`、`students`、`attendance`、`leaves`、`follow_up_tasks` 均为 `PRIVATE`。
+当前实际权限：`teacher_profiles`、`datasets`、`import_batches`、`classes`、`students`、`attendance`、`leaves`、`follow_up_tasks`、`license_codes`、`license_grants`、`admin_audit_logs` 均为 `PRIVATE`。
 
 | 集合 | 客户端直接读取 | 客户端直接写入 | 推荐写入边界 |
 | --- | --- | --- | --- |
@@ -24,5 +24,8 @@
 | `attendance` | 否 | 否 | `attendance-data` 云函数 |
 | `leaves` | 否 | 否 | `leave-data` 云函数 |
 | `follow_up_tasks` | 否 | 否 | `follow-up-data` 云函数 |
+| `license_codes` | 否 | 否 | `admin` / `redeem-code` 云函数 |
+| `license_grants` | 否 | 否 | `admin` / `redeem-code` 云函数 |
+| `admin_audit_logs` | 否 | 否 | `admin` 云函数 |
 
 具体安全规则和索引将在第一批数据契约冻结后单独提交和验证。

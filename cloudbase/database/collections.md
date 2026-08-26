@@ -16,6 +16,9 @@
 | `attendance` | 学生每日考勤记录 | 0 条 |
 | `leaves` | 学生请假记录 | 0 条 |
 | `follow_up_tasks` | 学生跟进事项 | 0 条 |
+| `license_codes` | 兑换码哈希和授权规则 | 0 条 |
+| `license_grants` | 教师授权记录 | 0 条 |
+| `admin_audit_logs` | 管理员操作审计 | 0 条 |
 
 ## 统一字段约定
 
@@ -37,7 +40,7 @@ source
 ## 当前状态
 
 - 尚未写入真实教师、班级或学生数据；
-- 8 个集合当前均配置为 `PRIVATE`；
+- 11 个集合当前均配置为 `PRIVATE`；
 - 已创建并核验 `ownerId`、`datasetId` 相关业务索引；
 - 已部署 `import-data` 和 `query-data` 云函数；
 - 尚未启用附件云端存储，第一阶段只处理结构化数据。
