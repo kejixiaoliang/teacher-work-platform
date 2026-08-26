@@ -2,6 +2,9 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import db, { getAppSetting, setAppSetting } from '../db.js';
 import { createSyncQueueEntry, validateSyncCursor } from '../../shared/contracts/sync.js';
+import { getDataDir } from '../config/paths.js';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const router = Router();
 const MAX_QUEUE = 5000;
@@ -18,6 +21,22 @@ router.get('/status', (req, res) => {
   if (!validDataset(datasetId)) return res.status(400).json({ ok: false, code: 'DATASET_REQUIRED', error: '缺少有效数据集' });
   const queue = readQueue(datasetId);
   res.json({ ok: true, data: { datasetId, total: queue.length, pending: queue.filter((item) => item.queueStatus === 'pending').length, conflict: queue.filter((item) => item.queueStatus === 'conflict').length, failed: queue.filter((item) => item.queueStatus === 'failed').length } });
+});
+
+router.post('/prepare', async (req, res) => {
+  const datasetId = String(req.body?.datasetId || '').trim();
+  if (!validDataset(datasetId)) return res.status(400).json({ ok: false, code: 'DATASET_REQUIRED', error: '缺少有效数据集' });
+  if (req.body?.confirm !== true) return res.status(400).json({ ok: false, code: 'CONFIRM_REQUIRED', error: '首次全量同步必须明确确认' });
+  const backupDir = path.join(getDataDir(), 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  const snapshotPath = path.join(backupDir, `before-cloud-sync-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.db`);
+  try {
+    await db.backup(snapshotPath);
+    return res.json({ ok: true, data: { datasetId, snapshotPath, createdAt: new Date().toISOString() } });
+  } catch (error) {
+    try { fs.rmSync(snapshotPath, { force: true }); } catch { /* preserve the original failure */ }
+    return res.status(503).json({ ok: false, code: 'SYNC_SNAPSHOT_FAILED', error: `同步前快照失败：${error.message}` });
+  }
 });
 
 router.post('/queue', (req, res) => {
