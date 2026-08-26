@@ -97,3 +97,13 @@ test('settings exposes the server-authorized redeem code flow', () => {
   assert.match(redeem, /action: 'redeem'/);
   assert.match(redeem, /callRedeemCode/);
 });
+
+test('workbench routes the remaining client modules to mobile operation views', () => {
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/business/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/business/index'));
+  for (const name of ['成绩管理', '座位管理', '值日管理', '家校沟通', '文档管理', '数据分析']) assert.match(workbench, new RegExp(name));
+  assert.match(page, /callBusinessData/);
+  assert.match(page, /action: 'create'/);
+  assert.match(page, /action: 'delete'/);
+});

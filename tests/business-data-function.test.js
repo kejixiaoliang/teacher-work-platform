@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+const require = createRequire(import.meta.url);
+const fn = require(path.resolve('cloudfunctions/business-data/index.js'));
+
+test('business data keeps existing client modules in a server-scoped whitelist', () => {
+  for (const collection of ['seats', 'duties', 'scores', 'contacts', 'documents', 'assessment_records']) {
+    assert.equal(fn.normalize({ collection, action: 'query', datasetId: 'd1' }).ok, true);
+  }
+  assert.equal(fn.normalize({ collection: 'users', action: 'query', datasetId: 'd1' }).code, 'COLLECTION_NOT_ALLOWED');
+});
+
+test('business data strips client ownership metadata before cloud writes', () => {
+  const value = fn.sanitize({ ownerId: 'forged', datasetId: 'forged', uuid: 'forged', title: '  家长沟通  ', score: '98' });
+  assert.equal(value.ownerId, undefined);
+  assert.equal(value.datasetId, undefined);
+  assert.equal(value.title, '家长沟通');
+  assert.equal(value.score, 98);
+});

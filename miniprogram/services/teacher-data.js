@@ -25,6 +25,11 @@ export async function callRedeemCode(input) {
   return result?.result || result;
 }
 
+export async function callBusinessData(input) {
+  const result = await callCloudFunction('business-data', input);
+  return result?.result || result;
+}
+
 const ALLOWED_COLLECTIONS = new Set(['classes', 'students']);
 
 function normalizeResponse(response) {

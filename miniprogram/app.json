@@ -10,6 +10,7 @@
     "pages/follow-up/index",
     "pages/import/index",
     "pages/redeem/index"
+    ,"pages/business/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",
