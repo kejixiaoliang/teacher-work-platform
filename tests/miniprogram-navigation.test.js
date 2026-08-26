@@ -70,6 +70,16 @@ test('leave management exposes client leave types, statuses and actions', () => 
   assert.match(template, /销假/);
 });
 
+test('follow-up management exposes the existing task workflow', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/follow-up/index.js'), 'utf8');
+  const service = fs.readFileSync(path.join(root, 'miniprogram/services/teacher-data.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/follow-up/index'));
+  assert.match(page, /callFollowUpData/);
+  assert.match(page, /pending/);
+  assert.match(page, /completed/);
+  assert.match(service, /follow-up-data/);
+});
+
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');

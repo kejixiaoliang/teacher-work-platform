@@ -57,7 +57,7 @@ source
 | `assessment.items` | 表现量化规则 | `categoryUuid` | `assessment_items` | 待字段核对 |
 | `assessment.records` | 表现量化记录 | `studentUuid`、`itemUuid` | `assessment_records` | 待字段核对 |
 | `assessment.revisions` | 表现量化修订历史 | `recordUuid` | `assessment_revisions` | 待字段核对 |
-| `followUpTasks` | 跟进事项 | `classUuid`、`studentUuid` | `follow_up_tasks` | 待字段核对 |
+| `followUpTasks` | 跟进事项 | `classUuid`、`studentUuid` | `follow_up_tasks` | 已创建，字段基线已落地 |
 | `settings` | 本地设置 | `ownerId` | `teacher_profiles` 或专用设置集合 | 待边界确认 |
 
 集合名称可以在 CloudBase 中使用小写下划线形式，但必须固定登记，不能由不同端自行命名。交换格式名称与云端集合名称的转换只能由映射层处理。

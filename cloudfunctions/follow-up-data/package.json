@@ -1,0 +1,7 @@
+{
+  "name": "follow-up-data",
+  "private": true,
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

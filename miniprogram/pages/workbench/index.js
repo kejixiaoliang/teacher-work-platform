@@ -33,6 +33,11 @@ Page({
       wx.navigateTo({ url: `/pages/leaves/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
+    if (name === '跟进事项') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/follow-up/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
     wx.showToast({ title: `${name}即将接入`, icon: 'none' });
   },
 });

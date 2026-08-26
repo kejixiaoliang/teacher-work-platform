@@ -15,6 +15,7 @@
 | `students` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 学生只读列表 |
 | `attendance` | `ownerId_1_datasetId_1_classUuid_1_date_1` | `ownerId: 1, datasetId: 1, classUuid: 1, date: 1` | 否 | 按班级和日期查询考勤 |
 | `leaves` | `ownerId_1_datasetId_1_classUuid_1_startDate_-1` | `ownerId: 1, datasetId: 1, classUuid: 1, startDate: -1` | 否 | 按班级和开始日期查询请假 |
+| `follow_up_tasks` | `ownerId_1_datasetId_1_classUuid_1_status_1_dueDate_1` | `ownerId: 1, datasetId: 1, classUuid: 1, status: 1, dueDate: 1` | 否 | 按班级、状态和截止日期查询跟进事项 |
 
 索引不是权限控制。每条业务查询仍必须由云函数从微信上下文获取 `ownerId`，并同时限制 `datasetId`；客户端不能自行指定查询用户。
 

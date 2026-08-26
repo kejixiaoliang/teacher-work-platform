@@ -15,6 +15,11 @@ export async function callLeaveData(input) {
   return result?.result || result;
 }
 
+export async function callFollowUpData(input) {
+  const result = await callCloudFunction('follow-up-data', input);
+  return result?.result || result;
+}
+
 const ALLOWED_COLLECTIONS = new Set(['classes', 'students']);
 
 function normalizeResponse(response) {
