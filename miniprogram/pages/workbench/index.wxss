@@ -1,0 +1,10 @@
+.page { padding: 40rpx 32rpx 60rpx; }
+.eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
+.title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
+.hint { margin-top: 16rpx; color: #667085; line-height: 1.6; }
+.group { margin-top: 36rpx; }
+.section-title { margin-bottom: 14rpx; color: #475467; font-size: 28rpx; font-weight: 600; }
+.feature-list { overflow: hidden; border: 1rpx solid #eadfd5; border-radius: 18rpx; background: #fffdf9; }
+.feature-row { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 24rpx; border-bottom: 1rpx solid #f0e8df; color: #344054; }
+.feature-row:last-child { border-bottom: 0; }
+.chevron { color: #98a2b3; font-size: 38rpx; line-height: 1; }

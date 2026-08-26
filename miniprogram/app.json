@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/workbench/index",
+    "pages/settings/index",
     "pages/import/index"
   ],
   "window": {
@@ -8,6 +10,26 @@
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f6f7fb"
+  },
+  "tabBar": {
+    "color": "#667085",
+    "selectedColor": "#b54708",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/workbench/index",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "设置"
+      }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

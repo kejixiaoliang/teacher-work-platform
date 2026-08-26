@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="eyebrow">系统与数据</view>
+  <view class="title">设置</view>
+  <view wx:for="{{sections}}" wx:key="title" class="group">
+    <view class="section-title">{{item.title}}</view>
+    <view class="setting-list">
+      <view wx:for="{{item.items}}" wx:key="name" class="setting-row" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="handleItemTap">
+        <text>{{item.name}}</text>
+        <text class="chevron">›</text>
+      </view>
+    </view>
+  </view>
+</view>

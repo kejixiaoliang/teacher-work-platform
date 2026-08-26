@@ -1,0 +1,21 @@
+<view class="page">
+  <view class="eyebrow">现有客户端功能</view>
+  <view class="title">工作台</view>
+  <view class="hint">所有功能沿用客户端名称，后续按移动端操作方式逐项接入。</view>
+
+  <view wx:for="{{groups}}" wx:key="title" class="group">
+    <view class="section-title">{{item.title}}</view>
+    <view class="feature-list">
+      <view
+        wx:for="{{item.items}}"
+        wx:key="*this"
+        class="feature-row"
+        data-name="{{item}}"
+        bindtap="openFeature"
+      >
+        <text>{{item}}</text>
+        <text class="chevron">›</text>
+      </view>
+    </view>
+  </view>
+</view>
