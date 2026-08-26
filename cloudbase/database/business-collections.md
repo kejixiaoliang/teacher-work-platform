@@ -51,7 +51,7 @@ source
 | `scores` | 成绩管理成绩 | `examUuid`、`studentUuid` | `scores` | 待字段核对 |
 | `attendance` | 考勤管理 | `classUuid`、`studentUuid` | `attendance` | 待字段核对 |
 | `studentRecords` | 学生记录 | `studentUuid` | `student_records` | 待字段核对 |
-| `leaves` | 请假管理 | `classUuid`、`studentUuid` | `leaves` | 待字段核对 |
+| `leaves` | 请假管理 | `classUuid`、`studentUuid` | `leaves` | 已创建，字段基线已落地 |
 | `contacts` | 家校沟通 | `classUuid`、`studentUuid` | `contacts` | 待字段核对 |
 | `assessment.categories` | 表现量化分类 | `classUuid` | `assessment_categories` | 待字段核对 |
 | `assessment.items` | 表现量化规则 | `categoryUuid` | `assessment_items` | 待字段核对 |

@@ -6,6 +6,7 @@
     "pages/students/index",
     "pages/student-detail/index",
     "pages/attendance/index",
+    "pages/leaves/index",
     "pages/import/index"
   ],
   "window": {

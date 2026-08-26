@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="eyebrow">日常记录</view>
+  <view class="title">请假管理</view>
+  <view class="toolbar"><picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">选择班级</view></picker><button wx:if="{{classUuid}}" size="mini" bindtap="openCreate">登记请假</button></view>
+  <view wx:if="{{editing}}" class="editor">
+    <picker mode="selector" range="{{students}}" range-key="name" data-field="studentUuid" bindchange="onPickerChange"><view class="picker">选择学生</view></picker>
+    <picker mode="selector" range="{{types}}" data-field="type" bindchange="onPickerChange"><view class="picker">类型：{{form.type}}</view></picker>
+    <picker mode="date" value="{{form.startDate}}" data-field="startDate" bindchange="onPickerChange"><view class="picker">开始：{{form.startDate}}</view></picker>
+    <picker mode="date" value="{{form.endDate}}" data-field="endDate" bindchange="onPickerChange"><view class="picker">结束：{{form.endDate}}</view></picker>
+    <input placeholder="事由" value="{{form.reason}}" data-field="reason" bindinput="onFormInput" />
+    <textarea placeholder="备注" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" />
+    <view class="actions"><button size="mini" bindtap="cancelEdit">取消</button><button type="primary" size="mini" loading="{{saving}}" bindtap="save">保存</button></view>
+  </view>
+  <view wx:if="{{loading}}" class="state">正在读取请假记录…</view>
+  <view wx:elif="{{error}}" class="state error">{{error}}</view>
+  <view wx:elif="{{!records.length}}" class="state">暂无请假记录</view>
+  <view wx:else class="record-list">
+    <view wx:for="{{records}}" wx:key="uuid" class="record">
+      <view class="record-head"><text class="name">{{studentName(item.studentUuid)}}</text><text class="status">{{item.status}}</text></view>
+      <view class="meta">{{item.type}} · {{item.startDate}} 至 {{item.endDate}}</view>
+      <view wx:if="{{item.reason}}" class="reason">{{item.reason}}</view>
+      <button wx:if="{{item.status !== '已销假'}}" size="mini" data-uuid="{{item.uuid}}" bindtap="markReturned">销假</button>
+    </view>
+  </view>
+</view>

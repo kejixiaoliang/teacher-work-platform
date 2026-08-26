@@ -59,6 +59,17 @@ test('attendance management exposes the existing four statuses and save flow', (
   assert.match(template, /保存当天考勤/);
 });
 
+test('leave management exposes client leave types, statuses and actions', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/leaves/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/leaves/index.wxml'), 'utf8');
+  assert.ok(app.pages.includes('pages/leaves/index'));
+  assert.match(page, /callLeaveData/);
+  assert.match(page, /action: 'create'/);
+  assert.match(page, /action: 'update'/);
+  assert.match(template, /登记请假/);
+  assert.match(template, /销假/);
+});
+
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');

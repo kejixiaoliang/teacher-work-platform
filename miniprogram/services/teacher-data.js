@@ -10,6 +10,11 @@ export async function callAttendanceData(input) {
   return result?.result || result;
 }
 
+export async function callLeaveData(input) {
+  const result = await callCloudFunction('leave-data', input);
+  return result?.result || result;
+}
+
 const ALLOWED_COLLECTIONS = new Set(['classes', 'students']);
 
 function normalizeResponse(response) {

@@ -1,0 +1,19 @@
+.page { padding: 40rpx 32rpx 60rpx; }
+.eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
+.title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; margin-top: 28rpx; }
+.picker { padding: 18rpx 20rpx; border: 1rpx solid #eadfd5; border-radius: 14rpx; background: #fffdf9; color: #475467; }
+.editor { margin-top: 24rpx; padding: 24rpx; border: 1rpx solid #eadfd5; border-radius: 18rpx; background: #fffdf9; }
+.editor .picker, .editor input, .editor textarea { box-sizing: border-box; width: 100%; margin-top: 16rpx; padding: 18rpx; border: 1rpx solid #eadfd5; border-radius: 12rpx; background: #ffffff; }
+.editor textarea { min-height: 120rpx; }
+.actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 20rpx; }
+.state { margin-top: 28rpx; color: #667085; line-height: 1.6; }
+.error { color: #b42318; }
+.record-list { margin-top: 28rpx; }
+.record { margin-top: 16rpx; padding: 24rpx; border: 1rpx solid #eadfd5; border-radius: 16rpx; background: #fffdf9; }
+.record-head { display: flex; justify-content: space-between; align-items: center; }
+.name { color: #1d2939; font-size: 30rpx; font-weight: 600; }
+.status { color: #93370d; }
+.meta, .reason { margin-top: 10rpx; color: #667085; line-height: 1.5; }
+.reason { color: #475467; }
+.record button { margin: 18rpx 0 0; }

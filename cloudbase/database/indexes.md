@@ -14,6 +14,7 @@
 | `classes` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 班级只读列表 |
 | `students` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 学生只读列表 |
 | `attendance` | `ownerId_1_datasetId_1_classUuid_1_date_1` | `ownerId: 1, datasetId: 1, classUuid: 1, date: 1` | 否 | 按班级和日期查询考勤 |
+| `leaves` | `ownerId_1_datasetId_1_classUuid_1_startDate_-1` | `ownerId: 1, datasetId: 1, classUuid: 1, startDate: -1` | 否 | 按班级和开始日期查询请假 |
 
 索引不是权限控制。每条业务查询仍必须由云函数从微信上下文获取 `ownerId`，并同时限制 `datasetId`；客户端不能自行指定查询用户。
 
@@ -26,4 +27,4 @@
 
 ## 核验记录
 
-2026-08-26 首次查询确认五个集合均只有默认索引；随后已成功创建并复核本文件定义的五组业务索引。当前每个基础集合均包含自动索引和对应业务索引。
+2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核本文件定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和对应业务索引。

@@ -1,0 +1,6 @@
+{
+  "name": "teacher-work-leave-data",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": { "wx-server-sdk": "latest" }
+}
