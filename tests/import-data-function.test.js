@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { EXCHANGE_COLLECTIONS } from '../shared/contracts/exchange.js';
 
 const require = createRequire(import.meta.url);
-const { main, precheckImport } = require('../cloudfunctions/import-data/index.js');
+const { main, precheckImport, previewImport } = require('../cloudfunctions/import-data/index.js');
 
 function validPayload() {
   const content = Object.fromEntries(EXCHANGE_COLLECTIONS.map(name => [name, name === 'settings' ? {} : []]));
@@ -65,4 +65,14 @@ test('precheck returns contract errors for an invalid envelope', () => {
   assert.equal(result.ok, false);
   assert.equal(result.code, 'INVALID_EXCHANGE_PAYLOAD');
   assert.ok(result.errors.some(error => error.includes('students')));
+});
+
+test('preview returns a report without creating a dataset', () => {
+  const result = previewImport({ action: 'preview', payload: validPayload() });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.stage, 'preview');
+  assert.deepEqual(result.counts, { classes: 1, students: 1 });
+  assert.equal(result.omittedAttachmentCount, 2);
+  assert.match(result.datasetId, /^[0-9a-f-]{36}$/);
 });
