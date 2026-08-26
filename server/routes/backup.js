@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { createBackupArchive, extractBackupArchive, sha256File } from '../utils/backup-archive.js';
-import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, stableUuid, verifyIntegrity } from '../utils/backup-format.js';
+import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, newRecordUuid, verifyIntegrity } from '../utils/backup-format.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { dataDir, filesDir } = getDataPaths();
@@ -54,7 +54,7 @@ const EXCHANGE_MAP = Object.freeze({
 function ensureRecordUuid(tableName, recordId) {
   const existing = db.prepare('SELECT uuid FROM record_uuids WHERE table_name = ? AND record_id = ?').get(tableName, recordId);
   if (existing?.uuid) return existing.uuid;
-  const uuid = stableUuid(tableName, recordId);
+  const uuid = newRecordUuid();
   db.prepare('INSERT OR IGNORE INTO record_uuids (table_name, record_id, uuid) VALUES (?, ?, ?)').run(tableName, recordId, uuid);
   return db.prepare('SELECT uuid FROM record_uuids WHERE table_name = ? AND record_id = ?').get(tableName, recordId).uuid;
 }

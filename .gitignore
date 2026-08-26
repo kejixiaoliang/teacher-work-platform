@@ -3,6 +3,8 @@ web/dist/
 data/
 *.log
 .worktrees/
+project.private.config.json
+miniprogram/config/env.js
 release/
 src-tauri/target/
 .reasonix/

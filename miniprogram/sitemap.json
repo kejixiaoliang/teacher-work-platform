@@ -1,0 +1,9 @@
+{
+  "desc": "教师工作台小程序站点地图",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "pages/index/index"
+    }
+  ]
+}

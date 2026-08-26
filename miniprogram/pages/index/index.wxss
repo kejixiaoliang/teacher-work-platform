@@ -1,0 +1,14 @@
+.page {
+  padding: 48rpx;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: 600;
+}
+
+.hint {
+  margin-top: 24rpx;
+  color: #6b7280;
+  line-height: 1.6;
+}

@@ -47,6 +47,10 @@ export function stableUuid(tableName, recordId) {
   return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-${(parseInt(digest.slice(16, 18), 16) & 0x3f | 0x80).toString(16)}${digest.slice(18, 20)}-${digest.slice(20, 32)}`;
 }
 
+export function newRecordUuid() {
+  return crypto.randomUUID();
+}
+
 export function newExportId() {
   return crypto.randomUUID();
 }

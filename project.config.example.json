@@ -1,0 +1,18 @@
+{
+  "description": "教师工作台微信小程序开发配置示例",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "minified": true,
+    "urlCheck": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "trial",
+  "appid": "YOUR_WECHAT_APPID",
+  "projectname": "teacher-work",
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/"
+}
