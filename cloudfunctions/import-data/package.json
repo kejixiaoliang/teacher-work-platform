@@ -1,0 +1,9 @@
+{
+  "name": "teacher-work-import-data",
+  "version": "0.8.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}
