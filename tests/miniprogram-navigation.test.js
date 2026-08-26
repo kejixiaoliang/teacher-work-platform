@@ -176,3 +176,14 @@ test('assessment management has a dedicated scoring and summary workflow', () =>
   assert.match(template, /加分/);
   assert.match(workbench, /pages\/assessment\/index/);
 });
+
+test('data analysis has a dedicated CloudBase summary page', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/analysis/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/analysis/index.wxml'), 'utf8');
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/analysis/index'));
+  assert.match(page, /action: 'summary'/);
+  assert.match(page, /callBusinessData/);
+  assert.match(template, /数据概览/);
+  assert.match(workbench, /pages\/analysis\/index/);
+});

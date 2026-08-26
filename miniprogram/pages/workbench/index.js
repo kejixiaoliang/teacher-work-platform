@@ -68,6 +68,11 @@ Page({
       wx.navigateTo({ url: `/pages/assessment/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
+    if (name === '数据分析') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/analysis/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
     if (name === '值日管理') {
       const datasetId = wx.getStorageSync('activeDatasetId') || '';
       wx.navigateTo({ url: `/pages/duties/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
