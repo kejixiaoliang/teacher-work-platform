@@ -17,6 +17,7 @@ import overviewRouter from './routes/overview.js';
 import assessmentRouter from './routes/assessment.js';
 import followUpTasksRouter from './routes/follow-up-tasks.js';
 import workbenchRouter from './routes/workbench.js';
+import cloudSyncRouter from './routes/cloud-sync.js';
 import { hasFileAccess } from './security/file-access.js';
 import { createAccessRouter } from './routes/access-control.js';
 import { DEFAULT_MODULE_POLICIES } from './access-control.js';
@@ -86,6 +87,7 @@ export function createApp({ apiToken = '', accessController = null } = {}) {
   app.use('/api/assessment', assessmentRouter);
   app.use('/api/follow-up-tasks', followUpTasksRouter);
   app.use('/api/workbench', workbenchRouter);
+  app.use('/api/cloud-sync', cloudSyncRouter);
   app.use('/api', (err, req, res, next) => {
     console.error('[api error]', req.method, req.path, err.message);
     const safe = err.code === 'LIMIT_FILE_SIZE' ? '文件超过大小限制（200MB）'
