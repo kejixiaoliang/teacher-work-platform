@@ -114,6 +114,9 @@ test('score management has dedicated exam, batch entry and analysis actions', ()
   assert.match(page, /action: 'bulkSave'/);
   assert.match(page, /action: 'analysis'/);
   assert.match(page, /新建考试|saveExam/);
+  assert.match(page, /editExam/);
+  assert.match(page, /deleteExam/);
+  assert.match(page, /loadTrend/);
 });
 
 test('seat management has a mobile grid with placement and lock actions', () => {
