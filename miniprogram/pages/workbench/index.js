@@ -18,6 +18,11 @@ Page({
 
   openFeature(event) {
     const name = event.currentTarget.dataset.name;
+    if (name === '学生管理') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/students/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
     wx.showToast({ title: `${name}即将接入`, icon: 'none' });
   },
 });

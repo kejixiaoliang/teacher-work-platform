@@ -1,0 +1,10 @@
+.page { padding: 40rpx 32rpx 60rpx; }
+.eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
+.title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
+.state { margin-top: 28rpx; color: #667085; line-height: 1.6; }
+.error { color: #b42318; }
+.profile { margin-top: 28rpx; overflow: hidden; border: 1rpx solid #eadfd5; border-radius: 18rpx; background: #fffdf9; }
+.field { display: flex; justify-content: space-between; gap: 24rpx; padding: 26rpx 24rpx; border-bottom: 1rpx solid #f0e8df; color: #344054; line-height: 1.5; }
+.field:last-child { border-bottom: 0; }
+.label { flex: 0 0 150rpx; color: #667085; }
+.hint { margin-top: 28rpx; color: #667085; line-height: 1.6; }

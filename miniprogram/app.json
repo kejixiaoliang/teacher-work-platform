@@ -3,6 +3,8 @@
     "pages/index/index",
     "pages/workbench/index",
     "pages/settings/index",
+    "pages/students/index",
+    "pages/student-detail/index",
     "pages/import/index"
   ],
   "window": {

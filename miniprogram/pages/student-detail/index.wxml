@@ -1,0 +1,16 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">正在读取学生详情…</view>
+  <view wx:elif="{{error}}" class="state error">{{error}}</view>
+  <block wx:elif="{{student}}">
+    <view class="eyebrow">学生档案</view>
+    <view class="title">{{student.name || '未命名学生'}}</view>
+    <view class="profile">
+      <view class="field"><text class="label">学号</text><text>{{student.schoolNo || student.school_no || '—'}}</text></view>
+      <view class="field"><text class="label">性别</text><text>{{student.gender || '—'}}</text></view>
+      <view class="field"><text class="label">联系电话</text><text>{{student.phone || '—'}}</text></view>
+      <view class="field"><text class="label">家长电话</text><text>{{student.parentPhone || student.parent_phone || '—'}}</text></view>
+      <view class="field"><text class="label">备注</text><text>{{student.remark || '—'}}</text></view>
+    </view>
+    <view class="hint">学生表现、成绩、考勤、跟进和家校沟通等原有记录入口将在本模块后续阶段接入。</view>
+  </block>
+</view>

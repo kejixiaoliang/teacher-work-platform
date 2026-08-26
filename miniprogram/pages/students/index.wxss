@@ -1,0 +1,12 @@
+.page { padding: 40rpx 32rpx 60rpx; }
+.eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
+.title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
+.search { box-sizing: border-box; height: 84rpx; margin-top: 28rpx; padding: 0 24rpx; border: 1rpx solid #eadfd5; border-radius: 16rpx; background: #fffdf9; color: #344054; }
+.state { margin-top: 28rpx; color: #667085; line-height: 1.6; }
+.error { color: #b42318; }
+.student-list { margin-top: 28rpx; overflow: hidden; border: 1rpx solid #eadfd5; border-radius: 18rpx; background: #fffdf9; }
+.student-row { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 24rpx; border-bottom: 1rpx solid #f0e8df; }
+.student-row:last-child { border-bottom: 0; }
+.student-name { color: #1d2939; font-size: 32rpx; font-weight: 600; }
+.school-no { margin-top: 8rpx; color: #667085; font-size: 25rpx; }
+.chevron { color: #98a2b3; font-size: 38rpx; line-height: 1; }

@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="eyebrow">班级资料</view>
+  <view class="title">学生管理</view>
+  <input class="search" placeholder="搜索姓名或学号" value="{{keyword}}" bindinput="onKeywordInput" />
+  <view wx:if="{{loading}}" class="state">正在读取学生数据…</view>
+  <view wx:elif="{{error}}" class="state error">
+    <view>{{error}}</view>
+    <button wx:if="{{datasetId}}" size="mini" bindtap="retry">重试</button>
+  </view>
+  <view wx:elif="{{!visibleStudents.length}}" class="state">暂无匹配的学生</view>
+  <view wx:else class="student-list">
+    <view wx:for="{{visibleStudents}}" wx:key="uuid" class="student-row" data-uuid="{{item.uuid}}" bindtap="openDetail">
+      <view>
+        <view class="student-name">{{item.name || '未命名学生'}}</view>
+        <view wx:if="{{item.schoolNo || item.school_no}}" class="school-no">学号：{{item.schoolNo || item.school_no}}</view>
+      </view>
+      <text class="chevron">›</text>
+    </view>
+  </view>
+</view>

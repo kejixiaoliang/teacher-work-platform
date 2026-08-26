@@ -16,6 +16,18 @@ test('mini program exposes the three planned navigation sections', () => {
   ]);
 });
 
+test('student management has a mobile list and detail route', () => {
+  assert.ok(app.pages.includes('pages/students/index'));
+  assert.ok(app.pages.includes('pages/student-detail/index'));
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  const listPage = fs.readFileSync(path.join(root, 'miniprogram/pages/students/index.js'), 'utf8');
+  const detailPage = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.js'), 'utf8');
+  assert.match(workbench, /pages\/students\/index/);
+  assert.match(listPage, /collectionName: 'students'/);
+  assert.match(listPage, /onKeywordInput/);
+  assert.match(detailPage, /uuid/);
+});
+
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
