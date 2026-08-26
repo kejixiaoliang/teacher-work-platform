@@ -11,7 +11,7 @@
 | 函数 | 类型 | 运行时 | 入口 | 状态 | 触发器 |
 | --- | --- | --- | --- | --- | --- |
 | `import-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
-| `query-data` | Event | Nodejs18.15 | `index.main` | 待部署 | 无 |
+| `query-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
 
 部署配置：
 
@@ -53,4 +53,4 @@ wx.cloud.callFunction({
 
 `query-data` 仅允许读取 `classes` 和 `students`，并且每次查询都由云函数从微信登录上下文取得 `ownerId`，客户端不能传入或覆盖所有者身份。查询必须同时提供 `datasetId`，分页上限为 100 条。
 
-该函数本地代码已完成并通过静态测试，部署前仍需经过 CloudBase 函数部署核验。
+该函数已完成部署并通过远端核验。最小调用在无微信用户身份的管理端调用环境中返回 `AUTH_REQUIRED`，说明认证拦截生效；真实小程序调用还需在微信开发者工具中使用微信身份验证。
