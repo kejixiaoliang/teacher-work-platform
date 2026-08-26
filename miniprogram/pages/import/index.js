@@ -38,6 +38,7 @@ Page({
       if (!result.ok) throw new Error(result.errors?.[0] || '导入失败');
       wx.setStorageSync('activeDatasetId', result.datasetId);
       this.setData({ loading: false, committed: true });
+      setTimeout(() => wx.navigateBack({ delta: 1 }), 500);
     } catch (error) {
       this.setData({ loading: false, error: error?.message || '提交导入失败' });
     }

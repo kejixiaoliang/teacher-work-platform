@@ -55,4 +55,8 @@ Page({
   retry() {
     if (this.data.datasetId) this.loadData();
   },
+
+  openImport() {
+    wx.navigateTo({ url: '/pages/import/index' });
+  },
 });
