@@ -4,13 +4,23 @@
   <block wx:elif="{{student}}">
     <view class="eyebrow">学生档案</view>
     <view class="title">{{student.name || '未命名学生'}}</view>
-    <view class="profile">
+    <view wx:if="{{editing}}" class="editor">
+      <input placeholder="姓名（必填）" value="{{form.name}}" data-field="name" bindinput="onFormInput" />
+      <input placeholder="学号" value="{{form.schoolNo}}" data-field="schoolNo" bindinput="onFormInput" />
+      <input placeholder="性别" value="{{form.gender}}" data-field="gender" bindinput="onFormInput" />
+      <input placeholder="联系电话" value="{{form.phone}}" data-field="phone" bindinput="onFormInput" />
+      <input placeholder="家长电话" value="{{form.parentPhone}}" data-field="parentPhone" bindinput="onFormInput" />
+      <textarea placeholder="备注" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" />
+      <view class="actions"><button size="mini" bindtap="cancelEdit">取消</button><button type="primary" size="mini" loading="{{loading}}" bindtap="saveStudent">保存</button></view>
+    </view>
+    <view wx:else class="profile">
       <view class="field"><text class="label">学号</text><text>{{student.schoolNo || student.school_no || '—'}}</text></view>
       <view class="field"><text class="label">性别</text><text>{{student.gender || '—'}}</text></view>
       <view class="field"><text class="label">联系电话</text><text>{{student.phone || '—'}}</text></view>
       <view class="field"><text class="label">家长电话</text><text>{{student.parentPhone || student.parent_phone || '—'}}</text></view>
       <view class="field"><text class="label">备注</text><text>{{student.remark || '—'}}</text></view>
     </view>
+    <view wx:if="{{!editing}}" class="actions"><button size="mini" bindtap="startEdit">编辑</button><button size="mini" type="warn" bindtap="deleteStudent">移入回收站</button></view>
     <view class="hint">学生表现、成绩、考勤、跟进和家校沟通等原有记录入口将在本模块后续阶段接入。</view>
   </block>
 </view>

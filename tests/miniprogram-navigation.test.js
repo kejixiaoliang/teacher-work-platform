@@ -38,6 +38,15 @@ test('student management exposes a create form backed by the scoped write servic
   assert.match(template, /saveStudent/);
 });
 
+test('student detail exposes update and soft-delete actions', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.wxml'), 'utf8');
+  assert.match(page, /action: 'update'/);
+  assert.match(page, /action: 'delete'/);
+  assert.match(template, /bindtap="startEdit"/);
+  assert.match(template, /bindtap="deleteStudent"/);
+});
+
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
