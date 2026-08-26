@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const COLLECTIONS = new Set(['seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records']);
-const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders']);
+const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats']);
 const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName'];
 
 function normalize(event = {}) {
@@ -11,9 +11,9 @@ function normalize(event = {}) {
   if (!COLLECTIONS.has(collection)) return { ok: false, code: 'COLLECTION_NOT_ALLOWED', errors: ['业务集合不在白名单中'] };
   if (!ACTIONS.has(action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['业务操作不支持'] };
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
+  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
-  return { ok: true, collection, action, datasetId, uuid, classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
+  return { ok: true, collection, action, datasetId, uuid, classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
 }
 
 function sanitize(record) {
@@ -37,6 +37,12 @@ async function main(event) {
   if (!request.ok) return request;
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId };
+  if (request.action === 'contactStats') {
+    if (request.collection !== 'contacts') return { ok: false, code: 'CONTACT_ACTION_INVALID', errors: ['家校沟通统计只能用于 contacts 集合'] };
+    const result = await db.collection('contacts').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), deletedAt: null }).limit(500).get();
+    const rows = request.month ? result.data.filter((row) => String(row.date || '').startsWith(request.month)) : result.data;
+    return { ok: true, total: rows.length, students: new Set(rows.map((row) => row.studentUuid).filter(Boolean)).size, visits: rows.filter((row) => row.method === '家访').length, phones: rows.filter((row) => row.method === '电话').length };
+  }
   if (['autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders'].includes(request.action) && request.collection !== 'duties') return { ok: false, code: 'DUTY_ACTION_INVALID', errors: ['值日操作只能用于 duties 集合'] };
   if (['autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders'].includes(request.action) && !request.classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['请先选择班级'] };
   if (request.action === 'groupDays') {
@@ -104,7 +110,7 @@ async function main(event) {
   }
   const collection = db.collection(request.collection);
   if (request.action === 'query') {
-    const result = await collection.where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), deletedAt: null }).limit(100).get();
+    const result = await collection.where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), ...(request.studentUuid ? { studentUuid: request.studentUuid } : {}), deletedAt: null }).limit(100).get();
     return { ok: true, records: result.data };
   }
   const now = new Date().toISOString();

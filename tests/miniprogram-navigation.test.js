@@ -138,3 +138,16 @@ test('duty management has a dedicated grouping and weekday workflow', () => {
   assert.match(template, /设置值日星期/);
   assert.match(workbench, /pages\/duties\/index/);
 });
+
+test('home-school contact management has a dedicated mobile record workflow', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/contacts/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/contacts/index.wxml'), 'utf8');
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/contacts/index'));
+  assert.match(page, /contactStats/);
+  assert.match(page, /action: 'create'/);
+  assert.match(page, /action: 'update'/);
+  assert.match(template, /新增沟通/);
+  assert.match(template, /沟通结果/);
+  assert.match(workbench, /pages\/contacts\/index/);
+});

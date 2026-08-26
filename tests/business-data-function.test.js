@@ -14,6 +14,7 @@ test('business data keeps existing client modules in a server-scoped whitelist',
   for (const action of ['autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders']) {
     assert.equal(fn.normalize({ collection: 'duties', action, datasetId: 'd1', classUuid: 'c1' }).ok, true);
   }
+  assert.equal(fn.normalize({ collection: 'contacts', action: 'contactStats', datasetId: 'd1', classUuid: 'c1', month: '2026-08' }).ok, true);
   assert.equal(fn.normalize({ collection: 'users', action: 'query', datasetId: 'd1' }).code, 'COLLECTION_NOT_ALLOWED');
 });
 

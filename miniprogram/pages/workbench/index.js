@@ -53,6 +53,11 @@ Page({
       wx.navigateTo({ url: `/pages/duties/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
+    if (name === '家校沟通') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/contacts/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
     if (name === '值日管理') {
       const datasetId = wx.getStorageSync('activeDatasetId') || '';
       wx.navigateTo({ url: `/pages/duties/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
