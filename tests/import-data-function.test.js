@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import { EXCHANGE_COLLECTIONS } from '../shared/contracts/exchange.js';
-import { precheckImport } from '../cloudfunctions/import-data/index.mjs';
+
+const require = createRequire(import.meta.url);
+const { main, precheckImport } = require('../cloudfunctions/import-data/index.js');
 
 function validPayload() {
   const content = Object.fromEntries(EXCHANGE_COLLECTIONS.map(name => [name, name === 'settings' ? {} : []]));
@@ -33,6 +36,10 @@ test('precheck returns collection counts without writing cloud data', () => {
     omittedAttachmentCount: 2,
     errors: [],
   });
+});
+
+test('cloud function exposes the standard event handler entrypoint', () => {
+  assert.equal(typeof main, 'function');
 });
 
 test('precheck reports malformed JSON without throwing', () => {
