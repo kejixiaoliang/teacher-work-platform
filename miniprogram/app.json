@@ -16,6 +16,7 @@
     ,"pages/duties/index"
     ,"pages/contacts/index"
     ,"pages/documents/index"
+    ,"pages/assessment/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",

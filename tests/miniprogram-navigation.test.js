@@ -163,3 +163,16 @@ test('document management exposes metadata-only mobile operations', () => {
   assert.match(template, /新增文档/);
   assert.match(workbench, /pages\/documents\/index/);
 });
+
+test('assessment management has a dedicated scoring and summary workflow', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/assessment/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/assessment/index.wxml'), 'utf8');
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/assessment/index'));
+  assert.match(page, /assessment_records/);
+  assert.match(page, /action: 'create'/);
+  assert.match(page, /action: 'update'/);
+  assert.match(template, /记录表现/);
+  assert.match(template, /加分/);
+  assert.match(workbench, /pages\/assessment\/index/);
+});
