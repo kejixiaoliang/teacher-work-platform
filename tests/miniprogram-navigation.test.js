@@ -151,3 +151,15 @@ test('home-school contact management has a dedicated mobile record workflow', ()
   assert.match(template, /沟通结果/);
   assert.match(workbench, /pages\/contacts\/index/);
 });
+
+test('document management exposes metadata-only mobile operations', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/documents/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/documents/index.wxml'), 'utf8');
+  const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/documents/index'));
+  assert.match(page, /collection: 'documents'/);
+  assert.match(page, /action: 'update'/);
+  assert.match(template, /文件上传与预览仍由客户端负责/);
+  assert.match(template, /新增文档/);
+  assert.match(workbench, /pages\/documents\/index/);
+});
