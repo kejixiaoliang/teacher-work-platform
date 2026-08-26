@@ -121,6 +121,8 @@ test('seat management has a mobile grid with placement and lock actions', () => 
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/seats/index.wxml'), 'utf8');
   assert.ok(app.pages.includes('pages/seats/index'));
   assert.match(page, /toggleLock/);
+  assert.match(page, /autoArrange/);
+  assert.match(page, /shift\(/);
   assert.match(page, /save/);
   assert.match(template, /grid/);
   assert.match(template, /安排学生/);
