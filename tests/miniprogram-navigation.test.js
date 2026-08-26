@@ -28,6 +28,16 @@ test('student management has a mobile list and detail route', () => {
   assert.match(detailPage, /uuid/);
 });
 
+test('student management exposes a create form backed by the scoped write service', () => {
+  const listPage = fs.readFileSync(path.join(root, 'miniprogram/pages/students/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/students/index.wxml'), 'utf8');
+  assert.match(listPage, /writeStudentData/);
+  assert.match(listPage, /action: 'create'/);
+  assert.match(listPage, /datasetId: this\.data\.datasetId/);
+  assert.match(template, /新增学生/);
+  assert.match(template, /saveStudent/);
+});
+
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
