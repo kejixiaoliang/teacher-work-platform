@@ -7,8 +7,61 @@
   font-weight: 600;
 }
 
-.hint {
+.state,
+.empty {
   margin-top: 24rpx;
   color: #6b7280;
   line-height: 1.6;
+}
+
+.error {
+  color: #b42318;
+}
+
+.section-title {
+  margin-top: 36rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.class-list {
+  display: flex;
+  margin-top: 20rpx;
+  white-space: nowrap;
+}
+
+.class-chip {
+  display: inline-block;
+  margin-right: 16rpx;
+  padding: 16rpx 24rpx;
+  border: 1rpx solid #d0d5dd;
+  border-radius: 999rpx;
+  background: #ffffff;
+}
+
+.class-chip.active {
+  border-color: #2e90fa;
+  background: #eff8ff;
+  color: #175cd3;
+}
+
+.student-list {
+  margin-top: 16rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+}
+
+.student-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 24rpx;
+  border-bottom: 1rpx solid #eaecf0;
+}
+
+.student-row:last-child {
+  border-bottom: 0;
+}
+
+.school-no {
+  color: #667085;
 }
