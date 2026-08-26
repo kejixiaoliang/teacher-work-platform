@@ -123,6 +123,9 @@ test('seat management has a mobile grid with placement and lock actions', () => 
   assert.match(page, /toggleLock/);
   assert.match(page, /autoArrange/);
   assert.match(page, /shift\(/);
+  assert.match(page, /showHistory/);
+  assert.match(template, /自动排座/);
+  assert.match(template, /历史布局/);
   assert.match(page, /save/);
   assert.match(template, /grid/);
   assert.match(template, /安排学生/);
