@@ -8,7 +8,8 @@
     "pages/attendance/index",
     "pages/leaves/index",
     "pages/follow-up/index",
-    "pages/import/index"
+    "pages/import/index",
+    "pages/redeem/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",

@@ -88,3 +88,12 @@ test('workbench and settings retain existing client feature names', () => {
   }
   for (const name of ['数据导入', '数据同步', '使用指南', '版本更新']) assert.match(settings, new RegExp(name));
 });
+
+test('settings exposes the server-authorized redeem code flow', () => {
+  const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
+  const redeem = fs.readFileSync(path.join(root, 'miniprogram/pages/redeem/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/redeem/index'));
+  assert.match(settings, /openRedeem/);
+  assert.match(redeem, /action: 'redeem'/);
+  assert.match(redeem, /callRedeemCode/);
+});
