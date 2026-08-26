@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const COLLECTIONS = new Set(['seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records', 'assessment_categories', 'assessment_items', 'assessment_revisions']);
-const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history']);
+const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'void', 'restore']);
 const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName', 'categoryName', 'itemName', 'description', 'reason', 'action'];
 
 function normalize(event = {}) {
@@ -11,7 +11,7 @@ function normalize(event = {}) {
   if (!COLLECTIONS.has(collection)) return { ok: false, code: 'COLLECTION_NOT_ALLOWED', errors: ['业务集合不在白名单中'] };
   if (!ACTIONS.has(action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['业务操作不支持'] };
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
+  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
   return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
 }
@@ -41,6 +41,12 @@ async function main(event) {
     if (request.collection !== 'assessment_revisions' || !request.recordUuid) return { ok: false, code: 'HISTORY_QUERY_INVALID', errors: ['修正历史查询参数无效'] };
     const result = await db.collection('assessment_revisions').where({ ...scope, recordUuid: request.recordUuid }).limit(100).get();
     return { ok: true, records: result.data };
+  }
+  if (request.action === 'batchAssessment') {
+    if (request.collection !== 'assessment_records' || !request.classUuid || !request.rows.length) return { ok: false, code: 'ASSESSMENT_BATCH_INVALID', errors: ['批量记分参数无效'] };
+    let count = 0; const now = new Date().toISOString();
+    for (const input of request.rows.slice(0, 500)) { const studentUuid = String(input.studentUuid || '').trim(); const score = Number(input.score); const itemName = String(input.itemName || '').trim(); if (!studentUuid || !itemName || !Number.isFinite(score) || score < -100 || score > 100) continue; await db.collection('assessment_records').add({ data: { ...scope, classUuid: request.classUuid, studentUuid, date: String(input.date || now.slice(0, 10)), categoryName: String(input.categoryName || '').trim(), itemName, score, remark: String(input.remark || '').trim().slice(0, 500), uuid: crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null, status: 'active', revision: 1, source: 'miniprogram' } }); count += 1; }
+    return { ok: true, action: 'batchAssessment', count };
   }
   if (request.action === 'contactStats') {
     if (request.collection !== 'contacts') return { ok: false, code: 'CONTACT_ACTION_INVALID', errors: ['家校沟通统计只能用于 contacts 集合'] };
@@ -123,6 +129,14 @@ async function main(event) {
     const uuid = crypto.randomUUID();
     const result = await collection.add({ data: { ...sanitize(request.record), ...scope, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
     return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
+  }
+  if ((request.action === 'void' || request.action === 'restore') && request.collection === 'assessment_records') {
+    const found = await collection.where({ ...scope, uuid: request.uuid }).limit(1).get();
+    if (!found.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['表现记录不存在'] };
+    const row = found.data[0]; const nextStatus = request.action === 'void' ? 'voided' : 'active'; const now = new Date().toISOString();
+    await db.collection('assessment_revisions').add({ data: { ...scope, recordUuid: request.uuid, action: request.action, before: row, after: { ...row, status: nextStatus, deletedAt: request.action === 'void' ? now : null }, reason: String(request.record.reason || '').trim(), createdAt: now, uuid: crypto.randomUUID() } });
+    await collection.doc(row._id).update({ data: { status: nextStatus, deletedAt: request.action === 'void' ? now : null, updatedAt: now, revision: (row.revision || 1) + 1 } });
+    return { ok: true, action: request.action, uuid: request.uuid };
   }
   const found = await collection.where({ ...scope, uuid: request.uuid, deletedAt: null }).limit(1).get();
   if (!found.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['业务记录不存在'] };

@@ -185,6 +185,10 @@ test('assessment management has a dedicated scoring and summary workflow', () =>
   assert.match(workbench, /pages\/assessment\/index/);
   assert.match(page, /showHistory/);
   assert.match(page, /openRules/);
+  assert.match(page, /batchSave/);
+  assert.match(page, /voidRecord/);
+  assert.match(page, /restoreRecord/);
+  assert.match(template, /批量记分/);
 });
 
 test('assessment rules page exposes category and item management', () => {
