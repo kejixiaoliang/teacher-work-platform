@@ -13,7 +13,7 @@ function normalize(event = {}) {
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
   if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
-  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
+  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
 }
 
 function sanitize(record) {
@@ -121,7 +121,7 @@ async function main(event) {
   }
   const collection = db.collection(request.collection);
   if (request.action === 'query') {
-    const result = await collection.where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), ...(request.studentUuid ? { studentUuid: request.studentUuid } : {}), deletedAt: null }).limit(100).get();
+    const result = await collection.where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), ...(request.studentUuid ? { studentUuid: request.studentUuid } : {}), ...(request.collection === 'assessment_records' && request.includeVoided ? {} : { deletedAt: null }) }).limit(100).get();
     return { ok: true, records: result.data };
   }
   const now = new Date().toISOString();
