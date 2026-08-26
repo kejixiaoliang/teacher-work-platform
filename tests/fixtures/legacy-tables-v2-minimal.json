@@ -1,0 +1,27 @@
+{
+  "app": "teacher-work",
+  "version": 2,
+  "exportedAt": "2026-08-26T00:00:00.000Z",
+  "tables": [
+    {
+      "table": "classes",
+      "rows": [
+        {
+          "id": 1,
+          "name": "脱敏示例班级",
+          "grade": "示例年级"
+        }
+      ]
+    },
+    {
+      "table": "students",
+      "rows": [
+        {
+          "id": 1,
+          "class_id": 1,
+          "name": "脱敏学生"
+        }
+      ]
+    }
+  ]
+}
