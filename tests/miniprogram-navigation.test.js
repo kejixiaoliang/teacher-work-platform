@@ -183,6 +183,18 @@ test('assessment management has a dedicated scoring and summary workflow', () =>
   assert.match(template, /记录表现/);
   assert.match(template, /加分/);
   assert.match(workbench, /pages\/assessment\/index/);
+  assert.match(page, /showHistory/);
+  assert.match(page, /openRules/);
+});
+
+test('assessment rules page exposes category and item management', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/assessment-rules/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/assessment-rules/index.wxml'), 'utf8');
+  assert.ok(app.pages.includes('pages/assessment-rules/index'));
+  assert.match(page, /assessment_categories/);
+  assert.match(page, /assessment_items/);
+  assert.match(template, /新增行为项目/);
+  assert.match(template, /当天允许重复/);
 });
 
 test('data analysis has a dedicated CloudBase summary page', () => {

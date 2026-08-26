@@ -18,6 +18,7 @@
     ,"pages/documents/index"
     ,"pages/assessment/index"
     ,"pages/analysis/index"
+    ,"pages/assessment-rules/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",

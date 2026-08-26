@@ -1,0 +1,21 @@
+import { callBusinessData } from '../../services/teacher-data.js';
+Page({
+  data: { datasetId: '', categories: [], items: [], form: {}, editing: false, itemEditing: false, saving: false, error: '' },
+  onLoad(options) { const datasetId = options?.datasetId || wx.getStorageSync('activeDatasetId') || ''; this.setData({ datasetId }); if (!datasetId) return this.setData({ error: '请先导入或选择数据集' }); this.load(); },
+  async load() { const [categories, items] = await Promise.all([callBusinessData({ action: 'query', collection: 'assessment_categories', datasetId: this.data.datasetId }), callBusinessData({ action: 'query', collection: 'assessment_items', datasetId: this.data.datasetId })]); this.setData({ categories: categories?.records || [], items: items?.records || [], error: categories?.ok && items?.ok ? '' : '读取量化规则失败' }); },
+  openCategory() { this.setData({ editing: true, form: { name: '', isActive: true } }); },
+  openCategoryEdit(event) { const item = this.data.categories[Number(event.currentTarget.dataset.index)]; if (item) this.setData({ editing: true, form: { ...item } }); },
+  openItem() { this.setData({ itemEditing: true, form: { name: '', categoryUuid: this.data.categories[0]?.uuid || '', score: 1, description: '', allowDailyRepeat: false } }); },
+  openItemEdit(event) { const item = this.data.items[Number(event.currentTarget.dataset.index)]; if (item) this.setData({ itemEditing: true, form: { ...item } }); },
+  onInput(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
+  onScore(event) { this.setData({ 'form.score': Number(event.detail.value) }); },
+  selectCategory(event) { this.setData({ 'form.categoryUuid': this.data.categories[Number(event.detail.value)]?.uuid || '' }); },
+  toggleActive() { this.setData({ 'form.isActive': !this.data.form.isActive }); },
+  toggleRepeat() { this.setData({ 'form.allowDailyRepeat': !this.data.form.allowDailyRepeat }); },
+  cancel() { this.setData({ editing: false, itemEditing: false }); },
+  async saveCategory() { if (!String(this.data.form.name || '').trim()) return wx.showToast({ title: '请填写分类名称', icon: 'none' }); await this.saveRecord('assessment_categories', this.data.form); },
+  async saveItem() { if (!String(this.data.form.name || '').trim()) return wx.showToast({ title: '请填写行为名称', icon: 'none' }); await this.saveRecord('assessment_items', this.data.form); },
+  async saveRule() { return this.data.itemEditing ? this.saveItem() : this.saveCategory(); },
+  async saveRecord(collection, record) { this.setData({ saving: true }); const result = record.uuid ? await callBusinessData({ action: 'update', collection, datasetId: this.data.datasetId, uuid: record.uuid, record }) : await callBusinessData({ action: 'create', collection, datasetId: this.data.datasetId, record }); this.setData({ saving: false }); if (!result?.ok) return wx.showToast({ title: result?.errors?.[0] || '保存失败', icon: 'none' }); this.setData({ editing: false, itemEditing: false }); wx.showToast({ title: '规则已保存', icon: 'success' }); this.load(); },
+  async remove(event) { const collection = event.currentTarget.dataset.collection; const index = Number(event.currentTarget.dataset.index); const row = (collection === 'assessment_categories' ? this.data.categories : this.data.items)[index]; if (!row) return; const result = await callBusinessData({ action: 'delete', collection, datasetId: this.data.datasetId, uuid: row.uuid }); if (!result?.ok) return wx.showToast({ title: result?.errors?.[0] || '删除失败', icon: 'none' }); this.load(); },
+});

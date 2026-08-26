@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
-const COLLECTIONS = new Set(['seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records']);
-const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats']);
-const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName'];
+const COLLECTIONS = new Set(['seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records', 'assessment_categories', 'assessment_items', 'assessment_revisions']);
+const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history']);
+const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName', 'categoryName', 'itemName', 'description', 'reason', 'action'];
 
 function normalize(event = {}) {
   const collection = String(event.collection || '').trim();
@@ -11,9 +11,9 @@ function normalize(event = {}) {
   if (!COLLECTIONS.has(collection)) return { ok: false, code: 'COLLECTION_NOT_ALLOWED', errors: ['业务集合不在白名单中'] };
   if (!ACTIONS.has(action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['业务操作不支持'] };
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
+  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
-  return { ok: true, collection, action, datasetId, uuid, classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
+  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
 }
 
 function sanitize(record) {
@@ -37,6 +37,11 @@ async function main(event) {
   if (!request.ok) return request;
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId };
+  if (request.action === 'history') {
+    if (request.collection !== 'assessment_revisions' || !request.recordUuid) return { ok: false, code: 'HISTORY_QUERY_INVALID', errors: ['修正历史查询参数无效'] };
+    const result = await db.collection('assessment_revisions').where({ ...scope, recordUuid: request.recordUuid }).limit(100).get();
+    return { ok: true, records: result.data };
+  }
   if (request.action === 'contactStats') {
     if (request.collection !== 'contacts') return { ok: false, code: 'CONTACT_ACTION_INVALID', errors: ['家校沟通统计只能用于 contacts 集合'] };
     const result = await db.collection('contacts').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), deletedAt: null }).limit(500).get();
@@ -127,6 +132,7 @@ async function main(event) {
     await collection.doc(row._id).update({ data: { deletedAt: now, updatedAt: now, revision } });
     return { ok: true, action: 'delete', uuid: request.uuid, revision };
   }
+  if (request.collection === 'assessment_records') await db.collection('assessment_revisions').add({ data: { ...scope, recordUuid: request.uuid, action: 'edit', before: row, after: { ...row, ...sanitize(request.record) }, reason: String(request.record.reason || '').trim(), createdAt: now, uuid: crypto.randomUUID() } });
   await collection.doc(row._id).update({ data: { ...sanitize(request.record), updatedAt: now, revision } });
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
