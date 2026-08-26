@@ -9,6 +9,8 @@ test('business data keeps existing client modules in a server-scoped whitelist',
   for (const collection of ['seats', 'duties', 'scores', 'contacts', 'documents', 'assessment_records']) {
     assert.equal(fn.normalize({ collection, action: 'query', datasetId: 'd1' }).ok, true);
   }
+  assert.equal(fn.normalize({ collection: 'exams', action: 'query', datasetId: 'd1' }).ok, true);
+  assert.equal(fn.normalize({ collection: 'scores', action: 'bulkSave', datasetId: 'd1', examUuid: 'e1', rows: [{ studentUuid: 's1', subject: '语文', score: 90 }] }).ok, true);
   assert.equal(fn.normalize({ collection: 'users', action: 'query', datasetId: 'd1' }).code, 'COLLECTION_NOT_ALLOWED');
 });
 

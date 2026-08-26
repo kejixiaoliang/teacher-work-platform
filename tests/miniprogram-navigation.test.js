@@ -107,3 +107,11 @@ test('workbench routes the remaining client modules to mobile operation views', 
   assert.match(page, /action: 'create'/);
   assert.match(page, /action: 'delete'/);
 });
+
+test('score management has dedicated exam, batch entry and analysis actions', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/scores/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/scores/index'));
+  assert.match(page, /action: 'bulkSave'/);
+  assert.match(page, /action: 'analysis'/);
+  assert.match(page, /新建考试|saveExam/);
+});

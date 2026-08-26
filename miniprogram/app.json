@@ -11,6 +11,7 @@
     "pages/import/index",
     "pages/redeem/index"
     ,"pages/business/index"
+    ,"pages/scores/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",
