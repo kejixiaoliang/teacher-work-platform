@@ -42,6 +42,12 @@ test('cloud function exposes the standard event handler entrypoint', () => {
   assert.equal(typeof main, 'function');
 });
 
+test('cloud function resolves its validator from the deployable function package', () => {
+  const source = require('node:fs').readFileSync('cloudfunctions/import-data/index.js', 'utf8');
+
+  assert.match(source, /require\('\.\/exchange-contract\.cjs'\)/);
+});
+
 test('precheck reports malformed JSON without throwing', () => {
   const result = precheckImport({ payload: '{not-json' });
 

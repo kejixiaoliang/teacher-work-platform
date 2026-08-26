@@ -1,4 +1,4 @@
-const { validateExchangeEnvelope } = require('../../shared/contracts/exchange.js');
+const { validateExchangeEnvelope } = require('./exchange-contract.cjs');
 
 function parsePayload(event) {
   if (typeof event?.payload === 'string') {
