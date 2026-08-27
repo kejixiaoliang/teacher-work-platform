@@ -13,18 +13,18 @@
     "pages/class-settings/index",
     "pages/guide/index",
     "pages/changelog/index",
-    "pages/sync/index"
-    ,"pages/business/index"
-    ,"pages/scores/index"
-    ,"pages/seats/index"
-    ,"pages/duties/index"
-    ,"pages/contacts/index"
-    ,"pages/documents/index"
-    ,"pages/assessment/index"
-    ,"pages/analysis/index"
-    ,"pages/assessment-rules/index"
-    ,"pages/leaders/index"
-    ,"pages/subject-leaders/index"
+    "pages/sync/index",
+    "pages/business/index",
+    "pages/scores/index",
+    "pages/seats/index",
+    "pages/duties/index",
+    "pages/contacts/index",
+    "pages/documents/index",
+    "pages/assessment/index",
+    "pages/analysis/index",
+    "pages/assessment-rules/index",
+    "pages/leaders/index",
+    "pages/subject-leaders/index"
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",
