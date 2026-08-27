@@ -80,6 +80,7 @@ test('mobile pending actions and scoped business operations remain explicit', ()
   const assessment = read('miniprogram/pages/assessment/index.js');
   const scores = read('miniprogram/pages/scores/index.js');
   const business = read('cloudfunctions/business-data/index.js');
+  const businessPage = read('miniprogram/pages/business/index.js');
 
   assert.match(settings, /待接入/);
   assert.doesNotMatch(settings, /即将接入/);
@@ -89,4 +90,6 @@ test('mobile pending actions and scoped business operations remain explicit', ()
   assert.match(scores, /action: 'analysis',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
   assert.match(scores, /action: 'trend',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
   assert.match(business, /\.\.\.\(request\.classUuid \? \{ classUuid: request\.classUuid \} : \{\}\), examUuid/);
+  assert.match(businessPage, /action: 'summary',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
+  assert.match(business, /const classScoped = \['students', 'seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records'\]\.includes\(collection\)/);
 });

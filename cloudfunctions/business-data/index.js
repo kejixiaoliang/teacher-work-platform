@@ -143,7 +143,10 @@ async function main(event) {
   if (request.action === 'summary') {
     const collections = [...COLLECTIONS];
     const counts = {};
-    for (const collection of collections) counts[collection] = (await db.collection(collection).where(scope).count()).total;
+    for (const collection of collections) {
+      const classScoped = ['students', 'seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records'].includes(collection) && request.classUuid ? { classUuid: request.classUuid } : {};
+      counts[collection] = (await db.collection(collection).where({ ...scope, ...classScoped, ...(collection === 'assessment_records' && request.includeVoided ? {} : { deletedAt: null }) }).count()).total;
+    }
     return { ok: true, counts };
   }
   const collection = db.collection(request.collection);
