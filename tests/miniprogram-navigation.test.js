@@ -188,6 +188,7 @@ test('home-school contact management has a dedicated mobile record workflow', ()
   assert.match(page, /action: 'create'/);
   assert.match(page, /action: 'update'/);
   assert.match(page, /classUuid: options\?\.classUuid \|\| ''/);
+  assert.match(page, /wx\.showModal/);
   assert.match(template, /新增沟通/);
   assert.match(template, /沟通结果/);
   assert.match(`${workbench}\n${moduleRegistry}`, /pages\/contacts\/index/);
