@@ -86,6 +86,7 @@ test('attendance management exposes the existing four statuses and save flow', (
   assert.match(template, /保存当天考勤/);
   assert.match(template, /一键全部出勤/);
   assert.match(template, /月度统计/);
+  assert.match(template, /view === 'daily' && !rows\.length/);
 });
 
 test('leave management exposes client leave types, statuses and actions', () => {

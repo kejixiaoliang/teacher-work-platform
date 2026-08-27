@@ -10,7 +10,7 @@
   </view>
   <view wx:if="{{loading}}" class="state">正在读取考勤…</view>
   <view wx:elif="{{error}}" class="state error">{{error}}</view>
-  <view wx:elif="{{!rows.length}}" class="state">当前班级暂无学生</view>
+  <view wx:elif="{{view === 'daily' && !rows.length}}" class="state">当前班级暂无学生</view>
   <block wx:elif="{{view === 'daily'}}">
     <view wx:for="{{rows}}" wx:key="studentUuid" class="row">
       <view class="student"><text class="name">{{item.name}}</text><text class="school-no">{{item.schoolNo}}</text></view>
