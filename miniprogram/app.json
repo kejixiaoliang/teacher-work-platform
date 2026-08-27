@@ -32,6 +32,7 @@
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f6f7fb"
   },
+  "subPackages": [],
   "tabBar": {
     "color": "#667085",
     "selectedColor": "#b54708",
