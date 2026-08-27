@@ -24,6 +24,7 @@ test('query function restricts reads to classes and students', async () => {
 test('query function clamps pagination and scopes database queries by owner and dataset', () => {
   assert.match(source, /ownerId:\s*context\.OPENID/);
   assert.match(source, /datasetId:\s*query\.datasetId/);
+  assert.match(source, /collectionName === 'students'.*deletedAt: null/);
   assert.match(source, /Math\.min\(requestedLimit, MAX_LIMIT\)/);
   assert.equal(pkg.type, 'commonjs');
   assert.equal(pkg.dependencies['wx-server-sdk'], 'latest');

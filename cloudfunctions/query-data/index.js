@@ -31,7 +31,7 @@ async function main(event) {
 
   const db = cloud.database();
   const result = await db.collection(query.collectionName)
-    .where({ ownerId: context.OPENID, datasetId: query.datasetId })
+    .where({ ownerId: context.OPENID, datasetId: query.datasetId, ...(query.collectionName === 'students' ? { deletedAt: null } : {}) })
     .skip(query.offset)
     .limit(query.limit)
     .get();
