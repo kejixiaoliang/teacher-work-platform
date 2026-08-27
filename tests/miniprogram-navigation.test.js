@@ -126,6 +126,10 @@ test('workbench and settings retain existing client feature names', () => {
     assert.match(`${workbench}\n${moduleRegistry}`, new RegExp(name));
   }
   for (const name of ['数据导入', '数据同步', '使用指南', '版本更新']) assert.match(settings, new RegExp(name));
+  assert.match(settings, /openSync/);
+  assert.ok(app.pages.includes('pages/sync/index'));
+  const syncPage = fs.readFileSync(path.join(root, 'miniprogram/pages/sync/index.js'), 'utf8');
+  assert.match(syncPage, /getSyncStatus/);
 });
 
 test('settings exposes the server-authorized redeem code flow', () => {

@@ -1,0 +1,12 @@
+@import "../../tokens.wxss";
+.page { min-height: 100vh; padding: 34rpx 32rpx 64rpx; }
+.eyebrow { color: #d64541; font-size: 24rpx; font-weight: 800; letter-spacing: 3rpx; }
+.title { margin-top: 10rpx; color: #201b17; font-size: 48rpx; font-weight: 900; }
+.hint, .meta { margin-top: 16rpx; color: #75695e; line-height: 1.6; }
+button { margin: 24rpx 0 0; }
+.state { margin-top: 24rpx; padding: 20rpx; border: 2rpx dashed #201b17; border-radius: 12rpx; }
+.error { color: #a8322e; border-color: #d64541; }
+.card { margin-top: 24rpx; padding: 22rpx; border: 3rpx solid #201b17; border-radius: 14rpx; background: #fffdf5; box-shadow: 4rpx 4rpx 0 #d9cbb0; }
+.card-title { font-size: 30rpx; font-weight: 900; }
+.notice { margin-top: 18rpx; padding: 16rpx; border-left: 6rpx solid #d64541; background: #fff1bf; color: #75695e; line-height: 1.6; }
+.count-row { display: flex; justify-content: space-between; padding: 16rpx 0; border-bottom: 1rpx solid #eadfd5; color: #201b17; }

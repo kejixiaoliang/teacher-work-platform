@@ -12,7 +12,8 @@
     "pages/redeem/index",
     "pages/class-settings/index",
     "pages/guide/index",
-    "pages/changelog/index"
+    "pages/changelog/index",
+    "pages/sync/index"
     ,"pages/business/index"
     ,"pages/scores/index"
     ,"pages/seats/index"
