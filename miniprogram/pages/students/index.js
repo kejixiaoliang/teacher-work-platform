@@ -1,4 +1,4 @@
-import { loadTeacherData, writeStudentData } from '../../services/teacher-data.js';
+import { listStudentData, writeStudentData } from '../../services/teacher-data.js';
 
 Page({
   data: {
@@ -16,6 +16,8 @@ Page({
     },
     students: [],
     visibleStudents: [],
+    trashed: false,
+    selectedUuids: [],
     editing: false,
     form: { name: '', schoolNo: '', gender: '', phone: '', parentPhone: '', birthDate: '', status: '在读', followUpStatus: '正常', isMyopia: false, isBoarding: false, heightCm: '', visionLeft: '', visionRight: '', gradeLevel: '', seatNote: '', healthNote: '', interestDuty: '', remark: '' },
   },
@@ -32,12 +34,12 @@ Page({
 
   async loadStudents() {
     this.setData({ loading: true, error: '' });
-    const result = await loadTeacherData({ collectionName: 'students', datasetId: this.data.datasetId });
+    const result = await listStudentData({ datasetId: this.data.datasetId, trashed: this.data.trashed });
     if (!result.ok) {
       this.setData({ loading: false, error: result.error });
       return;
     }
-    this.setData({ loading: false, students: result.records, visibleStudents: this.filterStudents(result.records, this.data.keyword, this.data.filters) });
+    this.setData({ loading: false, selectedUuids: [], students: result.records, visibleStudents: this.filterStudents(result.records, this.data.keyword, this.data.filters) });
   },
 
   filterStudents(students, keyword, filters = this.data.filters) {
@@ -81,6 +83,34 @@ Page({
   clearFilters() {
     const filters = { gender: '', status: '', myopia: '', boarding: '', followUpStatus: '' };
     this.setData({ filters, visibleStudents: this.filterStudents(this.data.students, this.data.keyword, filters) });
+  },
+
+  toggleTrash() { this.setData({ trashed: !this.data.trashed, editing: false }, () => this.loadStudents()); },
+
+  onSelectionChange(event) { this.setData({ selectedUuids: event.detail.value || [] }); },
+
+  async deleteStudent(event) {
+    const uuid = event.currentTarget.dataset.uuid || '';
+    const student = this.data.students.find((item) => item.uuid === uuid);
+    const confirmed = await new Promise((resolve) => wx.showModal({ title: '移入回收站', content: `确定移入「${student?.name || '该学生'}」？`, success: (result) => resolve(result.confirm) }));
+    if (confirmed) await this.runStudentAction({ action: 'delete', uuid });
+  },
+
+  async restoreSelected() { await this.runStudentAction({ action: 'restore', uuids: this.data.selectedUuids }); },
+  async purgeSelected() {
+    const confirmed = await new Promise((resolve) => wx.showModal({ title: '彻底删除', content: '彻底删除后无法恢复，确定继续？', success: (result) => resolve(result.confirm) }));
+    if (confirmed) await this.runStudentAction({ action: 'purge', uuids: this.data.selectedUuids });
+  },
+  async runStudentAction(action) {
+    const uuids = action.uuids || [];
+    if (['restore', 'purge'].includes(action.action) && !uuids.length) { wx.showToast({ title: '请先选择学生', icon: 'none' }); return; }
+    this.setData({ loading: true, error: '' });
+    try {
+      const result = await writeStudentData({ ...action, datasetId: this.data.datasetId });
+      if (!result?.ok) throw new Error(result?.errors?.[0] || '操作失败');
+      wx.showToast({ title: action.action === 'delete' ? '已移入回收站' : '操作完成', icon: 'success' });
+      await this.loadStudents();
+    } catch (error) { this.setData({ loading: false, error: error?.message || '操作失败' }); }
   },
 
   openDetail(event) {

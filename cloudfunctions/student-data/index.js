@@ -23,17 +23,24 @@ function cleanFields(input = {}) {
 function normalizeRequest(event = {}) {
   const datasetId = typeof event.datasetId === 'string' ? event.datasetId.trim() : '';
   const uuid = typeof event.uuid === 'string' ? event.uuid.trim() : '';
+  const action = event.action || 'list';
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['create', 'update', 'delete'].includes(event.action)) {
+  if (!['list', 'create', 'update', 'delete', 'restore', 'purge'].includes(action)) {
     return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['不支持该学生操作'] };
   }
-  if (event.action !== 'create' && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['学生 uuid 不能为空'] };
-  if (event.action !== 'delete') {
+  if (['update', 'delete'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['学生 uuid 不能为空'] };
+  if (action === 'list') return { ok: true, action, datasetId, trashed: event.trashed === true };
+  if (['restore', 'purge'].includes(action)) {
+    const uuids = Array.isArray(event.uuids) ? event.uuids.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()) : [];
+    if (!uuids.length) return { ok: false, code: 'UUIDS_REQUIRED', errors: ['未选择学生'] };
+    return { ok: true, action, datasetId, uuids: [...new Set(uuids)] };
+  }
+  if (action !== 'delete') {
     const cleaned = cleanFields(event.student);
     if (!cleaned.ok) return cleaned;
-    return { ok: true, action: event.action, datasetId, uuid, fields: cleaned.fields };
+    return { ok: true, action, datasetId, uuid, fields: cleaned.fields };
   }
-  return { ok: true, action: event.action, datasetId, uuid };
+  return { ok: true, action, datasetId, uuid };
 }
 
 async function main(event) {
@@ -48,6 +55,36 @@ async function main(event) {
   const db = cloud.database();
   const now = new Date().toISOString();
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId };
+
+  if (request.action === 'list') {
+    const result = await db.collection('students').where({ ...scope, deletedAt: request.trashed ? db.command.neq(null) : null }).orderBy('schoolNo', 'asc').limit(500).get();
+    return { ok: true, action: 'list', trashed: request.trashed, records: result.data };
+  }
+
+  if (request.action === 'restore' || request.action === 'purge') {
+    const rows = await db.collection('students').where({ ...scope, uuid: db.command.in(request.uuids), deletedAt: db.command.neq(null) }).limit(500).get();
+    if (request.action === 'restore') {
+      const skipped = [];
+      let count = 0;
+      for (const row of rows.data) {
+        if (row.schoolNo) {
+          const duplicate = await db.collection('students').where({ ...scope, schoolNo: row.schoolNo, deletedAt: null }).limit(1).get();
+          if (duplicate.data.length) { skipped.push({ uuid: row.uuid, name: row.name, reason: `学号 ${row.schoolNo} 已被在册学生占用` }); continue; }
+        }
+        await db.collection('students').doc(row._id).update({ data: { deletedAt: null, updatedAt: now, revision: (row.revision || 1) + 1 } });
+        count += 1;
+      }
+      return { ok: true, action: 'restore', count, skipped };
+    }
+    const blocked = [];
+    for (const row of rows.data) {
+      const history = await db.collection('assessment_records').where({ ...scope, studentUuid: row.uuid }).limit(1).get();
+      if (history.data.length) blocked.push(row.name || row.uuid);
+    }
+    if (blocked.length) return { ok: false, code: 'STUDENT_HAS_ASSESSMENT_HISTORY', errors: [`${blocked.join('、')} 存在表现量化历史，不能彻底删除`] };
+    for (const row of rows.data) await db.collection('students').doc(row._id).remove();
+    return { ok: true, action: 'purge', count: rows.data.length };
+  }
 
   if (request.action === 'create') {
     const uuid = crypto.randomUUID();

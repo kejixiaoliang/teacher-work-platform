@@ -1,7 +1,7 @@
 <view class="page">
   <view class="eyebrow">班级资料</view>
   <view class="title">学生管理</view>
-  <button wx:if="{{datasetId}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button>
+  <view class="toolbar"><button wx:if="{{datasetId && !trashed}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button><button size="mini" bindtap="toggleTrash">{{trashed ? '返回学生列表' : '回收站'}}</button></view>
   <input class="search" placeholder="搜索姓名或学号" value="{{keyword}}" bindinput="onKeywordInput" />
   <view class="filter-grid">
     <picker range="{{filterOptions.gender}}" data-field="gender" bindchange="onFilterChange"><view class="filter-picker">{{filters.gender || '全部性别'}}</view></picker>
@@ -39,14 +39,16 @@
     <view>{{error}}</view>
     <button wx:if="{{datasetId}}" size="mini" bindtap="retry">重试</button>
   </view>
-  <view wx:elif="{{!visibleStudents.length}}" class="state">暂无匹配的学生</view>
+  <view wx:elif="{{!visibleStudents.length}}" class="state">{{trashed ? '回收站为空' : '暂无匹配的学生'}}</view>
   <view wx:else class="student-list">
-    <view wx:for="{{visibleStudents}}" wx:key="uuid" class="student-row" data-uuid="{{item.uuid}}" bindtap="openDetail">
-      <view>
+    <checkbox-group bindchange="onSelectionChange"><view wx:for="{{visibleStudents}}" wx:key="uuid" class="student-row" data-uuid="{{item.uuid}}" bindtap="openDetail">
+      <checkbox value="{{item.uuid}}" catchtap="noop" />
+      <view class="student-main">
         <view class="student-name">{{item.name || '未命名学生'}}</view>
         <view wx:if="{{item.schoolNo || item.school_no}}" class="school-no">学号：{{item.schoolNo || item.school_no}}</view>
       </view>
-      <text class="chevron">›</text>
-    </view>
+      <button wx:if="{{!trashed}}" size="mini" class="danger-button" data-uuid="{{item.uuid}}" catchtap="deleteStudent">删除</button><text wx:else class="chevron">已删除</text>
+    </view></checkbox-group>
+    <view wx:if="{{trashed}}" class="trash-actions"><button size="mini" bindtap="restoreSelected">恢复选中</button><button size="mini" class="danger-button" bindtap="purgeSelected">彻底删除</button></view>
   </view>
 </view>

@@ -25,7 +25,7 @@ test('student management has a mobile list and detail route', () => {
   const listPage = fs.readFileSync(path.join(root, 'miniprogram/pages/students/index.js'), 'utf8');
   const detailPage = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.js'), 'utf8');
   assert.match(`${workbench}\n${modules}`, /pages\/students\/index/);
-  assert.match(listPage, /collectionName: 'students'/);
+  assert.match(listPage, /listStudentData/);
   assert.match(listPage, /onKeywordInput/);
   assert.match(listPage, /onFilterChange/);
   assert.match(listPage, /followUpStatus/);
