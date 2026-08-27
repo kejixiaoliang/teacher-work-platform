@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="eyebrow">日常记录</view>
+  <view class="eyebrow">概览首页 / 跟进事项</view>
   <view class="title">跟进事项</view>
   <view class="toolbar"><picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">选择班级</view></picker><button wx:if="{{classUuid}}" size="mini" bindtap="openCreate">新建事项</button></view>
   <view wx:if="{{editing}}" class="editor">
@@ -14,3 +14,4 @@
   <view wx:elif="{{!records.length}}" class="state">暂无跟进事项</view>
   <view wx:else class="record-list"><view wx:for="{{records}}" wx:key="uuid" class="record"><view class="record-head"><text class="name">{{studentName(item.studentUuid)}}</text><text class="status">{{item.status}}</text></view><view class="title-small">{{item.title}}</view><view wx:if="{{item.content}}" class="meta">{{item.content}}</view><view wx:if="{{item.dueDate}}" class="meta">截止：{{item.dueDate}}</view><button wx:if="{{item.status !== 'completed' && item.status !== 'cancelled'}}" size="mini" data-uuid="{{item.uuid}}" bindtap="complete">标记完成</button></view></view>
 </view>
+

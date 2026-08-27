@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="eyebrow">日常记录</view>
+  <view class="eyebrow">学习分析</view>
   <view class="title">考勤管理</view>
   <view class="filters">
     <picker mode="date" value="{{date}}" start="2020-01-01" end="2099-12-31" bindchange="onDateChange"><view class="picker">日期：{{date}}</view></picker>
@@ -17,3 +17,4 @@
     <button type="primary" loading="{{saving}}" bindtap="save">保存当天考勤</button>
   </block>
 </view>
+
