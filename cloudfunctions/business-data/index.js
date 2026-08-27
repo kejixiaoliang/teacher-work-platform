@@ -13,6 +13,7 @@ function normalize(event = {}) {
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
   if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
+  if (action === 'bulkSave' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['成绩保存必须指定班级'] };
   return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
 }
 
@@ -112,15 +113,19 @@ async function main(event) {
     return { ok: true, action: request.action, added };
   }
   if (request.action === 'bulkSave') {
-    if (request.collection !== 'scores' || !request.examUuid || !request.rows.length) return { ok: false, code: 'SCORE_BATCH_INVALID', errors: ['成绩批次无效'] };
+    if (request.collection !== 'scores' || !request.classUuid || !request.examUuid || !request.rows.length) return { ok: false, code: 'SCORE_BATCH_INVALID', errors: ['成绩批次无效'] };
+    const examResult = await db.collection('exams').where({ ...scope, uuid: request.examUuid, classUuid: request.classUuid, deletedAt: null }).limit(1).get();
+    if (!examResult.data.length) return { ok: false, code: 'EXAM_NOT_FOUND', errors: ['考试不存在或不属于当前班级'] };
+    const students = await db.collection('students').where({ ...scope, classUuid: request.classUuid, deletedAt: null }).limit(500).get();
+    const validStudents = new Set(students.data.filter((student) => student.status !== '离校').map((student) => student.uuid));
     let count = 0;
     for (const input of request.rows.slice(0, 500)) {
       const studentUuid = String(input.studentUuid || '').trim();
       const subject = String(input.subject || '').trim();
       const score = Number(input.score);
-      if (!studentUuid || !subject || !Number.isFinite(score) || score < 0 || score > 150) continue;
+      if (!validStudents.has(studentUuid) || !subject || !Number.isFinite(score) || score < 0 || score > 150) continue;
       const current = await db.collection('scores').where({ ...scope, examUuid: request.examUuid, studentUuid, subject, deletedAt: null }).limit(1).get();
-      const data = { ...scope, examUuid: request.examUuid, studentUuid, subject, score, updatedAt: new Date().toISOString(), deletedAt: null };
+      const data = { ...scope, classUuid: request.classUuid, examUuid: request.examUuid, studentUuid, subject, score, updatedAt: new Date().toISOString(), deletedAt: null };
       if (current.data.length) await db.collection('scores').doc(current.data[0]._id).update({ data: { ...data, revision: (current.data[0].revision || 1) + 1 } });
       else await db.collection('scores').add({ data: { ...data, uuid: crypto.randomUUID(), createdAt: new Date().toISOString(), revision: 1, source: 'miniprogram' } });
       count += 1;

@@ -89,7 +89,10 @@ test('mobile pending actions and scoped business operations remain explicit', ()
   assert.match(scores, /collection: 'exams', datasetId: this\.data\.datasetId, classUuid/);
   assert.match(scores, /action: 'analysis',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
   assert.match(scores, /action: 'trend',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
+  assert.match(scores, /action: 'bulkSave',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
   assert.match(business, /\.\.\.\(request\.classUuid \? \{ classUuid: request\.classUuid \} : \{\}\), examUuid/);
+  assert.match(business, /考试不存在或不属于当前班级/);
+  assert.match(business, /validStudents\.has\(studentUuid\)/);
   assert.match(businessPage, /action: 'summary',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
   assert.match(business, /const classScoped = \['students', 'seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records'\]\.includes\(collection\)/);
 });
