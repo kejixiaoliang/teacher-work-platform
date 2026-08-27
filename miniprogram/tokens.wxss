@@ -1,0 +1,22 @@
+/* 教师工作台小程序共享视觉令牌：对应桌面端“小亮实验室”暖纸与实色阴影体系 */
+.tw-page { min-height:100vh; box-sizing:border-box; padding:44rpx 32rpx 96rpx; background:#fff4dc; color:#201b17; }
+.tw-topline { display:flex; align-items:center; justify-content:space-between; }
+.tw-eyebrow { color:#d64541; font-size:20rpx; font-weight:900; letter-spacing:3rpx; }
+.tw-status { color:#685f55; font-size:22rpx; }
+.tw-title { margin:14rpx 0 12rpx; color:#201b17; font-family:"Noto Serif SC","Songti SC",serif; font-size:62rpx; font-weight:900; letter-spacing:-2rpx; }
+.tw-lead { max-width:620rpx; color:#685f55; font-size:27rpx; line-height:1.7; }
+.tw-section-head { display:flex; align-items:flex-end; justify-content:space-between; margin:48rpx 0 16rpx; }
+.tw-section-kicker { display:block; color:#d64541; font-size:19rpx; font-weight:900; letter-spacing:2rpx; }
+.tw-section-title { display:block; margin-top:6rpx; color:#201b17; font-size:31rpx; font-weight:900; }
+.tw-section-count { color:#685f55; font-size:21rpx; }
+.tw-paper { border:3rpx solid #201b17; border-radius:20rpx; background:#fff9ea; box-shadow:7rpx 7rpx 0 #201b17; }
+.tw-soft-paper { border:2rpx solid #d9cbb0; border-radius:18rpx; background:#fffdf4; }
+.tw-button-primary { border:3rpx solid #201b17; border-radius:14rpx; background:#d64541; box-shadow:4rpx 4rpx 0 #201b17; color:#fff; font-weight:900; }
+.tw-button-secondary { border:3rpx solid #201b17; border-radius:14rpx; background:#f2c84b; box-shadow:4rpx 4rpx 0 #201b17; color:#201b17; font-weight:900; }
+.tw-button-plain { border:2rpx solid #201b17; border-radius:14rpx; background:#fff; color:#201b17; font-weight:800; }
+.tw-button-primary::after,.tw-button-secondary::after,.tw-button-plain::after { border:0; }
+.tw-button-primary:active,.tw-button-secondary:active,.tw-button-plain:active { transform:translate(3rpx,3rpx); box-shadow:1rpx 1rpx 0 #201b17; }
+.tw-empty { margin-top:28rpx; padding:36rpx 30rpx; border:3rpx dashed #201b17; border-radius:20rpx; background:#fff9ea; }
+.tw-empty-title { color:#201b17; font-size:34rpx; font-weight:900; }
+.tw-empty-copy { margin:12rpx 0 24rpx; color:#685f55; font-size:25rpx; line-height:1.7; }
+.tw-divider { height:3rpx; margin:34rpx 0; background:#201b17; }

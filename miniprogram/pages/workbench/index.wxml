@@ -1,20 +1,19 @@
-<view class="page page-workbench">
+<view class="tw-page page-workbench">
   <view class="topline"><text class="eyebrow">02 / WORKBENCH</text><text class="status-dot">移动端操作</text></view>
   <view class="title">工作台</view>
   <view class="hint">沿用客户端的功能边界，把班主任每天要做的事放在手边。</view>
 
-  <view wx:for="{{groups}}" wx:key="title" class="group">
+  <view wx:for="{{groups}}" wx:key="title" class="group group-{{item.tone}}">
     <view class="group-head"><view><text class="section-kicker">{{item.kicker}}</text><text class="section-title">{{item.title}}</text></view><text class="group-index">0{{index + 1}}</text></view>
-    <view class="feature-list">
+    <view class="feature-grid">
       <view
         wx:for="{{item.items}}"
         wx:key="*this"
-        class="feature-row"
-        data-name="{{item}}"
+        class="feature-tile"
+        data-name="{{item.name}}"
         bindtap="openFeature"
       >
-        <text class="feature-label">{{item}}</text>
-        <text class="chevron">↗</text>
+        <text class="tile-code">{{item.code}}</text><text class="feature-label">{{item.name}}</text><text class="chevron">↗</text>
       </view>
     </view>
   </view>

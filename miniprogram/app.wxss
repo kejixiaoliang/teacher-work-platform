@@ -1,6 +1,6 @@
 page {
-  background: #f5f2ea;
-  color: #202a32;
+  background: #fff4dc;
+  color: #201b17;
   font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 

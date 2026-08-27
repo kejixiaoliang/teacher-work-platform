@@ -1,4 +1,5 @@
-.page { padding:44rpx 32rpx 90rpx; }
+@import "../../tokens.wxss";
+.page { padding:0; }
 .topline,.group-head { display:flex; align-items:center; justify-content:space-between; }
 .eyebrow,.section-kicker { color:#c65a32; font-size:20rpx; letter-spacing:3rpx; font-weight:700; }
 .status-dot { color:#74836e; font-size:22rpx; }
@@ -8,9 +9,12 @@
 .group-head { align-items:flex-end; margin-bottom:18rpx; }
 .section-title { display:block; margin-top:8rpx; color:#202a32; font-size:30rpx; font-weight:700; }
 .group-index { color:#cfc8bb; font-family:"DIN Alternate","Courier New",monospace; font-size:34rpx; }
-.feature-list { overflow:hidden; border:1rpx solid #ded8cc; border-radius:16rpx; background:#fffdf8; box-shadow:0 10rpx 24rpx rgba(52,45,35,.05); }
-.feature-row { display:flex; align-items:center; justify-content:space-between; min-height:82rpx; padding:0 26rpx; border-bottom:1rpx solid #eee9df; color:#34424a; transition:background .2s ease; }
-.feature-row:active { background:#f1eadf; }
-.feature-row:last-child { border-bottom:0; }
-.feature-label { font-size:27rpx; }
-.chevron { color:#c65a32; font-size:30rpx; line-height:1; }
+.feature-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16rpx; }
+.feature-tile { position:relative; display:flex; min-height:142rpx; flex-direction:column; justify-content:flex-end; padding:22rpx; overflow:hidden; border:3rpx solid #201b17; border-radius:18rpx; background:#fff9ea; box-shadow:5rpx 5rpx 0 #201b17; transition:transform .2s ease,box-shadow .2s ease; }
+.feature-tile:active { transform:translate(3rpx,3rpx); box-shadow:1rpx 1rpx 0 #201b17; }
+.tile-code { position:absolute; top:18rpx; left:20rpx; color:#201b17; font-family:"DIN Alternate","Courier New",monospace; font-size:24rpx; font-weight:700; opacity:.55; }
+.feature-label { color:#201b17; font-size:28rpx; font-weight:900; }
+.chevron { position:absolute; right:20rpx; top:18rpx; color:#d64541; font-size:28rpx; line-height:1; }
+.group-mustard .feature-tile:nth-child(3n+1) { background:#f2c84b; }
+.group-mint .feature-tile:nth-child(3n+2) { background:#8bd6af; }
+.group-sky .feature-tile:nth-child(3n+1) { background:#93c9d8; }

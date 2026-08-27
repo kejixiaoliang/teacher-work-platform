@@ -2,17 +2,20 @@ const groups = [
   {
     title: '班级与学生',
     kicker: 'FOUNDATION',
-    items: ['班级设置', '学生管理', '座位管理', '班委学委', '课代表选择'],
+    tone: 'mustard',
+    items: ['班级设置', '学生管理', '座位管理', '班委学委', '课代表选择'].map((name, index) => ({ name, code: ['01', '02', '03', '04', '05'][index] })),
   },
   {
     title: '日常记录',
     kicker: 'DAILY ROUTINE',
-    items: ['考勤管理', '请假管理', '表现量化', '跟进事项', '家校沟通', '值日管理'],
+    tone: 'mint',
+    items: ['考勤管理', '请假管理', '表现量化', '跟进事项', '家校沟通', '值日管理'].map((name, index) => ({ name, code: ['01', '02', '03', '04', '05', '06'][index] })),
   },
   {
     title: '成绩与资料',
     kicker: 'REVIEW & ARCHIVE',
-    items: ['成绩管理', '数据分析', '文档管理'],
+    tone: 'sky',
+    items: ['成绩管理', '数据分析', '文档管理'].map((name, index) => ({ name, code: ['01', '02', '03'][index] })),
   },
 ];
 
