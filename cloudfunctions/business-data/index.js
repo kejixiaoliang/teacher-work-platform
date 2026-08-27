@@ -13,7 +13,7 @@ function normalize(event = {}) {
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
   if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
-  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
+  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
 }
 
 function sanitize(record) {
@@ -43,10 +43,37 @@ async function main(event) {
     return { ok: true, records: result.data };
   }
   if (request.action === 'batchAssessment') {
-    if (request.collection !== 'assessment_records' || !request.classUuid || !request.rows.length) return { ok: false, code: 'ASSESSMENT_BATCH_INVALID', errors: ['批量记分参数无效'] };
-    let count = 0; const now = new Date().toISOString();
-    for (const input of request.rows.slice(0, 500)) { const studentUuid = String(input.studentUuid || '').trim(); const score = Number(input.score); const itemName = String(input.itemName || '').trim(); if (!studentUuid || !itemName || !Number.isFinite(score) || score < -100 || score > 100) continue; await db.collection('assessment_records').add({ data: { ...scope, classUuid: request.classUuid, studentUuid, date: String(input.date || now.slice(0, 10)), categoryName: String(input.categoryName || '').trim(), itemName, score, remark: String(input.remark || '').trim().slice(0, 500), uuid: crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null, status: 'active', revision: 1, source: 'miniprogram' } }); count += 1; }
-    return { ok: true, action: 'batchAssessment', count };
+    if (request.collection !== 'assessment_records' || !request.classUuid || !request.itemUuid || !request.rows.length) return { ok: false, code: 'ASSESSMENT_BATCH_INVALID', errors: ['批量记分参数无效'] };
+    const classResult = await db.collection('classes').where({ ...scope, uuid: request.classUuid, deletedAt: null }).limit(1).get();
+    if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['班级不存在或不属于当前数据集'] };
+    const itemResult = await db.collection('assessment_items').where({ ...scope, uuid: request.itemUuid, deletedAt: null }).limit(1).get();
+    if (!itemResult.data.length) return { ok: false, code: 'ITEM_NOT_FOUND', errors: ['行为项目不存在'] };
+    const item = itemResult.data[0];
+    if (item.isActive === false) return { ok: false, code: 'ITEM_DISABLED', errors: ['行为项目已停用'] };
+    const categoryResult = await db.collection('assessment_categories').where({ ...scope, uuid: item.categoryUuid, deletedAt: null }).limit(1).get();
+    if (!categoryResult.data.length) return { ok: false, code: 'CATEGORY_NOT_FOUND', errors: ['行为项目所属分类不存在'] };
+    if (categoryResult.data[0].isActive === false) return { ok: false, code: 'CATEGORY_DISABLED', errors: ['行为项目所属分类已停用'] };
+    const date = String(request.rows[0].date || new Date().toISOString().slice(0, 10));
+    const existingResult = await db.collection('assessment_records').where({ ...scope, classUuid: request.classUuid, date, status: 'active', deletedAt: null }).limit(500).get();
+    const existing = new Set(existingResult.data.map((row) => `${row.studentUuid}:${row.itemUuid || row.itemName}`));
+    const students = await db.collection('students').where({ ...scope, classUuid: request.classUuid, deletedAt: null }).limit(500).get();
+    const validStudents = new Set(students.data.filter((student) => student.status !== '离校').map((student) => student.uuid));
+    const names = new Map(students.data.map((student) => [student.uuid, student.name || '未命名学生']));
+    const skipped = []; const accepted = new Set(); let count = 0; const now = new Date().toISOString();
+    const allowDailyRepeat = item.allowDailyRepeat === true;
+    for (const input of request.rows.slice(0, 500)) {
+      const studentUuid = String(input.studentUuid || '').trim();
+      const score = Number(item.score ?? input.score);
+      const rowDate = String(input.date || date);
+      const key = `${studentUuid}:${request.itemUuid}`;
+      if (!studentUuid || !validStudents.has(studentUuid)) { skipped.push({ studentUuid, name: names.get(studentUuid) || '', reasonCode: 'STUDENT_INVALID', reason: '学生不属于当前班级或已离校' }); continue; }
+      if (accepted.has(studentUuid)) { skipped.push({ studentUuid, name: names.get(studentUuid), reasonCode: 'DUPLICATE_INPUT', reason: '本次操作重复选择学生' }); continue; }
+      if (!Number.isFinite(score) || score < -100 || score > 100) { skipped.push({ studentUuid, name: names.get(studentUuid), reasonCode: 'SCORE_INVALID', reason: '规则分值无效' }); continue; }
+      accepted.add(studentUuid);
+      if (!allowDailyRepeat && (existing.has(key) || existing.has(`${studentUuid}:${item.name}`))) { skipped.push({ studentUuid, name: names.get(studentUuid), reasonCode: 'DAILY_DUPLICATE', reason: '该学生当天已经记录过此行为' }); continue; }
+      await db.collection('assessment_records').add({ data: { ...scope, classUuid: request.classUuid, studentUuid, itemUuid: request.itemUuid, date: rowDate, categoryName: categoryResult.data[0].name || '', itemName: item.name || String(input.itemName || '').trim(), score, allowDailyRepeat, remark: String(input.remark || '').trim().slice(0, 500), uuid: crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null, status: 'active', revision: 1, source: 'miniprogram' } }); count += 1;
+    }
+    return { ok: true, action: 'batchAssessment', count, total: request.rows.slice(0, 500).length, skipped };
   }
   if (request.action === 'contactStats') {
     if (request.collection !== 'contacts') return { ok: false, code: 'CONTACT_ACTION_INVALID', errors: ['家校沟通统计只能用于 contacts 集合'] };
@@ -133,8 +160,11 @@ async function main(event) {
   if ((request.action === 'void' || request.action === 'restore') && request.collection === 'assessment_records') {
     const found = await collection.where({ ...scope, uuid: request.uuid }).limit(1).get();
     if (!found.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['表现记录不存在'] };
-    const row = found.data[0]; const nextStatus = request.action === 'void' ? 'voided' : 'active'; const now = new Date().toISOString();
-    await db.collection('assessment_revisions').add({ data: { ...scope, recordUuid: request.uuid, action: request.action, before: row, after: { ...row, status: nextStatus, deletedAt: request.action === 'void' ? now : null }, reason: String(request.record.reason || '').trim(), createdAt: now, uuid: crypto.randomUUID() } });
+    const row = found.data[0]; const expectedStatus = request.action === 'void' ? 'active' : 'voided'; const nextStatus = request.action === 'void' ? 'voided' : 'active'; const reason = String(request.record.reason || '').trim();
+    if (row.status !== expectedStatus) return { ok: false, code: 'RECORD_STATE_CONFLICT', errors: ['记录状态不允许此操作'] };
+    if (!reason) return { ok: false, code: 'REVISION_REASON_REQUIRED', errors: ['请填写修正原因'] };
+    const now = new Date().toISOString();
+    await db.collection('assessment_revisions').add({ data: { ...scope, recordUuid: request.uuid, action: request.action, before: row, after: { ...row, status: nextStatus, deletedAt: request.action === 'void' ? now : null }, reason, createdAt: now, uuid: crypto.randomUUID() } });
     await collection.doc(row._id).update({ data: { status: nextStatus, deletedAt: request.action === 'void' ? now : null, updatedAt: now, revision: (row.revision || 1) + 1 } });
     return { ok: true, action: request.action, uuid: request.uuid };
   }

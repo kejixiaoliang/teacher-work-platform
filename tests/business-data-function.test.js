@@ -29,3 +29,13 @@ test('business data strips client ownership metadata before cloud writes', () =>
   assert.equal(value.title, '家长沟通');
   assert.equal(value.score, 98);
 });
+
+test('assessment batch contract enforces rule linkage and diagnostic skips', () => {
+  const source = require('node:fs').readFileSync(path.resolve('cloudfunctions/business-data/index.js'), 'utf8');
+  assert.match(source, /request\.itemUuid/);
+  assert.match(source, /STUDENT_INVALID/);
+  assert.match(source, /DUPLICATE_INPUT/);
+  assert.match(source, /DAILY_DUPLICATE/);
+  assert.match(source, /return \{ ok: true, action: 'batchAssessment', count, total/);
+  assert.match(source, /REVISION_REASON_REQUIRED/);
+});
