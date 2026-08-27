@@ -3,11 +3,11 @@
   <view class="title">{{title}}</view>
   <view class="lead">先看班级状态，再处理今天最需要完成的工作。</view>
   <view wx:if="{{loading}}" class="state">正在读取云端数据…</view>
-  <view wx:elif="{{error && !datasetId}}" class="tw-empty welcome-empty">
-    <text class="tw-empty-title">开始建立你的班级实验本</text>
-    <text class="tw-empty-copy">从班级和学生开始，逐步完成考勤、表现、成绩和值日等日常工作。已有电脑端数据可以直接导入。</text>
-    <button class="tw-button-primary" bindtap="openImport">导入已有 JSON 数据</button>
-    <button class="tw-button-secondary welcome-secondary" bindtap="openWorkbench">先看看工作台</button>
+  <view wx:elif="{{error && !datasetId}}" class="empty-start">
+    <view class="empty-start-head"><text class="empty-start-mark">01</text><text class="empty-start-label">START HERE</text></view>
+    <text class="empty-start-title">请先到班级设置创建班级</text>
+    <text class="empty-start-copy">如果已有电脑端数据，可直接导入 JSON；导入后会在当前教师身份下继续使用。</text>
+    <view class="empty-start-actions"><button class="tw-button-primary" bindtap="openImport">导入 JSON 数据</button><button class="tw-button-secondary welcome-secondary" bindtap="openWorkbench">查看工作台</button></view>
   </view>
   <view wx:elif="{{error}}" class="tw-empty error-empty">
     <text class="tw-empty-title">云端数据暂时不可用</text><text class="tw-empty-copy">{{error}}</text><button class="tw-button-secondary" bindtap="retry">重新连接</button>

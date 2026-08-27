@@ -1,5 +1,5 @@
 @import "../../tokens.wxss";
-.page { padding: 0; }
+.page { min-height:100vh; padding:44rpx 32rpx 96rpx; }
 .topline,.section-head { display:flex; align-items:center; justify-content:space-between; }
 .eyebrow,.section-kicker { color:#c65a32; font-size:20rpx; letter-spacing:3rpx; font-weight:700; }
 .status-dot { color:#74836e; font-size:22rpx; }
@@ -23,8 +23,13 @@
 .home-note { display:flex; gap:14rpx; margin-top:48rpx; padding-top:22rpx; border-top:1rpx solid #ded8cc; color:#9b9b91; font-size:21rpx; line-height:1.6; }
 .note-mark { color:#c65a32; font-size:30rpx; font-weight:700; }
 .page-home { background:#fff4dc; }
-.welcome-empty { margin-top:54rpx; background:#f2c84b; box-shadow:8rpx 8rpx 0 #201b17; }
-.welcome-empty .tw-empty-title,.welcome-empty .tw-empty-copy { display:block; }
+.empty-start { margin-top:34rpx; padding:20rpx; border:2rpx solid #201b17; border-radius:14rpx; background:#fff9ea; box-shadow:4rpx 4rpx 0 #201b17; }
+.empty-start-head { display:flex; align-items:center; gap:10rpx; color:#d64541; font-size:20rpx; font-weight:900; letter-spacing:2rpx; }
+.empty-start-mark { color:#201b17; font-family:"DIN Alternate","Courier New",monospace; font-size:24rpx; }
+.empty-start-title { display:block; margin-top:18rpx; color:#201b17; font-size:31rpx; font-weight:900; }
+.empty-start-copy { display:block; margin-top:10rpx; color:#685f55; font-size:24rpx; line-height:1.65; }
+.empty-start-actions { display:flex; gap:10rpx; margin-top:18rpx; }
+.empty-start-actions button { flex:1; font-size:24rpx; }
 .welcome-secondary { margin-top:20rpx; }
 .error-empty { border-color:#d64541; background:#fff9ea; }
 .error-empty .tw-empty-title,.error-empty .tw-empty-copy { display:block; }

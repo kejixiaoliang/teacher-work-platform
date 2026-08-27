@@ -28,7 +28,7 @@ test('index page presents class and student data states', () => {
   assert.match(wxml, /学生/);
   assert.match(wxml, /loading/);
   assert.match(wxml, /error/);
-  assert.match(wxml, /开始建立你的班级实验本/);
-  assert.match(wxml, /导入已有 JSON 数据/);
-  assert.match(wxml, /先看看工作台/);
+  assert.match(wxml, /请先到班级设置创建班级/);
+  assert.match(wxml, /导入 JSON 数据/);
+  assert.match(wxml, /查看工作台/);
 });
