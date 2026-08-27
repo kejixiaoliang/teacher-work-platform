@@ -29,6 +29,11 @@ Page({
   selectClass(event) { const classUuid = this.data.classes[event.detail.value]?.uuid || ''; this.setData({ classUuid }); this.loadRecords(classUuid); },
   studentName(uuid) { return this.data.students.find((student) => student.uuid === uuid)?.name || '未命名学生'; },
   openCreate() { this.setData({ editing: true, form: { studentUuid: this.data.studentUuid || this.data.students.find((student) => student.classUuid === this.data.classUuid)?.uuid || '', title: '', content: '', dueDate: '', status: 'pending', result: '' } }); },
+  openEdit(event) {
+    const record = this.data.records.find((item) => item.uuid === event.currentTarget.dataset.uuid);
+    if (!record) return;
+    this.setData({ editing: true, form: { ...record, studentUuid: record.studentUuid || '' } });
+  },
   onInput(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
   onPickerChange(event) {
     const field = event.currentTarget.dataset.field;
@@ -41,7 +46,8 @@ Page({
     if (!this.data.form.studentUuid || !this.data.form.title) { wx.showToast({ title: '请填写学生和标题', icon: 'none' }); return; }
     this.setData({ saving: true, error: '' });
     try {
-      const result = await callFollowUpData({ action: 'create', datasetId: this.data.datasetId, classUuid: this.data.classUuid, task: this.data.form });
+      const action = this.data.form.uuid ? 'update' : 'create';
+      const result = await callFollowUpData({ action, datasetId: this.data.datasetId, classUuid: this.data.classUuid, uuid: this.data.form.uuid, task: this.data.form });
       if (!result?.ok) throw new Error(result?.errors?.[0] || '保存跟进事项失败');
       this.setData({ saving: false, editing: false });
       wx.showToast({ title: '已保存', icon: 'success' });
@@ -49,11 +55,16 @@ Page({
     } catch (error) { this.setData({ saving: false, error: error?.message || '保存跟进事项失败' }); }
   },
   async complete(event) {
+    return this.changeStatus(event, 'completed');
+  },
+  async changeStatus(event, explicitStatus) {
     const record = this.data.records.find((item) => item.uuid === event.currentTarget.dataset.uuid);
     if (!record) return;
-    const result = await callFollowUpData({ action: 'update', datasetId: this.data.datasetId, classUuid: record.classUuid, uuid: record.uuid, task: { ...record, status: 'completed' } });
+    const status = explicitStatus || event.currentTarget.dataset.status;
+    if (!this.data.statuses.includes(status)) return;
+    const result = await callFollowUpData({ action: 'update', datasetId: this.data.datasetId, classUuid: this.data.classUuid || record.classUuid, uuid: record.uuid, task: { ...record, status } });
     if (!result?.ok) { wx.showToast({ title: result?.errors?.[0] || '操作失败', icon: 'none' }); return; }
-    wx.showToast({ title: '已完成', icon: 'success' });
+    wx.showToast({ title: status === 'completed' ? '已完成' : status === 'cancelled' ? '已取消' : '已重新打开', icon: 'success' });
     this.loadRecords();
   },
 });

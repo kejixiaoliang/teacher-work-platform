@@ -90,11 +90,18 @@ test('leave management exposes client leave types, statuses and actions', () => 
 
 test('follow-up management exposes the existing task workflow', () => {
   const page = fs.readFileSync(path.join(root, 'miniprogram/pages/follow-up/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/follow-up/index.wxml'), 'utf8');
   const service = fs.readFileSync(path.join(root, 'miniprogram/services/teacher-data.js'), 'utf8');
   assert.ok(app.pages.includes('pages/follow-up/index'));
   assert.match(page, /callFollowUpData/);
   assert.match(page, /pending/);
   assert.match(page, /completed/);
+  assert.match(page, /openEdit/);
+  assert.match(page, /action, datasetId/);
+  assert.match(page, /changeStatus/);
+  assert.match(template, /编辑/);
+  assert.match(template, /重新打开/);
+  assert.match(template, /取消/);
   assert.match(service, /follow-up-data/);
 });
 
