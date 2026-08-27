@@ -9,6 +9,7 @@ const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'u
 
 test('mini program keeps the client navigation groups and module order', () => {
   const workbench = read('miniprogram/pages/workbench/index.js');
+  const modules = read('miniprogram/config/modules.js');
   const expectedGroups = [
     ['常用', '学生管理', '座位管理'],
     ['学习分析', '数据分析', '成绩管理', '考勤管理', '表现量化'],
@@ -16,9 +17,9 @@ test('mini program keeps the client navigation groups and module order', () => {
   ];
 
   for (const group of expectedGroups) {
-    for (const name of group) assert.match(workbench, new RegExp(name));
+    for (const name of group) assert.match(`${workbench}\n${modules}`, new RegExp(name));
   }
-  assert.doesNotMatch(workbench, /班级与学生|日常记录|成绩与资料/);
+  assert.doesNotMatch(`${workbench}\n${modules}`, /班级与学生|日常记录|成绩与资料/);
   assert.doesNotMatch(workbench, /班级设置/);
 });
 
@@ -44,6 +45,7 @@ test('mini program core pages use the client content vocabulary and real actions
 test('all client workbench modules have a registered mobile route or dedicated operation page', () => {
   const app = JSON.parse(read('miniprogram/app.json'));
   const workbench = read('miniprogram/pages/workbench/index.js');
+  const modules = read('miniprogram/config/modules.js');
   const requiredRoutes = [
     'pages/students/index',
     'pages/seats/index',
@@ -60,7 +62,8 @@ test('all client workbench modules have a registered mobile route or dedicated o
   ];
 
   for (const route of requiredRoutes) assert.ok(app.pages.includes(route), `missing route: ${route}`);
-  for (const name of ['班委学委', '课代表选择']) assert.match(workbench, new RegExp(`pages\\/(?:leaders|subject-leaders)\\/index`));
+  for (const name of ['班委学委', '课代表选择']) assert.match(`${workbench}\n${modules}`, new RegExp(name));
+  assert.match(`${workbench}\n${modules}`, /pages\/(?:leaders|subject-leaders)\/index/);
   assert.doesNotMatch(workbench, /即将接入/);
 });
 

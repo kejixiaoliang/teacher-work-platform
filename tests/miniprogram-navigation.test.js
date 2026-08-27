@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const app = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/app.json'), 'utf8'));
+const moduleRegistry = fs.readFileSync(path.join(root, 'miniprogram/config/modules.js'), 'utf8');
 
 test('mini program exposes the three planned navigation sections', () => {
   assert.deepEqual(app.tabBar.list.map((item) => item.text), ['首页', '工作台', '设置']);
@@ -20,9 +21,10 @@ test('student management has a mobile list and detail route', () => {
   assert.ok(app.pages.includes('pages/students/index'));
   assert.ok(app.pages.includes('pages/student-detail/index'));
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  const modules = fs.readFileSync(path.join(root, 'miniprogram/config/modules.js'), 'utf8');
   const listPage = fs.readFileSync(path.join(root, 'miniprogram/pages/students/index.js'), 'utf8');
   const detailPage = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.js'), 'utf8');
-  assert.match(workbench, /pages\/students\/index/);
+  assert.match(`${workbench}\n${modules}`, /pages\/students\/index/);
   assert.match(listPage, /collectionName: 'students'/);
   assert.match(listPage, /onKeywordInput/);
   assert.match(detailPage, /uuid/);
@@ -84,7 +86,7 @@ test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
   for (const name of ['学生管理', '座位管理', '考勤管理', '表现量化', '成绩管理', '数据分析', '文档管理']) {
-    assert.match(workbench, new RegExp(name));
+    assert.match(`${workbench}\n${moduleRegistry}`, new RegExp(name));
   }
   for (const name of ['数据导入', '数据同步', '使用指南', '版本更新']) assert.match(settings, new RegExp(name));
 });
@@ -100,9 +102,10 @@ test('settings exposes the server-authorized redeem code flow', () => {
 
 test('workbench routes the remaining client modules to mobile operation views', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
+  const modules = fs.readFileSync(path.join(root, 'miniprogram/config/modules.js'), 'utf8');
   const page = fs.readFileSync(path.join(root, 'miniprogram/pages/business/index.js'), 'utf8');
   assert.ok(app.pages.includes('pages/business/index'));
-  for (const name of ['成绩管理', '座位管理', '值日管理', '家校沟通', '文档管理', '数据分析']) assert.match(workbench, new RegExp(name));
+  for (const name of ['成绩管理', '座位管理', '值日管理', '家校沟通', '文档管理', '数据分析']) assert.match(`${workbench}\n${modules}`, new RegExp(name));
   assert.match(page, /callBusinessData/);
   assert.match(page, /action: 'create'/);
   assert.match(page, /action: 'delete'/);
@@ -144,7 +147,7 @@ test('duty management has a dedicated grouping and weekday workflow', () => {
   assert.match(template, /一键自动分组/);
   assert.match(template, /data-action="presetLeaders"/);
   assert.match(template, /设置值日星期/);
-  assert.match(workbench, /pages\/duties\/index/);
+  assert.match(`${workbench}\n${moduleRegistry}`, /pages\/duties\/index/);
 });
 
 test('home-school contact management has a dedicated mobile record workflow', () => {
@@ -157,7 +160,7 @@ test('home-school contact management has a dedicated mobile record workflow', ()
   assert.match(page, /action: 'update'/);
   assert.match(template, /新增沟通/);
   assert.match(template, /沟通结果/);
-  assert.match(workbench, /pages\/contacts\/index/);
+  assert.match(`${workbench}\n${moduleRegistry}`, /pages\/contacts\/index/);
 });
 
 test('document management exposes metadata-only mobile operations', () => {
@@ -169,7 +172,7 @@ test('document management exposes metadata-only mobile operations', () => {
   assert.match(page, /action: 'update'/);
   assert.match(template, /文件上传与预览仍由客户端负责/);
   assert.match(template, /新增文档/);
-  assert.match(workbench, /pages\/documents\/index/);
+  assert.match(`${workbench}\n${moduleRegistry}`, /pages\/documents\/index/);
 });
 
 test('assessment management has a dedicated scoring and summary workflow', () => {
@@ -182,7 +185,7 @@ test('assessment management has a dedicated scoring and summary workflow', () =>
   assert.match(page, /action: 'update'/);
   assert.match(template, /记录表现/);
   assert.match(template, /加分/);
-  assert.match(workbench, /pages\/assessment\/index/);
+  assert.match(`${workbench}\n${moduleRegistry}`, /pages\/assessment\/index/);
   assert.match(page, /showHistory/);
   assert.match(page, /openRules/);
   assert.match(page, /batchSave/);
@@ -209,5 +212,5 @@ test('data analysis has a dedicated CloudBase summary page', () => {
   assert.match(page, /action: 'summary'/);
   assert.match(page, /callBusinessData/);
   assert.match(template, /数据概览/);
-  assert.match(workbench, /pages\/analysis\/index/);
+  assert.match(`${workbench}\n${moduleRegistry}`, /pages\/analysis\/index/);
 });

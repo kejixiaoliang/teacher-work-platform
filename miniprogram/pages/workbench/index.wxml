@@ -8,12 +8,12 @@
     <view class="feature-grid">
       <view
         wx:for="{{item.items}}"
-        wx:key="*this"
+        wx:key="id"
         class="feature-tile"
-        data-name="{{item.name}}"
+        data-id="{{item.id}}"
         bindtap="openFeature"
       >
-        <text class="tile-code">{{item.code}}</text><text class="feature-label">{{item.name}}</text><text class="chevron">↗</text>
+        <text class="tile-code">{{item.code}}</text><text class="feature-label">{{item.label}}</text><text class="chevron">↗</text>
       </view>
     </view>
   </view>
