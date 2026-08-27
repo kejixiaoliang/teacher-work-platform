@@ -146,10 +146,12 @@ async function main(event) {
   if (request.action === 'analysis') {
     if (request.collection !== 'scores' || !request.examUuid) return { ok: false, code: 'SCORE_ANALYSIS_INVALID', errors: ['成绩分析参数无效'] };
     const result = await db.collection('scores').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), examUuid: request.examUuid, deletedAt: null }).limit(500).get();
+    const studentResult = await db.collection('students').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), deletedAt: null }).limit(500).get();
+    const names = new Map(studentResult.data.map((student) => [student.uuid, student.name || '未命名学生']));
     const byStudent = new Map(); const bySubject = new Map();
     for (const row of result.data) { byStudent.set(row.studentUuid, (byStudent.get(row.studentUuid) || 0) + Number(row.score || 0)); const list = bySubject.get(row.subject) || []; list.push(Number(row.score || 0)); bySubject.set(row.subject, list); }
     const subjects = [...bySubject].map(([subject, values]) => ({ subject, avg: Math.round(values.reduce((a, b) => a + b, 0) / values.length * 100) / 100, max: Math.max(...values), pass: Math.round(values.filter((value) => value >= 60).length / values.length * 100) }));
-    const ranking = [...byStudent].sort((a, b) => b[1] - a[1]).map(([studentUuid, total], index) => ({ studentUuid, total, rank: index + 1 }));
+    const ranking = [...byStudent].sort((a, b) => b[1] - a[1]).map(([studentUuid, total], index) => ({ studentUuid, name: names.get(studentUuid) || '未命名学生', total, rank: index + 1 }));
     return { ok: true, subjects, ranking };
   }
   if (request.action === 'trend') {

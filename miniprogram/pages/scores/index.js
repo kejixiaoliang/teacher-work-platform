@@ -1,4 +1,5 @@
 import { callBusinessData, loadTeacherData } from '../../services/teacher-data.js';
+import { buildScoreExchange, copyScoreExchange } from '../../services/score-export-service.js';
 
 Page({
   data: { datasetId: '', classUuid: '', classes: [], students: [], exams: [], examUuid: '', subjects: [], examForm: { name: '', date: '', subjects: '语文,数学,英语' }, rows: [], analysis: null, trend: null, trendStudentIndex: 0, loading: false, saving: false, error: '', editingExam: false },
@@ -15,6 +16,7 @@ Page({
   onScoreInput(event) { const row = Number(event.currentTarget.dataset.row); const subject = event.currentTarget.dataset.subject; this.setData({ [`rows[${row}].values.${subject}`]: event.detail.value }); },
   async saveScores() { const exam = this.data.exams.find((item) => item.uuid === this.data.examUuid); if (!exam || !this.data.classUuid) return; const rows = this.data.rows.flatMap((row) => exam.subjects.map((subject) => ({ studentUuid: row.studentUuid, subject, score: row.values[subject] })).filter((item) => item.score !== '')); this.setData({ saving: true }); const result = await callBusinessData({ action: 'bulkSave', collection: 'scores', datasetId: this.data.datasetId, classUuid: this.data.classUuid, examUuid: exam.uuid, rows }); this.setData({ saving: false, error: result?.ok ? '' : (result?.errors?.[0] || '保存成绩失败') }); if (result?.ok) wx.showToast({ title: `已保存 ${result.count} 条`, icon: 'success' }); },
   async loadAnalysis() { if (!this.data.examUuid) return; const result = await callBusinessData({ action: 'analysis', collection: 'scores', datasetId: this.data.datasetId, classUuid: this.data.classUuid, examUuid: this.data.examUuid }); this.setData({ analysis: result?.ok ? result : null, error: result?.ok ? '' : (result?.errors?.[0] || '读取分析失败') }); },
+  copyExport() { const exam = this.data.exams.find((item) => item.uuid === this.data.examUuid); if (!exam) return; copyScoreExchange(buildScoreExchange({ exam, rows: this.data.rows, datasetId: this.data.datasetId, classUuid: this.data.classUuid })).then(() => wx.showToast({ title: '成绩 JSON 已复制', icon: 'success' })).catch(() => wx.showToast({ title: '复制导出失败', icon: 'none' })); },
   selectTrendStudent(event) { this.setData({ trendStudentIndex: Number(event.detail.value) }); },
   async loadTrend() { const student = this.data.students[this.data.trendStudentIndex]; if (!student || student.classUuid !== this.data.classUuid) return; const result = await callBusinessData({ action: 'trend', collection: 'scores', datasetId: this.data.datasetId, classUuid: this.data.classUuid, studentUuid: student.uuid }); this.setData({ trend: result?.ok ? result.points : null, error: result?.ok ? '' : (result?.errors?.[0] || '读取成绩走势失败') }); },
 });
