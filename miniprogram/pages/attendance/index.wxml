@@ -4,6 +4,7 @@
   <view class="filters">
     <picker mode="date" value="{{date}}" start="2020-01-01" end="2099-12-31" bindchange="onDateChange"><view class="picker">日期：{{date}}</view></picker>
     <picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">{{classUuid ? '切换班级' : '选择班级'}}</view></picker>
+    <button size="mini" bindtap="markAllPresent">一键全部出勤</button>
   </view>
   <view wx:if="{{loading}}" class="state">正在读取考勤…</view>
   <view wx:elif="{{error}}" class="state error">{{error}}</view>

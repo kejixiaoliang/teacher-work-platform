@@ -34,10 +34,11 @@ Page({
     this.setData({ loading: false, rows });
   },
 
-  selectClass(event) { const classUuid = event.detail.value ? this.data.classes[event.detail.value].uuid : event.currentTarget.dataset.uuid; this.setData({ classUuid }); this.loadRows(classUuid); },
+  selectClass(event) { const classUuid = this.data.classes[Number(event.detail.value)]?.uuid || ''; this.setData({ classUuid }); this.loadRows(classUuid); },
   onDateChange(event) { const date = event.detail.value; this.setData({ date }); this.loadRows(this.data.classUuid, date); },
   onStatusChange(event) { const index = Number(event.currentTarget.dataset.index); const status = this.data.statuses[event.detail.value]; this.setData({ [`rows[${index}].status`]: status }); },
   onRemarkInput(event) { const index = Number(event.currentTarget.dataset.index); this.setData({ [`rows[${index}].remark`]: event.detail.value }); },
+  markAllPresent() { this.setData({ rows: this.data.rows.map((row) => ({ ...row, status: '出勤' })) }); },
 
   async save() {
     this.setData({ saving: true, error: '' });

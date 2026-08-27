@@ -79,7 +79,10 @@ test('attendance management exposes the existing four statuses and save flow', (
   assert.match(page, /请假/);
   assert.match(page, /缺勤/);
   assert.match(page, /action: 'save'/);
+  assert.match(page, /markAllPresent/);
+  assert.match(page, /classes\[Number\(event\.detail\.value\)\]/);
   assert.match(template, /保存当天考勤/);
+  assert.match(template, /一键全部出勤/);
 });
 
 test('leave management exposes client leave types, statuses and actions', () => {
