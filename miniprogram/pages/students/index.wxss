@@ -23,6 +23,10 @@
 .title { color: #201b17; font-family: "Noto Serif SC", "Songti SC", serif; font-weight: 900; }
 .create-button { border: 3rpx solid #201b17; border-radius: 12rpx; background: #f2c84b; box-shadow: 4rpx 4rpx 0 #201b17; color: #201b17; font-weight: 700; }
 .search { border: 3rpx solid #201b17; border-radius: 12rpx; background: #fffdf5; color: #201b17; }
+.filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12rpx; margin-top: 16rpx; }
+.filter-picker { padding: 16rpx 18rpx; border: 2rpx solid #201b17; border-radius: 10rpx; background: #fffdf5; color: #5f554b; font-size: 24rpx; }
+.filter-grid button { margin: 0; padding: 0 14rpx; border: 2rpx solid #201b17; border-radius: 10rpx; background: #f2c84b; color: #201b17; font-size: 24rpx; line-height: 2.2; }
+.switch-line { display: flex; align-items: center; justify-content: space-between; margin-top: 16rpx; padding: 4rpx 8rpx; color: #5f554b; }
 .editor { border: 3rpx solid #201b17; border-radius: 14rpx; background: #8bd6af; box-shadow: 5rpx 5rpx 0 #201b17; }
 .editor input, .editor textarea { border: 2rpx solid #201b17; border-radius: 10rpx; background: #fffdf5; }
 .state { padding: 22rpx; border: 2rpx dashed #201b17; border-radius: 12rpx; color: #5f554b; }

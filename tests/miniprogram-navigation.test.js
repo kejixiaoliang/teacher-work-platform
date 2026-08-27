@@ -27,6 +27,9 @@ test('student management has a mobile list and detail route', () => {
   assert.match(`${workbench}\n${modules}`, /pages\/students\/index/);
   assert.match(listPage, /collectionName: 'students'/);
   assert.match(listPage, /onKeywordInput/);
+  assert.match(listPage, /onFilterChange/);
+  assert.match(listPage, /followUpStatus/);
+  assert.match(fs.readFileSync(path.join(root, 'miniprogram/pages/students/index.wxml'), 'utf8'), /全部近视/);
   assert.match(detailPage, /uuid/);
 });
 

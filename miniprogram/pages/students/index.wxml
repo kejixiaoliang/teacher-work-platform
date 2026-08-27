@@ -3,6 +3,14 @@
   <view class="title">学生管理</view>
   <button wx:if="{{datasetId}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button>
   <input class="search" placeholder="搜索姓名或学号" value="{{keyword}}" bindinput="onKeywordInput" />
+  <view class="filter-grid">
+    <picker range="{{filterOptions.gender}}" data-field="gender" bindchange="onFilterChange"><view class="filter-picker">{{filters.gender || '全部性别'}}</view></picker>
+    <picker range="{{filterOptions.status}}" data-field="status" bindchange="onFilterChange"><view class="filter-picker">{{filters.status || '全部状态'}}</view></picker>
+    <picker range="{{filterOptions.myopia}}" data-field="myopia" bindchange="onFilterChange"><view class="filter-picker">{{filters.myopia === 'yes' ? '近视：是' : filters.myopia === 'no' ? '近视：否' : '全部近视'}}</view></picker>
+    <picker range="{{filterOptions.boarding}}" data-field="boarding" bindchange="onFilterChange"><view class="filter-picker">{{filters.boarding === 'yes' ? '住宿：是' : filters.boarding === 'no' ? '住宿：否' : '全部住宿'}}</view></picker>
+    <picker range="{{filterOptions.followUpStatus}}" data-field="followUpStatus" bindchange="onFilterChange"><view class="filter-picker">{{filters.followUpStatus || '全部跟进'}}</view></picker>
+    <button size="mini" bindtap="clearFilters">清除筛选</button>
+  </view>
 
   <view wx:if="{{editing}}" class="editor">
     <view class="editor-title">新增学生</view>
@@ -11,6 +19,18 @@
     <input placeholder="性别" value="{{form.gender}}" data-field="gender" bindinput="onFormInput" />
     <input placeholder="联系电话" value="{{form.phone}}" data-field="phone" bindinput="onFormInput" />
     <input placeholder="家长电话" value="{{form.parentPhone}}" data-field="parentPhone" bindinput="onFormInput" />
+    <picker range="{{['男','女']}}" data-field="gender" bindchange="onFormPickerChange"><view class="picker">性别：{{form.gender || '未设置'}}</view></picker>
+    <picker mode="date" value="{{form.birthDate}}" data-field="birthDate" bindchange="onFormInput"><view class="picker">出生日期：{{form.birthDate || '未设置'}}</view></picker>
+    <picker range="{{['在读','转出','休学']}}" data-field="status" bindchange="onFormPickerChange"><view class="picker">状态：{{form.status}}</view></picker>
+    <picker range="{{['正常','需关注','跟进中','已处理']}}" data-field="followUpStatus" bindchange="onFormPickerChange"><view class="picker">跟进：{{form.followUpStatus}}</view></picker>
+    <input placeholder="身高(cm)" value="{{form.heightCm}}" data-field="heightCm" bindinput="onFormInput" />
+    <input placeholder="左眼视力" value="{{form.visionLeft}}" data-field="visionLeft" bindinput="onFormInput" />
+    <input placeholder="右眼视力" value="{{form.visionRight}}" data-field="visionRight" bindinput="onFormInput" />
+    <input placeholder="兴趣特长/职务" value="{{form.interestDuty}}" data-field="interestDuty" bindinput="onFormInput" />
+    <input placeholder="特殊座位需求" value="{{form.seatNote}}" data-field="seatNote" bindinput="onFormInput" />
+    <input placeholder="健康状况" value="{{form.healthNote}}" data-field="healthNote" bindinput="onFormInput" />
+    <view class="switch-line"><text>是否近视</text><switch checked="{{form.isMyopia}}" data-field="isMyopia" bindchange="onFormSwitch" /></view>
+    <view class="switch-line"><text>是否住宿</text><switch checked="{{form.isBoarding}}" data-field="isBoarding" bindchange="onFormSwitch" /></view>
     <textarea placeholder="备注" value="{{form.remark}}" data-field="remark" bindinput="onFormInput" />
     <view class="editor-actions"><button size="mini" bindtap="cancelEdit">取消</button><button type="primary" size="mini" loading="{{loading}}" bindtap="saveStudent">保存</button></view>
   </view>
