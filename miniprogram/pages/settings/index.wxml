@@ -5,9 +5,10 @@
   <view wx:for="{{sections}}" wx:key="title" class="group group-{{item.tone}}">
     <view class="group-head"><view><text class="section-kicker">{{item.title}}</text><text class="section-title">{{item.title}}</text><text class="section-note">{{item.description}}</text></view><text class="group-index">0{{index + 1}}</text></view>
     <view class="setting-list">
-      <view wx:for="{{item.items}}" wx:key="name" class="setting-row" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="handleItemTap">
+      <view wx:for="{{item.items}}" wx:key="name" class="setting-row {{item.action === 'comingSoon' ? 'setting-row-pending' : ''}}" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="handleItemTap">
         <text>{{item.name}}</text>
-        <text class="chevron">↗</text>
+        <text wx:if="{{item.action === 'comingSoon'}}" class="setting-status">待接入</text>
+        <text wx:else class="chevron">↗</text>
       </view>
     </view>
   </view>

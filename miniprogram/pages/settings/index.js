@@ -29,6 +29,6 @@ Page({
       wx.navigateTo({ url: '/pages/changelog/index' });
       return;
     }
-    wx.showToast({ title: `${name}即将接入`, icon: 'none' });
+    wx.showToast({ title: `${name}：待接入`, icon: 'none' });
   },
 });

@@ -19,3 +19,5 @@
 .group-mustard .setting-row:first-child { background:#f2c84b; }
 .group-mint .setting-row:first-child { background:#8bd6af; }
 .group-sky .setting-row:first-child { background:#93c9d8; }
+.setting-row-pending { color:#74808a; }
+.setting-status { padding:4rpx 10rpx; border:1rpx solid #d9cbb0; border-radius:999rpx; color:#74808a; font-size:20rpx; }

@@ -73,3 +73,20 @@ test('shared mini program tokens stay aligned with the desktop palette and densi
   assert.match(tokens, /88rpx|94rpx|104rpx/);
   assert.doesNotMatch(tokens, /Inter|Roboto|Arial|system-ui|-apple-system/);
 });
+
+test('mobile pending actions and scoped business operations remain explicit', () => {
+  const settings = read('miniprogram/pages/settings/index.js');
+  const settingsTemplate = read('miniprogram/pages/settings/index.wxml');
+  const assessment = read('miniprogram/pages/assessment/index.js');
+  const scores = read('miniprogram/pages/scores/index.js');
+  const business = read('cloudfunctions/business-data/index.js');
+
+  assert.match(settings, /待接入/);
+  assert.doesNotMatch(settings, /即将接入/);
+  assert.match(settingsTemplate, /setting-status/);
+  assert.match(assessment, /async remove\(event\) \{ await this\.changeStatus\(event, 'void'\); \}/);
+  assert.match(scores, /collection: 'exams', datasetId: this\.data\.datasetId, classUuid/);
+  assert.match(scores, /action: 'analysis',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
+  assert.match(scores, /action: 'trend',[\s\S]*?datasetId: this\.data\.datasetId,[\s\S]*?classUuid/);
+  assert.match(business, /\.\.\.\(request\.classUuid \? \{ classUuid: request\.classUuid \} : \{\}\), examUuid/);
+});

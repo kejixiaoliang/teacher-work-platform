@@ -129,7 +129,7 @@ async function main(event) {
   }
   if (request.action === 'analysis') {
     if (request.collection !== 'scores' || !request.examUuid) return { ok: false, code: 'SCORE_ANALYSIS_INVALID', errors: ['成绩分析参数无效'] };
-    const result = await db.collection('scores').where({ ...scope, examUuid: request.examUuid, deletedAt: null }).limit(500).get();
+    const result = await db.collection('scores').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), examUuid: request.examUuid, deletedAt: null }).limit(500).get();
     const byStudent = new Map(); const bySubject = new Map();
     for (const row of result.data) { byStudent.set(row.studentUuid, (byStudent.get(row.studentUuid) || 0) + Number(row.score || 0)); const list = bySubject.get(row.subject) || []; list.push(Number(row.score || 0)); bySubject.set(row.subject, list); }
     const subjects = [...bySubject].map(([subject, values]) => ({ subject, avg: Math.round(values.reduce((a, b) => a + b, 0) / values.length * 100) / 100, max: Math.max(...values), pass: Math.round(values.filter((value) => value >= 60).length / values.length * 100) }));
@@ -137,7 +137,7 @@ async function main(event) {
     return { ok: true, subjects, ranking };
   }
   if (request.action === 'trend') {
-    const result = await db.collection('scores').where({ ...scope, studentUuid: request.studentUuid, deletedAt: null }).limit(500).get();
+    const result = await db.collection('scores').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), studentUuid: request.studentUuid, deletedAt: null }).limit(500).get();
     return { ok: true, points: result.data };
   }
   if (request.action === 'summary') {
