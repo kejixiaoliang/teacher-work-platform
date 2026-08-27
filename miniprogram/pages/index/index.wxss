@@ -23,6 +23,11 @@
 .home-note { display:flex; gap:14rpx; margin-top:48rpx; padding-top:22rpx; border-top:1rpx solid #ded8cc; color:#9b9b91; font-size:21rpx; line-height:1.6; }
 .note-mark { color:#c65a32; font-size:30rpx; font-weight:700; }
 .page-home { background:#fff4dc; }
+.overview-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:10rpx; margin-top:22rpx; }
+.metric { padding:16rpx 10rpx; border:2rpx solid #201b17; border-radius:12rpx; background:#fffdf5; text-align:center; box-shadow:3rpx 3rpx 0 #201b17; }
+.metric-value { display:block; color:#d64541; font-size:34rpx; font-weight:900; }.metric-label { display:block; margin-top:4rpx; color:#685f55; font-size:19rpx; }
+.today-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12rpx; margin-top:20rpx; }.today-card { padding:18rpx; border:2rpx solid #201b17; border-radius:14rpx; background:#fff9ea; }.today-title { display:block; color:#201b17; font-size:23rpx; font-weight:800; }.today-value { display:block; margin-top:12rpx; color:#d64541; font-size:34rpx; font-weight:900; }.today-value text { color:#685f55; font-size:19rpx; font-weight:400; }.today-note { display:block; margin-top:8rpx; color:#9b7d57; font-size:19rpx; line-height:1.4; }
+.quick-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12rpx; margin-top:20rpx; }.quick-card { display:flex; justify-content:space-between; align-items:center; padding:20rpx; border:2rpx solid #201b17; border-radius:14rpx; background:#8bd6af; color:#201b17; font-size:23rpx; font-weight:800; }.quick-card text:last-child { font-size:20rpx; }
 .empty-start { margin-top:34rpx; padding:20rpx; border:2rpx solid #201b17; border-radius:14rpx; background:#fff9ea; box-shadow:4rpx 4rpx 0 #201b17; }
 .empty-start-head { display:flex; align-items:center; gap:10rpx; color:#d64541; font-size:20rpx; font-weight:900; letter-spacing:2rpx; }
 .empty-start-mark { color:#201b17; font-family:"DIN Alternate","Courier New",monospace; font-size:24rpx; }

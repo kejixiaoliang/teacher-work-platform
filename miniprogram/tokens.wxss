@@ -1,4 +1,5 @@
 /* 教师工作台小程序共享视觉令牌：对应桌面端“小亮实验室”暖纸与实色阴影体系 */
+page { --paper:#fff4dc; --ink:#201b17; --tomato:#d64541; --tomato-bright:#f35b3f; --mustard:#f2c84b; --mustard-soft:#fff1bf; --mint:#8bd6af; --sky:#93c9d8; --peach:#f3ad83; --muted:#685f55; --line:#d9cbb0; --entry-height:94rpx; }
 .tw-page { min-height:100vh; box-sizing:border-box; padding:44rpx 32rpx 96rpx; background:#fff4dc; color:#201b17; }
 .tw-topline { display:flex; align-items:center; justify-content:space-between; }
 .tw-eyebrow { color:#d64541; font-size:20rpx; font-weight:900; letter-spacing:3rpx; }

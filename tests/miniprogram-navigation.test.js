@@ -83,7 +83,7 @@ test('follow-up management exposes the existing task workflow', () => {
 test('workbench and settings retain existing client feature names', () => {
   const workbench = fs.readFileSync(path.join(root, 'miniprogram/pages/workbench/index.js'), 'utf8');
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
-  for (const name of ['班级设置', '学生管理', '座位管理', '考勤管理', '表现量化', '成绩管理', '数据分析', '文档管理']) {
+  for (const name of ['学生管理', '座位管理', '考勤管理', '表现量化', '成绩管理', '数据分析', '文档管理']) {
     assert.match(workbench, new RegExp(name));
   }
   for (const name of ['数据导入', '数据同步', '使用指南', '版本更新']) assert.match(settings, new RegExp(name));

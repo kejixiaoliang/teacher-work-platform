@@ -1,21 +1,21 @@
 const groups = [
   {
-    title: '班级与学生',
-    kicker: 'FOUNDATION',
+    title: '常用',
+    kicker: 'COMMON',
     tone: 'mustard',
-    items: ['班级设置', '学生管理', '座位管理', '班委学委', '课代表选择'].map((name, index) => ({ name, code: ['01', '02', '03', '04', '05'][index] })),
+    items: ['学生管理', '座位管理'].map((name, index) => ({ name, code: ['01', '02'][index] })),
   },
   {
-    title: '日常记录',
-    kicker: 'DAILY ROUTINE',
+    title: '学习分析',
+    kicker: 'LEARNING',
     tone: 'mint',
-    items: ['考勤管理', '请假管理', '表现量化', '跟进事项', '家校沟通', '值日管理'].map((name, index) => ({ name, code: ['01', '02', '03', '04', '05', '06'][index] })),
+    items: ['数据分析', '成绩管理', '考勤管理', '表现量化'].map((name, index) => ({ name, code: ['01', '02', '03', '04'][index] })),
   },
   {
-    title: '成绩与资料',
-    kicker: 'REVIEW & ARCHIVE',
+    title: '班级事务',
+    kicker: 'CLASS AFFAIRS',
     tone: 'sky',
-    items: ['成绩管理', '数据分析', '文档管理'].map((name, index) => ({ name, code: ['01', '02', '03'][index] })),
+    items: ['文档管理', '值日管理', '班委学委', '课代表选择', '请假管理', '家校沟通'].map((name, index) => ({ name, code: ['01', '02', '03', '04', '05', '06'][index] })),
   },
 ];
 
@@ -79,9 +79,14 @@ Page({
       wx.navigateTo({ url: `/pages/analysis/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
-    if (name === '值日管理') {
+    if (name === '班委学委') {
       const datasetId = wx.getStorageSync('activeDatasetId') || '';
-      wx.navigateTo({ url: `/pages/duties/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      wx.navigateTo({ url: `/pages/leaders/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
+      return;
+    }
+    if (name === '课代表选择') {
+      const datasetId = wx.getStorageSync('activeDatasetId') || '';
+      wx.navigateTo({ url: `/pages/subject-leaders/index${datasetId ? `?datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
     const featureNames = new Set(['成绩管理', '座位管理', '值日管理', '家校沟通', '文档管理', '数据分析']);
@@ -90,6 +95,6 @@ Page({
       wx.navigateTo({ url: `/pages/business/index?feature=${encodeURIComponent(name)}${datasetId ? `&datasetId=${encodeURIComponent(datasetId)}` : ''}` });
       return;
     }
-    wx.showToast({ title: `${name}即将接入`, icon: 'none' });
+    wx.showToast({ title: `${name}暂未配置页面`, icon: 'none' });
   },
 });

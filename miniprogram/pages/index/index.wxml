@@ -13,6 +13,20 @@
     <text class="tw-empty-title">云端数据暂时不可用</text><text class="tw-empty-copy">{{error}}</text><button class="tw-button-secondary" bindtap="retry">重新连接</button>
   </view>
   <block wx:else>
+    <view class="section-head"><view><text class="section-kicker">OVERVIEW</text><text class="section-title">概览首页</text></view><text class="section-count">{{overviewDate || '今日'}}</text></view>
+    <view class="overview-strip">
+      <view class="metric"><text class="metric-value">{{students.length}}</text><text class="metric-label">学生</text></view>
+      <view class="metric"><text class="metric-value">{{overview.attendance}}</text><text class="metric-label">今日考勤</text></view>
+      <view class="metric"><text class="metric-value">{{overview.leave}}</text><text class="metric-label">今日请假</text></view>
+      <view class="metric"><text class="metric-value">{{overview.followUp}}</text><text class="metric-label">跟进事项</text></view>
+    </view>
+    <view class="section-head"><view><text class="section-kicker">TODAY DESK</text><text class="section-title">今日工作台</text></view><text class="section-count">{{overview.followUp}} 项待处理</text></view>
+    <view class="today-grid">
+      <view class="today-card"><text class="today-title">今日考勤</text><text class="today-value">{{overview.attendance}} <text>人有记录</text></text><text class="today-note">登记出勤、迟到、请假与缺勤</text></view>
+      <view class="today-card"><text class="today-title">今日请假</text><text class="today-value">{{overview.leave}} <text>人</text></text><text class="today-note">查看并处理今日请假</text></view>
+      <view class="today-card"><text class="today-title">值日安排</text><text class="today-value">{{overview.duty}} <text>项</text></text><text class="today-note">查看今日值日与分组</text></view>
+      <view class="today-card"><text class="today-title">近期考试</text><text class="today-value">{{overview.exams}} <text>场</text></text><text class="today-note">打开成绩管理继续录入</text></view>
+    </view>
     <view class="section-head"><view><text class="section-kicker">CLASSROOM</text><text class="section-title">当前班级</text></view><text class="section-count">{{classes.length}} 个</text></view>
     <scroll-view wx:if="{{classes.length}}" class="class-list" scroll-x>
       <view
@@ -34,6 +48,9 @@
       <view wx:if="{{!visibleStudents.length}}" class="empty">该班级暂无学生</view>
     </view>
     <view wx:else class="empty empty-panel">暂无学生数据</view>
+
+    <view class="section-head"><view><text class="section-kicker">QUICK VIEW</text><text class="section-title">今日概览</text></view></view>
+    <view class="quick-grid"><view class="quick-card" bindtap="openWorkbench"><text>家校沟通</text><text>{{overview.contacts}} 条</text></view><view class="quick-card" bindtap="openWorkbench"><text>数据管理</text><text>{{overview.documents}} 份文档</text></view></view>
   </block>
   <view class="home-note"><text class="note-mark">/</text><text>数据来自当前云端数据集，所有记录均按教师身份隔离。</text></view>
 </view>

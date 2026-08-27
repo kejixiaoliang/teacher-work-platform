@@ -1,0 +1,18 @@
+<view class="page tw-page">
+  <view class="hero"><view class="eyebrow">CLASS AFFAIRS / SUBJECT LEADERS</view><view class="title">课代表选择</view><view class="subtitle">为各科选任课代表，同一科目仅一人，可与班委兼任。</view></view>
+  <view wx:if="{{error}}" class="state error">{{error}}</view>
+  <view wx:if="{{loading}}" class="state">正在加载课代表数据…</view>
+  <view wx:if="{{!loading && !error}}" class="panel">
+    <view class="panel-head"><view><view class="panel-title">课代表名单</view><view class="panel-note">当前班级 · 共 {{records.length}} 个科目</view></view><button class="btn btn-primary" bindtap="preset" loading="{{saving}}">一键预设课代表</button></view>
+    <view class="editor">
+      <view class="editor-title">{{editingUuid ? '编辑课代表' : '选任课代表'}}</view>
+      <picker mode="selector" range="{{roles}}" value="{{roleIndex}}" bindchange="onRoleChange"><view class="field">科目：{{roles[roleIndex]}} <text>⌄</text></view></picker>
+      <picker mode="selector" range="{{students}}" range-key="name" value="{{studentIndex}}" bindchange="onStudentChange"><view class="field">课代表：{{students[studentIndex].name || '请选择学生'}} <text>⌄</text></view></picker>
+      <input class="input" value="{{remark}}" bindinput="onRemarkInput" placeholder="备注（可选）" maxlength="200" />
+      <view class="editor-actions"><button class="btn btn-primary" bindtap="save" loading="{{saving}}">{{editingUuid ? '保存修改' : '保存课代表'}}</button><button wx:if="{{editingUuid}}" class="btn" bindtap="cancelEdit">取消</button></view>
+    </view>
+    <view class="table-head"><text>科目</text><text>课代表</text><text>性别</text><text>备注</text><text>操作</text></view>
+    <view wx:for="{{records}}" wx:key="uuid" class="table-row"><text class="role">{{item.role}}</text><text>{{studentName(item.studentUuid)}}</text><text>{{item.gender || '—'}}</text><text>{{item.remark || '—'}}</text><view class="row-actions"><button class="btn btn-small" data-uuid="{{item.uuid}}" bindtap="edit">编辑</button><button class="btn btn-small btn-danger" data-uuid="{{item.uuid}}" bindtap="remove">解除</button></view></view>
+    <view wx:if="{{!records.length}}" class="empty">暂无课代表记录，请使用上方操作开始配置。</view>
+  </view>
+</view>
