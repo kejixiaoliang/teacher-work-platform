@@ -59,4 +59,8 @@ Page({
   openImport() {
     wx.navigateTo({ url: '/pages/import/index' });
   },
+
+  openWorkbench() {
+    wx.switchTab({ url: '/pages/workbench/index' });
+  },
 });

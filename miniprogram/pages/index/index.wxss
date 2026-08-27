@@ -1,4 +1,5 @@
-.page { padding: 44rpx 32rpx 80rpx; }
+@import "../../tokens.wxss";
+.page { padding: 0; }
 .topline,.section-head { display:flex; align-items:center; justify-content:space-between; }
 .eyebrow,.section-kicker { color:#c65a32; font-size:20rpx; letter-spacing:3rpx; font-weight:700; }
 .status-dot { color:#74836e; font-size:22rpx; }
@@ -21,6 +22,12 @@
 .empty-panel { padding:28rpx; border:1rpx dashed #cfc8bb; background:rgba(255,253,248,.6); }
 .home-note { display:flex; gap:14rpx; margin-top:48rpx; padding-top:22rpx; border-top:1rpx solid #ded8cc; color:#9b9b91; font-size:21rpx; line-height:1.6; }
 .note-mark { color:#c65a32; font-size:30rpx; font-weight:700; }
+.page-home { background:#fff4dc; }
+.welcome-empty { margin-top:54rpx; background:#f2c84b; box-shadow:8rpx 8rpx 0 #201b17; }
+.welcome-empty .tw-empty-title,.welcome-empty .tw-empty-copy { display:block; }
+.welcome-secondary { margin-top:20rpx; }
+.error-empty { border-color:#d64541; background:#fff9ea; }
+.error-empty .tw-empty-title,.error-empty .tw-empty-copy { display:block; }
 
 .class-list {
   display: flex;

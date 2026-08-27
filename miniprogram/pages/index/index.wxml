@@ -3,10 +3,14 @@
   <view class="title">{{title}}</view>
   <view class="lead">先看班级状态，再处理今天最需要完成的工作。</view>
   <view wx:if="{{loading}}" class="state">正在读取云端数据…</view>
-  <view wx:elif="{{error}}" class="state error">
-    <view>{{error}}</view>
-    <button wx:if="{{!datasetId}}" size="mini" bindtap="openImport">导入 JSON 数据</button>
-    <button wx:if="{{datasetId}}" size="mini" bindtap="retry">重试</button>
+  <view wx:elif="{{error && !datasetId}}" class="tw-empty welcome-empty">
+    <text class="tw-empty-title">开始建立你的班级实验本</text>
+    <text class="tw-empty-copy">从班级和学生开始，逐步完成考勤、表现、成绩和值日等日常工作。已有电脑端数据可以直接导入。</text>
+    <button class="tw-button-primary" bindtap="openImport">导入已有 JSON 数据</button>
+    <button class="tw-button-secondary welcome-secondary" bindtap="openWorkbench">先看看工作台</button>
+  </view>
+  <view wx:elif="{{error}}" class="tw-empty error-empty">
+    <text class="tw-empty-title">云端数据暂时不可用</text><text class="tw-empty-copy">{{error}}</text><button class="tw-button-secondary" bindtap="retry">重新连接</button>
   </view>
   <block wx:else>
     <view class="section-head"><view><text class="section-kicker">CLASSROOM</text><text class="section-title">当前班级</text></view><text class="section-count">{{classes.length}} 个</text></view>
