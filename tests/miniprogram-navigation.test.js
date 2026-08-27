@@ -61,10 +61,12 @@ test('student detail exposes the desktop profile records and related workflows',
   assert.match(page, /collection: 'student_records'/);
   assert.match(page, /openFollowUps/);
   assert.match(page, /openContacts/);
+  assert.match(page, /const action = form\.uuid \? 'update' : 'create'/);
   assert.match(template, /健康与体征历史/);
   assert.match(template, /成长档案/);
   assert.match(template, /跟进事项/);
   assert.match(template, /家校沟通/);
+  assert.match(template, /data-type="record" data-uuid="\{\{item\.uuid\}\}" bindtap="openProfile"/);
   assert.doesNotMatch(template, /后续阶段接入/);
 });
 
