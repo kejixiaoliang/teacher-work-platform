@@ -11,6 +11,7 @@
 | `teacher_profiles` | `ownerId_1` | `ownerId: 1` | 否 | 教师资料查询 |
 | `datasets` | `ownerId_1_createdAt_-1` | `ownerId: 1, createdAt: -1` | 否 | 当前教师的数据集列表 |
 | `import_batches` | `ownerId_1_sourceExportId_1` | `ownerId: 1, sourceExportId: 1` | 否 | 查询重复导入和导入历史 |
+| `import_batches` | `ownerId_1_datasetId_1_batchType_1_classUuid_1_createdAt_-1` | `ownerId: 1, datasetId: 1, batchType: 1, classUuid: 1, createdAt: -1` | 否 | 按教师、数据集和班级查询学生名单导入历史（待部署） |
 | `classes` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 班级只读列表 |
 | `students` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 学生只读列表 |
 | `attendance` | `ownerId_1_datasetId_1_classUuid_1_date_1` | `ownerId: 1, datasetId: 1, classUuid: 1, date: 1` | 否 | 按班级和日期查询考勤 |
@@ -31,4 +32,4 @@
 
 ## 核验记录
 
-2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核本文件定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和对应业务索引。
+2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核当时定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和对应业务索引。2026-08-28 新增的学生名单导入历史索引仅完成代码契约，尚未部署到线上环境。

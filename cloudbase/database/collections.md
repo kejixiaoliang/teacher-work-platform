@@ -10,7 +10,7 @@
 | --- | --- | ---: |
 | `teacher_profiles` | 微信身份对应的教师资料和授权状态 | 0 条 |
 | `datasets` | 一次本地导入或云端数据集的归属和状态 | 0 条 |
-| `import_batches` | JSON 导入批次、预检和结果审计 | 0 条 |
+| `import_batches` | 全量 JSON 与学生名单导入批次、预检和结果审计 | 0 条 |
 | `classes` | 教师所属班级基础数据 | 0 条 |
 | `students` | 班级下的学生基础数据 | 0 条 |
 | `attendance` | 学生每日考勤记录 | 0 条 |

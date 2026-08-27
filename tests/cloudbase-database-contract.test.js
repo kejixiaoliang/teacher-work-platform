@@ -13,6 +13,7 @@ test('cloudbase index contract covers scoped business queries', () => {
     'ownerId_1',
     'ownerId_1_createdAt_-1',
     'ownerId_1_sourceExportId_1',
+    'ownerId_1_datasetId_1_batchType_1_classUuid_1_createdAt_-1',
     'ownerId_1_datasetId_1',
   ]) assert.match(indexes, new RegExp('`' + indexName + '`'));
   assert.match(indexes, /ownerId.*datasetId/);

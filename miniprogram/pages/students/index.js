@@ -4,6 +4,7 @@ import {
   buildStudentImportRequest,
   chooseStudentRosterFile,
   mergeStudentImportResult,
+  normalizeStudentImportHistory,
   previewStudentRosterFile,
 } from '../../services/student-import-service.js';
 
@@ -28,6 +29,10 @@ Page({
     importFileName: '',
     importPreview: null,
     importResult: null,
+    historyVisible: false,
+    historyLoading: false,
+    historyError: '',
+    importHistory: [],
     editing: false,
     form: { name: '', schoolNo: '', gender: '', phone: '', parentPhone: '', birthDate: '', status: '在读', followUpStatus: '正常', isMyopia: false, isBoarding: false, heightCm: '', visionLeft: '', visionRight: '', gradeLevel: '', seatNote: '', healthNote: '', interestDuty: '', remark: '' },
   },
@@ -105,7 +110,16 @@ Page({
   onClassChange(event) {
     const cls = this.data.classes[Number(event.detail.value)];
     if (!cls) return;
-    this.setData({ classUuid: cls.uuid, currentClassName: cls.name || '未命名班级' }, () => this.loadStudents());
+    this.setData({
+      classUuid: cls.uuid,
+      currentClassName: cls.name || '未命名班级',
+      importFileName: '',
+      importPreview: null,
+      importResult: null,
+      historyVisible: false,
+      historyError: '',
+      importHistory: [],
+    }, () => this.loadStudents());
   },
 
   toggleTrash() { this.setData({ trashed: !this.data.trashed, editing: false }, () => this.loadStudents()); },
@@ -172,16 +186,42 @@ Page({
       const request = buildStudentImportRequest({
         datasetId: this.data.datasetId,
         classUuid: this.data.classUuid,
+        fileName: this.data.importFileName,
+        fileFormat: preview.format,
         rows: preview.rows,
+        precheckFailures: preview.fails,
       });
       const response = await writeStudentData(request);
       if (!response?.ok) throw new Error(response?.errors?.[0] || '导入学生失败');
       const importResult = mergeStudentImportResult({ total: preview.total, localFails: preview.fails, response });
       this.setData({ loading: false, importResult });
       await this.loadStudents();
-      wx.showToast({ title: `成功导入 ${importResult.counts.success} 人`, icon: 'success' });
+      if (this.data.historyVisible) await this.loadImportHistory();
+      if (response.historySaved === false) wx.showToast({ title: response.historyWarning || '导入历史保存失败', icon: 'none' });
+      else wx.showToast({ title: `成功导入 ${importResult.counts.success} 人`, icon: 'success' });
     } catch (error) {
       this.setData({ loading: false, error: error?.message || '导入学生失败' });
+    }
+  },
+
+  toggleImportHistory() {
+    if (this.data.historyVisible) {
+      this.setData({ historyVisible: false });
+      return;
+    }
+    this.setData({ historyVisible: true });
+    this.loadImportHistory();
+  },
+
+  async loadImportHistory() {
+    if (!this.data.datasetId || !this.data.classUuid) return;
+    this.setData({ historyLoading: true, historyError: '' });
+    try {
+      const response = await writeStudentData({ action: 'history', datasetId: this.data.datasetId, classUuid: this.data.classUuid });
+      const history = normalizeStudentImportHistory(response);
+      this.setData({ historyLoading: false, historyError: history.error, importHistory: history.records });
+    } catch (error) {
+      this.setData({ historyLoading: false, historyError: error?.message || '读取导入历史失败', importHistory: [] });
     }
   },
 

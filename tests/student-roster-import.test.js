@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   buildStudentImportRequest,
   mergeStudentImportResult,
+  normalizeStudentImportHistory,
   parseStudentRosterText,
   precheckStudentRows,
 } from '../miniprogram/services/student-import-service.js';
@@ -76,13 +77,21 @@ test('student import request keeps dataset and class scope and excludes preview 
   const request = buildStudentImportRequest({
     datasetId: ' dataset-1 ',
     classUuid: ' class-1 ',
+    fileName: ' 七年级一班.csv ',
+    fileFormat: 'csv',
     rows: [{ _row: 2, school_no: '001', name: '张三' }],
+    precheckFailures: [{ row: 3, name: '', reason: '姓名为空，请填写姓名列' }],
+    precheckFailures: [{ row: 3, name: '', reason: '姓名为空，请填写姓名列' }],
   });
   assert.deepEqual(request, {
     action: 'import',
     datasetId: 'dataset-1',
     classUuid: 'class-1',
+    fileName: '七年级一班.csv',
+    fileFormat: 'csv',
     students: [{ _row: 2, school_no: '001', name: '张三' }],
+    precheckFailures: [{ row: 3, name: '', reason: '姓名为空，请填写姓名列' }],
+    precheckFailures: [{ row: 3, name: '', reason: '姓名为空，请填写姓名列' }],
   });
   assert.throws(() => buildStudentImportRequest({ datasetId: 'ds', classUuid: '', rows: [{}] }), /班级/);
 });
@@ -106,4 +115,26 @@ test('student import result merges local precheck failures with server failures'
     ],
     counts: { total: 3, success: 1, failed: 2 },
   });
+});
+
+test('student import history normalizes counts, timestamps and failure details for the page', () => {
+  const result = normalizeStudentImportHistory({
+    ok: true,
+    records: [{
+      importBatchId: 'batch-1', sourceFileName: '名单.csv', sourceFormat: 'csv', resultStatus: 'partial',
+      totalCount: 3, successCount: 2, failedCount: 1,
+      failures: [{ row: 4, name: '李四', reason: '学号重复' }], createdAt: '2026-08-28T01:23:45.000Z',
+      ownerId: 'must-not-reach-view', _openid: 'must-not-reach-view',
+    }],
+  });
+  assert.deepEqual(result, {
+    ok: true,
+    error: '',
+    records: [{
+      importBatchId: 'batch-1', fileName: '名单.csv', fileFormat: 'csv', resultStatus: 'partial',
+      totalCount: 3, successCount: 2, failedCount: 1,
+      failures: [{ row: 4, name: '李四', reason: '学号重复' }], createdAtText: '2026-08-28 09:23',
+    }],
+  });
+  assert.deepEqual(normalizeStudentImportHistory({ ok: false, errors: ['无权限'] }), { ok: false, error: '无权限', records: [] });
 });

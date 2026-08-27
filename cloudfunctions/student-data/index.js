@@ -26,17 +26,26 @@ function normalizeRequest(event = {}) {
   const classUuid = typeof event.classUuid === 'string' ? event.classUuid.trim() : '';
   const action = event.action || 'list';
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['list', 'create', 'update', 'delete', 'restore', 'purge', 'import'].includes(action)) {
+  if (!['list', 'create', 'update', 'delete', 'restore', 'purge', 'import', 'history'].includes(action)) {
     return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['不支持该学生操作'] };
   }
   if (['update', 'delete'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['学生 uuid 不能为空'] };
   if (action === 'list') return { ok: true, action, datasetId, classUuid, trashed: event.trashed === true };
+  if (action === 'history') {
+    if (!classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['classUuid 不能为空'] };
+    return { ok: true, action, datasetId, classUuid };
+  }
   if (action === 'import') {
     if (!classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['classUuid 不能为空'] };
     if (!Array.isArray(event.students) || !event.students.length) return { ok: false, code: 'STUDENTS_REQUIRED', errors: ['待导入学生不能为空'] };
-    if (event.students.length > 200) return { ok: false, code: 'IMPORT_LIMIT_EXCEEDED', errors: ['单次最多导入 200 名学生'] };
+    const precheckFailures = Array.isArray(event.precheckFailures) ? event.precheckFailures : [];
+    if (event.students.length + precheckFailures.length > 200) return { ok: false, code: 'IMPORT_LIMIT_EXCEEDED', errors: ['单次最多处理 200 行学生数据'] };
     const students = [];
-    const rejected = [];
+    const rejected = precheckFailures.map((failure) => ({
+      row: Number.isSafeInteger(failure?.row) && failure.row > 0 ? failure.row : 0,
+      name: typeof failure?.name === 'string' ? failure.name.trim().slice(0, 80) : '',
+      reason: typeof failure?.reason === 'string' && failure.reason.trim() ? failure.reason.trim().slice(0, 200) : '预检失败',
+    }));
     event.students.forEach((student, index) => {
       const row = Number.isSafeInteger(student?._row) && student._row > 0 ? student._row : index + 1;
       const cleaned = cleanFields(student);
@@ -47,7 +56,10 @@ function normalizeRequest(event = {}) {
       const uuid = typeof student?.uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(student.uuid.trim()) ? student.uuid.trim() : '';
       students.push({ row, ...(uuid ? { uuid } : {}), fields: cleaned.fields });
     });
-    return { ok: true, action, datasetId, classUuid, students, rejected };
+    const rawFileName = typeof event.fileName === 'string' ? event.fileName.trim().split(/[\\/]/).pop() : '';
+    const fileName = rawFileName ? rawFileName.slice(0, 120) : '学生名单';
+    const fileFormat = ['csv', 'json'].includes(event.fileFormat) ? event.fileFormat : 'unknown';
+    return { ok: true, action, datasetId, classUuid, fileName, fileFormat, students, rejected };
   }
   if (['restore', 'purge'].includes(action)) {
     const uuids = Array.isArray(event.uuids) ? event.uuids.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()) : [];
@@ -62,6 +74,41 @@ function normalizeRequest(event = {}) {
   return { ok: true, action, datasetId, uuid, classUuid };
 }
 
+function buildStudentImportBatch({ ownerId, datasetId, classUuid, fileName, fileFormat, now, importBatchId }) {
+  return {
+    importBatchId,
+    ownerId,
+    _openid: ownerId,
+    datasetId,
+    classUuid,
+    batchType: 'student-roster',
+    sourceFileName: String(fileName || '').trim().slice(0, 120) || '学生名单',
+    sourceFormat: ['csv', 'json'].includes(fileFormat) ? fileFormat : 'unknown',
+    status: 'pending',
+    resultStatus: 'pending',
+    totalCount: 0,
+    successCount: 0,
+    failedCount: 0,
+    failures: [],
+    createdAt: now,
+    completedAt: null,
+  };
+}
+
+async function listStudentImportHistory({ db, ownerId, datasetId, classUuid }) {
+  const result = await db.collection('import_batches').where({
+    ownerId, datasetId, batchType: 'student-roster', classUuid,
+  }).orderBy('createdAt', 'desc').limit(30).get();
+  const fields = [
+    'importBatchId', 'sourceFileName', 'sourceFormat', 'status', 'resultStatus', 'totalCount',
+    'successCount', 'failedCount', 'failures', 'createdAt', 'completedAt',
+  ];
+  const records = result.data.map((row) => Object.fromEntries(fields
+    .filter((field) => row[field] !== undefined)
+    .map((field) => [field, row[field]])));
+  return { ok: true, action: 'history', records };
+}
+
 function studentIdentity(student = {}) {
   const schoolNo = String(student.schoolNo ?? student.school_no ?? '').trim().toLowerCase();
   if (schoolNo) return { key: `school:${schoolNo}`, label: `学号 ${String(student.schoolNo ?? student.school_no).trim()}` };
@@ -71,10 +118,26 @@ function studentIdentity(student = {}) {
   return { key: '', label: '' };
 }
 
-async function importStudents({ db, ownerId, datasetId, classUuid, students, rejected = [], now, uuidFactory = crypto.randomUUID }) {
+async function importStudents({
+  db, ownerId, datasetId, classUuid, fileName = '学生名单', fileFormat = 'unknown', students, rejected = [], now,
+  uuidFactory = crypto.randomUUID, batchUuidFactory = crypto.randomUUID, recordHistory = true,
+}) {
   const scope = { ownerId, datasetId };
   const classResult = await db.collection('classes').where({ ...scope, uuid: classUuid, deletedAt: null }).limit(1).get();
   if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['未找到当前数据集中的班级'] };
+
+  let importBatchId = '';
+  let batchDocumentId = '';
+  if (recordHistory) {
+    importBatchId = batchUuidFactory();
+    const batch = buildStudentImportBatch({ ownerId, datasetId, classUuid, fileName, fileFormat, now, importBatchId });
+    try {
+      const created = await db.collection('import_batches').add({ data: batch });
+      batchDocumentId = created._id;
+    } catch {
+      return { ok: false, code: 'IMPORT_HISTORY_CREATE_FAILED', errors: ['无法创建导入批次，未写入学生数据'] };
+    }
+  }
 
   const current = await db.collection('students').where({ ...scope, classUuid, deletedAt: null }).limit(500).get();
   const identities = new Set(current.data.map((student) => studentIdentity(student).key).filter(Boolean));
@@ -111,13 +174,30 @@ async function importStudents({ db, ownerId, datasetId, classUuid, students, rej
       fail.push({ row: student.row, name: student.fields.name, reason: '云端写入失败，请稍后重试' });
     }
   }
-  return {
+  const result = {
     ok: true,
     action: 'import',
     success,
     fail,
     counts: { total: students.length + rejected.length, success: success.length, failed: fail.length },
   };
+  if (!recordHistory) return result;
+
+  const batchResult = {
+    status: 'completed',
+    resultStatus: fail.length ? (success.length ? 'partial' : 'failed') : 'completed',
+    totalCount: result.counts.total,
+    successCount: result.counts.success,
+    failedCount: result.counts.failed,
+    failures: fail.slice(0, 50),
+    completedAt: now,
+  };
+  try {
+    await db.collection('import_batches').doc(batchDocumentId).update({ data: batchResult });
+    return { ...result, importBatchId, historySaved: true };
+  } catch {
+    return { ...result, importBatchId, historySaved: false, historyWarning: '学生已写入，但导入历史更新失败' };
+  }
 }
 
 async function main(event) {
@@ -136,6 +216,10 @@ async function main(event) {
   if (request.action === 'list') {
     const result = await db.collection('students').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), deletedAt: request.trashed ? db.command.neq(null) : null }).orderBy('schoolNo', 'asc').limit(500).get();
     return { ok: true, action: 'list', trashed: request.trashed, records: result.data };
+  }
+
+  if (request.action === 'history') {
+    return listStudentImportHistory({ db, ownerId: context.OPENID, datasetId: request.datasetId, classUuid: request.classUuid });
   }
 
   if (request.action === 'restore' || request.action === 'purge') {
@@ -166,7 +250,7 @@ async function main(event) {
   if (request.action === 'import') {
     return importStudents({
       db, ownerId: context.OPENID, datasetId: request.datasetId, classUuid: request.classUuid,
-      students: request.students, rejected: request.rejected, now,
+      fileName: request.fileName, fileFormat: request.fileFormat, students: request.students, rejected: request.rejected, now,
     });
   }
 
@@ -193,4 +277,7 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { WRITABLE_FIELDS, cleanFields, normalizeRequest, studentIdentity, importStudents, main };
+module.exports = {
+  WRITABLE_FIELDS, cleanFields, normalizeRequest, buildStudentImportBatch, listStudentImportHistory,
+  studentIdentity, importStudents, main,
+};

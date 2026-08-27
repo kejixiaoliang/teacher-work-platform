@@ -203,24 +203,71 @@ export async function previewStudentRosterFile(file, existingStudents = []) {
   return parseStudentRosterText(payload, { fileName: file.name || file.path, existingStudents });
 }
 
-export function buildStudentImportRequest({ datasetId, classUuid, rows } = {}) {
+export function buildStudentImportRequest({ datasetId, classUuid, fileName = '', fileFormat = '', rows, precheckFailures = [] } = {}) {
   const scopedDatasetId = String(datasetId || '').trim();
   const scopedClassUuid = String(classUuid || '').trim();
   if (!scopedDatasetId) throw new Error('请先选择数据集');
   if (!scopedClassUuid) throw new Error('请先选择班级');
   if (!Array.isArray(rows) || !rows.length) throw new Error('没有可导入的学生');
-  if (rows.length > 200) throw new Error('单次最多导入 200 名学生');
-  return { action: 'import', datasetId: scopedDatasetId, classUuid: scopedClassUuid, students: rows };
+  if (!Array.isArray(precheckFailures)) throw new Error('预检失败明细格式无效');
+  if (rows.length + precheckFailures.length > 200) throw new Error('单次最多处理 200 行学生数据');
+  return {
+    action: 'import', datasetId: scopedDatasetId, classUuid: scopedClassUuid,
+    fileName: String(fileName || '').trim() || '学生名单',
+    fileFormat: ['csv', 'json'].includes(fileFormat) ? fileFormat : 'unknown',
+    students: rows,
+    precheckFailures: precheckFailures.map((failure) => ({
+      row: Number(failure.row) || 0,
+      name: String(failure.name || '').slice(0, 80),
+      reason: String(failure.reason || '预检失败').slice(0, 200),
+    })),
+  };
 }
 
 export function mergeStudentImportResult({ total = 0, localFails = [], response = {} } = {}) {
   const success = Array.isArray(response.success) ? response.success : [];
-  const fail = [...(Array.isArray(localFails) ? localFails : []), ...(Array.isArray(response.fail) ? response.fail : [])];
+  const failMap = new Map();
+  for (const failure of [...(Array.isArray(localFails) ? localFails : []), ...(Array.isArray(response.fail) ? response.fail : [])]) {
+    const normalized = { row: Number(failure.row) || 0, name: String(failure.name || ''), reason: String(failure.reason || '导入失败') };
+    failMap.set(`${normalized.row}|${normalized.name}|${normalized.reason}`, normalized);
+  }
+  const fail = [...failMap.values()];
   return {
     ok: response.ok === true,
     success,
     fail,
     counts: { total, success: success.length, failed: fail.length },
+  };
+}
+
+function chinaTime(value) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return '';
+  return new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+}
+
+export function normalizeStudentImportHistory(response = {}) {
+  if (response?.ok !== true || !Array.isArray(response.records)) {
+    return { ok: false, error: response?.errors?.[0] || '导入历史返回格式无效', records: [] };
+  }
+  return {
+    ok: true,
+    error: '',
+    records: response.records.map((record) => ({
+      importBatchId: String(record.importBatchId || ''),
+      fileName: String(record.sourceFileName || '学生名单'),
+      fileFormat: ['csv', 'json'].includes(record.sourceFormat) ? record.sourceFormat : 'unknown',
+      resultStatus: ['completed', 'partial', 'failed'].includes(record.resultStatus) ? record.resultStatus : 'completed',
+      totalCount: Number(record.totalCount) || 0,
+      successCount: Number(record.successCount) || 0,
+      failedCount: Number(record.failedCount) || 0,
+      failures: (Array.isArray(record.failures) ? record.failures : []).slice(0, 50).map((failure) => ({
+        row: Number(failure.row) || 0,
+        name: String(failure.name || ''),
+        reason: String(failure.reason || '导入失败'),
+      })),
+      createdAtText: chinaTime(record.createdAt),
+    })),
   };
 }
 

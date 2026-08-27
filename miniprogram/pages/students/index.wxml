@@ -1,7 +1,7 @@
 <view class="page">
   <view class="eyebrow">班级资料</view>
   <view class="title">学生管理</view>
-  <view class="toolbar"><button wx:if="{{datasetId && !trashed}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="chooseImportFile">导入名单</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="exportStudents">复制名单 JSON</button><button size="mini" bindtap="toggleTrash">{{trashed ? '返回学生列表' : '回收站'}}</button></view>
+  <view class="toolbar"><button wx:if="{{datasetId && !trashed}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="chooseImportFile">导入名单</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="toggleImportHistory">{{historyVisible ? '收起历史' : '导入历史'}}</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="exportStudents">复制名单 JSON</button><button size="mini" bindtap="toggleTrash">{{trashed ? '返回学生列表' : '回收站'}}</button></view>
   <picker wx:if="{{classes.length}}" range="{{classes}}" range-key="name" bindchange="onClassChange"><view class="class-picker">当前班级：{{currentClassName}}</view></picker>
   <input class="search" placeholder="搜索姓名或学号" value="{{keyword}}" bindinput="onKeywordInput" />
   <view wx:if="{{importPreview}}" class="import-panel">
@@ -17,6 +17,19 @@
       <view wx:for="{{importResult.fail}}" wx:key="row" class="failure-item">第 {{item.row}} 行{{item.name ? '「' + item.name + '」' : ''}}：{{item.reason}}</view>
     </view>
     <view class="editor-actions"><button size="mini" bindtap="cancelStudentImport">关闭</button><button wx:if="{{!importResult}}" type="primary" size="mini" loading="{{loading}}" disabled="{{!importPreview.rows.length}}" bindtap="confirmStudentImport">确认导入当前班级</button></view>
+  </view>
+  <view wx:if="{{historyVisible}}" class="import-history">
+    <view class="editor-title">当前班级导入历史</view>
+    <view wx:if="{{historyLoading}}" class="history-state">正在读取导入历史…</view>
+    <view wx:elif="{{historyError}}" class="history-state error">{{historyError}}<button size="mini" bindtap="loadImportHistory">重试</button></view>
+    <view wx:elif="{{!importHistory.length}}" class="history-state">暂无学生名单导入记录</view>
+    <view wx:else class="history-list">
+      <view wx:for="{{importHistory}}" wx:key="importBatchId" class="history-item">
+        <view class="history-head"><text>{{item.fileName}}</text><text>{{item.createdAtText}}</text></view>
+        <view class="history-summary">{{item.fileFormat === 'csv' ? 'CSV' : item.fileFormat === 'json' ? '规范 JSON' : '未知格式'}} · 总计 {{item.totalCount}} · 成功 {{item.successCount}} · 失败 {{item.failedCount}}</view>
+        <view wx:if="{{item.failures.length}}" class="history-failures"><view wx:for="{{item.failures}}" wx:for-item="failure" wx:key="row" class="failure-item">第 {{failure.row}} 行{{failure.name ? '「' + failure.name + '」' : ''}}：{{failure.reason}}</view></view>
+      </view>
+    </view>
   </view>
   <view class="filter-grid">
     <picker range="{{filterOptions.gender}}" data-field="gender" bindchange="onFilterChange"><view class="filter-picker">{{filters.gender || '全部性别'}}</view></picker>
