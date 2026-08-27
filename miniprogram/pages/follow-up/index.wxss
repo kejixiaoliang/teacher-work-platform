@@ -1,4 +1,6 @@
-.page { padding: 40rpx 32rpx 60rpx; }
+@import "../../tokens.wxss";
+
+.page { padding: 34rpx 32rpx 64rpx; }
 .eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
 .title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; margin-top: 28rpx; }
@@ -17,3 +19,16 @@
 .title-small { margin-top: 14rpx; color: #1d2939; font-size: 28rpx; font-weight: 600; }
 .meta { margin-top: 10rpx; color: #667085; line-height: 1.5; }
 .record button { margin: 18rpx 0 0; }
+
+.eyebrow { color: #d64541; font-weight: 700; letter-spacing: 3rpx; }
+.title { color: #201b17; font-family: "Noto Serif SC", "Songti SC", serif; font-weight: 900; }
+.picker { border: 3rpx solid #201b17; border-radius: 10rpx; background: #f2c84b; color: #201b17; font-weight: 700; }
+.editor { border: 3rpx solid #201b17; border-radius: 14rpx; background: #8bd6af; box-shadow: 5rpx 5rpx 0 #201b17; }
+.editor .picker, .editor input, .editor textarea { border: 2rpx solid #201b17; border-radius: 10rpx; background: #fffdf5; }
+.state { padding: 22rpx; border: 2rpx dashed #201b17; border-radius: 12rpx; color: #5f554b; }
+.error { border-color: #d64541; color: #a8322e; }
+.record { border: 3rpx solid #201b17; border-radius: 12rpx; background: #fffdf5; box-shadow: 4rpx 4rpx 0 #d9cbb0; }
+.name { color: #201b17; font-weight: 800; }
+.status { color: #d64541; font-weight: 700; }
+.title-small { color: #201b17; font-weight: 800; }
+.meta { color: #75695e; }

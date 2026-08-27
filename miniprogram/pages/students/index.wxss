@@ -1,4 +1,6 @@
-.page { padding: 40rpx 32rpx 60rpx; }
+@import "../../tokens.wxss";
+
+.page { padding: 34rpx 32rpx 64rpx; }
 .eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
 .title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
 .create-button { margin: 20rpx 0 0; margin-left: 0; }
@@ -16,3 +18,18 @@
 .student-name { color: #1d2939; font-size: 32rpx; font-weight: 600; }
 .school-no { margin-top: 8rpx; color: #667085; font-size: 25rpx; }
 .chevron { color: #98a2b3; font-size: 38rpx; line-height: 1; }
+
+.eyebrow { color: #d64541; font-weight: 700; letter-spacing: 3rpx; }
+.title { color: #201b17; font-family: "Noto Serif SC", "Songti SC", serif; font-weight: 900; }
+.create-button { border: 3rpx solid #201b17; border-radius: 12rpx; background: #f2c84b; box-shadow: 4rpx 4rpx 0 #201b17; color: #201b17; font-weight: 700; }
+.search { border: 3rpx solid #201b17; border-radius: 12rpx; background: #fffdf5; color: #201b17; }
+.editor { border: 3rpx solid #201b17; border-radius: 14rpx; background: #8bd6af; box-shadow: 5rpx 5rpx 0 #201b17; }
+.editor input, .editor textarea { border: 2rpx solid #201b17; border-radius: 10rpx; background: #fffdf5; }
+.state { padding: 22rpx; border: 2rpx dashed #201b17; border-radius: 12rpx; color: #5f554b; }
+.error { border-color: #d64541; color: #a8322e; }
+.student-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; border: 0; background: transparent; }
+.student-row { min-height: 126rpx; box-sizing: border-box; padding: 20rpx; border: 3rpx solid #201b17; border-radius: 12rpx; background: #fffdf5; box-shadow: 4rpx 4rpx 0 #d9cbb0; }
+.student-row:active { transform: translate(3rpx, 3rpx); box-shadow: 1rpx 1rpx 0 #d9cbb0; }
+.student-name { color: #201b17; font-weight: 800; }
+.school-no { color: #75695e; }
+.chevron { color: #d64541; font-weight: 900; }
