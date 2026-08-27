@@ -1,11 +1,11 @@
 import { callFollowUpData, loadTeacherData } from '../../services/teacher-data.js';
 
 Page({
-  data: { datasetId: '', classUuid: '', loading: false, saving: false, error: '', classes: [], students: [], statuses: ['pending', 'in_progress', 'completed', 'cancelled'], records: [], editing: false, form: {} },
+  data: { datasetId: '', classUuid: '', studentUuid: '', loading: false, saving: false, error: '', classes: [], students: [], statuses: ['pending', 'in_progress', 'completed', 'cancelled'], records: [], editing: false, form: {} },
 
   onLoad(options) {
     const datasetId = options?.datasetId || wx.getStorageSync('activeDatasetId') || '';
-    this.setData({ datasetId });
+    this.setData({ datasetId, studentUuid: options?.studentUuid || '' });
     if (!datasetId) { this.setData({ error: '请先在设置中导入或选择数据集' }); return; }
     this.loadClasses();
   },
@@ -22,13 +22,13 @@ Page({
   },
   async loadRecords(classUuid = this.data.classUuid) {
     this.setData({ loading: true, error: '' });
-    const result = await callFollowUpData({ action: 'query', datasetId: this.data.datasetId, classUuid });
+    const result = await callFollowUpData({ action: 'query', datasetId: this.data.datasetId, classUuid, studentUuid: this.data.studentUuid });
     if (!result?.ok) { this.setData({ loading: false, error: result?.errors?.[0] || '读取跟进事项失败' }); return; }
     this.setData({ loading: false, records: result.records || [] });
   },
   selectClass(event) { const classUuid = this.data.classes[event.detail.value]?.uuid || ''; this.setData({ classUuid }); this.loadRecords(classUuid); },
   studentName(uuid) { return this.data.students.find((student) => student.uuid === uuid)?.name || '未命名学生'; },
-  openCreate() { this.setData({ editing: true, form: { studentUuid: this.data.students.find((student) => student.classUuid === this.data.classUuid)?.uuid || '', title: '', content: '', dueDate: '', status: 'pending', result: '' } }); },
+  openCreate() { this.setData({ editing: true, form: { studentUuid: this.data.studentUuid || this.data.students.find((student) => student.classUuid === this.data.classUuid)?.uuid || '', title: '', content: '', dueDate: '', status: 'pending', result: '' } }); },
   onInput(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
   onPickerChange(event) {
     const field = event.currentTarget.dataset.field;

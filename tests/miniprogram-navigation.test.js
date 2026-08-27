@@ -49,6 +49,22 @@ test('student detail exposes update and soft-delete actions', () => {
   assert.match(template, /bindtap="deleteStudent"/);
 });
 
+test('student detail exposes the desktop profile records and related workflows', () => {
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/student-detail/index.wxml'), 'utf8');
+  assert.match(page, /callStudentProfile/);
+  assert.match(page, /callFollowUpData/);
+  assert.match(page, /collection: 'student_metrics_history'/);
+  assert.match(page, /collection: 'student_records'/);
+  assert.match(page, /openFollowUps/);
+  assert.match(page, /openContacts/);
+  assert.match(template, /健康与体征历史/);
+  assert.match(template, /成长档案/);
+  assert.match(template, /跟进事项/);
+  assert.match(template, /家校沟通/);
+  assert.doesNotMatch(template, /后续阶段接入/);
+});
+
 test('attendance management exposes the existing four statuses and save flow', () => {
   const page = fs.readFileSync(path.join(root, 'miniprogram/pages/attendance/index.js'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/attendance/index.wxml'), 'utf8');
