@@ -1,9 +1,9 @@
-<view class="page page-settings">
+<view class="tw-page page page-settings">
   <view class="topline"><text class="eyebrow">03 / SETTINGS</text><text class="status-dot">系统入口</text></view>
   <view class="title">设置</view>
   <view class="hint">管理数据、身份与软件信息。高风险操作会在执行前再次确认。</view>
-  <view wx:for="{{sections}}" wx:key="title" class="group">
-    <view class="group-head"><view><text class="section-kicker">{{item.title}}</text><text class="section-title">{{index === 0 ? '数据与安全' : index === 1 ? '身份与授权' : '帮助与关于'}}</text></view><text class="group-index">0{{index + 1}}</text></view>
+  <view wx:for="{{sections}}" wx:key="title" class="group group-{{item.tone}}">
+    <view class="group-head"><view><text class="section-kicker">{{item.title}}</text><text class="section-title">{{index === 0 ? '数据与安全' : index === 1 ? '身份与授权' : '帮助与关于'}}</text><text class="section-note">{{item.description}}</text></view><text class="group-index">0{{index + 1}}</text></view>
     <view class="setting-list">
       <view wx:for="{{item.items}}" wx:key="name" class="setting-row" data-name="{{item.name}}" data-action="{{item.action}}" bindtap="handleItemTap">
         <text>{{item.name}}</text>

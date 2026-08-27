@@ -1,4 +1,5 @@
-.page { padding:44rpx 32rpx 90rpx; }
+@import "../../tokens.wxss";
+.page { padding:0; }
 .topline,.group-head { display:flex; align-items:center; justify-content:space-between; }
 .eyebrow,.section-kicker { color:#c65a32; font-size:20rpx; letter-spacing:3rpx; font-weight:700; }
 .status-dot { color:#74836e; font-size:22rpx; }
@@ -14,3 +15,8 @@
 .setting-row:last-child { border-bottom:0; }
 .setting-row text:first-child { font-size:27rpx; }
 .chevron { color:#c65a32; font-size:30rpx; line-height:1; }
+.section-note { display:block; margin-top:8rpx; color:#685f55; font-size:22rpx; }
+.group-mustard .setting-list,.group-mint .setting-list,.group-sky .setting-list { box-shadow:6rpx 6rpx 0 #201b17; }
+.group-mustard .setting-row:first-child { background:#f2c84b; }
+.group-mint .setting-row:first-child { background:#8bd6af; }
+.group-sky .setting-row:first-child { background:#93c9d8; }
