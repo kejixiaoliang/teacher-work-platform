@@ -1,3 +1,4 @@
+// 使用指南页面数据；页面入口必须与 app.json 的 pages/guide/index 保持一致。
 Page({ data: { steps: [
   { no: '01', title: '建立班级', text: '先在班级设置填写学年、学期、班主任和座位行列。' },
   { no: '02', title: '导入学生', text: '使用客户端导出的规范 JSON，或在学生管理中逐个新增学生。' },
