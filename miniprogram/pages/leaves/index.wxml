@@ -1,7 +1,8 @@
 <view class="page">
   <view class="eyebrow">班级事务</view>
   <view class="title">请假管理</view>
-  <view class="toolbar"><picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">选择班级</view></picker><button wx:if="{{classUuid}}" size="mini" bindtap="openCreate">登记请假</button></view>
+  <view class="toolbar"><picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">选择班级</view></picker><button wx:if="{{classUuid}}" size="mini" bindtap="openCreate">登记请假</button><button wx:if="{{classUuid}}" size="mini" bindtap="copyExport">复制请假 JSON</button></view>
+  <view wx:if="{{classUuid}}" class="filters"><input placeholder="按月份筛选，如 2026-08" value="{{month}}" data-field="month" bindinput="onFilterInput"/><picker mode="selector" range="{{filterStudents}}" range-key="name" bindchange="onFilterPicker" data-field="studentFilter"><view class="picker">按学生筛选</view></picker><picker mode="selector" range="{{types}}" bindchange="onFilterPicker" data-field="typeFilter"><view class="picker">按类型筛选</view></picker><picker mode="selector" range="{{statuses}}" bindchange="onFilterPicker" data-field="statusFilter"><view class="picker">按状态筛选</view></picker></view>
   <view wx:if="{{editing}}" class="editor">
     <picker mode="selector" range="{{students}}" range-key="name" data-field="studentUuid" bindchange="onPickerChange"><view class="picker">选择学生</view></picker>
     <picker mode="selector" range="{{types}}" data-field="type" bindchange="onPickerChange"><view class="picker">类型：{{form.type}}</view></picker>
@@ -13,9 +14,9 @@
   </view>
   <view wx:if="{{loading}}" class="state">正在读取请假记录…</view>
   <view wx:elif="{{error}}" class="state error">{{error}}</view>
-  <view wx:elif="{{!records.length}}" class="state">暂无请假记录</view>
+  <view wx:elif="{{!visibleRecords.length}}" class="state">暂无请假记录</view>
   <view wx:else class="record-list">
-    <view wx:for="{{records}}" wx:key="uuid" class="record">
+    <view wx:for="{{visibleRecords}}" wx:key="uuid" class="record">
       <view class="record-head"><text class="name">{{studentName(item.studentUuid)}}</text><text class="status">{{item.status}}</text></view>
       <view class="meta">{{item.type}} · {{item.startDate}} 至 {{item.endDate}}</view>
       <view wx:if="{{item.reason}}" class="reason">{{item.reason}}</view>
