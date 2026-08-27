@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const fn = require(path.resolve('cloudfunctions/business-data/index.js'));
 
 test('business data keeps existing client modules in a server-scoped whitelist', () => {
-  for (const collection of ['seats', 'duties', 'scores', 'contacts', 'documents', 'assessment_records']) {
+  for (const collection of ['seats', 'seat_layouts', 'duties', 'scores', 'contacts', 'documents', 'assessment_records']) {
     assert.equal(fn.normalize({ collection, action: 'query', datasetId: 'd1' }).ok, true);
   }
   assert.equal(fn.normalize({ collection: 'exams', action: 'query', datasetId: 'd1' }).ok, true);
@@ -20,6 +20,8 @@ test('business data keeps existing client modules in a server-scoped whitelist',
   assert.equal(fn.normalize({ collection: 'assessment_revisions', action: 'history', datasetId: 'd1', recordUuid: 'r1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'assessment_records', action: 'batchAssessment', datasetId: 'd1', classUuid: 'c1', rows: [{ studentUuid: 's1', itemName: '守纪', score: 1 }] }).ok, true);
   assert.equal(fn.normalize({ collection: 'assessment_records', action: 'restore', datasetId: 'd1', uuid: 'r1' }).ok, true);
+  assert.equal(fn.normalize({ collection: 'seat_layouts', action: 'layoutHistory', datasetId: 'd1', classUuid: 'c1' }).ok, true);
+  assert.equal(fn.normalize({ collection: 'seat_layouts', action: 'layoutSave', datasetId: 'd1', classUuid: 'c1', layout: { rows: 2, cols: 2, grid: [] } }).ok, true);
   assert.equal(fn.normalize({ collection: 'users', action: 'query', datasetId: 'd1' }).code, 'COLLECTION_NOT_ALLOWED');
 });
 

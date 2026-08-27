@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
-const COLLECTIONS = new Set(['seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records', 'assessment_categories', 'assessment_items', 'assessment_revisions']);
-const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'void', 'restore']);
+const COLLECTIONS = new Set(['seats', 'seat_layouts', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records', 'assessment_categories', 'assessment_items', 'assessment_revisions']);
+const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'void', 'restore', 'layoutSave', 'layoutHistory']);
 const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName', 'categoryName', 'itemName', 'description', 'reason', 'action'];
 
 function normalize(event = {}) {
@@ -11,10 +11,10 @@ function normalize(event = {}) {
   if (!COLLECTIONS.has(collection)) return { ok: false, code: 'COLLECTION_NOT_ALLOWED', errors: ['业务集合不在白名单中'] };
   if (!ACTIONS.has(action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['业务操作不支持'] };
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
+  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
   if (action === 'bulkSave' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['成绩保存必须指定班级'] };
-  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {} };
+  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
 }
 
 function sanitize(record) {
@@ -38,6 +38,17 @@ async function main(event) {
   if (!request.ok) return request;
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId };
+  if (request.action === 'layoutHistory') {
+    if (request.collection !== 'seat_layouts' || !request.classUuid) return { ok: false, code: 'LAYOUT_QUERY_INVALID', errors: ['历史布局查询参数无效'] };
+    const result = await db.collection('seat_layouts').where({ ...scope, classUuid: request.classUuid, deletedAt: null }).orderBy('savedAt', 'desc').limit(20).get();
+    return { ok: true, records: result.data };
+  }
+  if (request.action === 'layoutSave') {
+    if (request.collection !== 'seat_layouts' || !request.classUuid || !request.layout || !Array.isArray(request.layout.grid)) return { ok: false, code: 'LAYOUT_INVALID', errors: ['布局快照参数无效'] };
+    const now = new Date().toISOString();
+    const result = await db.collection('seat_layouts').add({ data: { ...scope, classUuid: request.classUuid, rows: Number(request.layout.rows) || 0, cols: Number(request.layout.cols) || 0, grid: request.layout.grid.slice(0, 500), savedAt: now, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, uuid: crypto.randomUUID(), source: 'miniprogram' } });
+    return { ok: true, action: 'layoutSave', cloudId: result._id };
+  }
   if (request.action === 'history') {
     if (request.collection !== 'assessment_revisions' || !request.recordUuid) return { ok: false, code: 'HISTORY_QUERY_INVALID', errors: ['修正历史查询参数无效'] };
     const result = await db.collection('assessment_revisions').where({ ...scope, recordUuid: request.recordUuid }).limit(100).get();
