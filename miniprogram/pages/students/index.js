@@ -1,4 +1,5 @@
 import { listStudentData, writeStudentData } from '../../services/teacher-data.js';
+import { copyStudentRoster } from '../../services/student-export-service.js';
 
 Page({
   data: {
@@ -111,6 +112,15 @@ Page({
       wx.showToast({ title: action.action === 'delete' ? '已移入回收站' : '操作完成', icon: 'success' });
       await this.loadStudents();
     } catch (error) { this.setData({ loading: false, error: error?.message || '操作失败' }); }
+  },
+
+  async exportStudents() {
+    this.setData({ loading: true, error: '' });
+    try {
+      await copyStudentRoster(this.data.visibleStudents, { datasetId: this.data.datasetId });
+      this.setData({ loading: false });
+      wx.showToast({ title: '名单已复制', icon: 'success' });
+    } catch (error) { this.setData({ loading: false, error: error?.message || '导出学生名单失败' }); }
   },
 
   openDetail(event) {
