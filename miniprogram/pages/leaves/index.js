@@ -2,7 +2,7 @@ import { callLeaveData, loadTeacherData } from '../../services/teacher-data.js';
 import { buildLeaveExchange, copyLeaveExchange } from '../../services/leave-export-service.js';
 
 Page({
-  data: { datasetId: '', classUuid: '', loading: false, saving: false, error: '', classes: [], students: [], filterStudents: [], types: ['事假', '病假'], statuses: ['全部状态', '待审批', '已批准', '已销假'], records: [], visibleRecords: [], month: '', studentFilter: '', typeFilter: '', statusFilter: '', editing: false, form: {} },
+  data: { datasetId: '', classUuid: '', loading: false, saving: false, error: '', classes: [], students: [], filterStudents: [], types: ['事假', '病假'], filterTypes: ['全部类型', '事假', '病假'], statuses: ['全部状态', '待审批', '已批准', '已销假'], records: [], visibleRecords: [], month: '', studentFilter: '', typeFilter: '', statusFilter: '', editing: false, form: {} },
 
   onLoad(options) {
     const datasetId = options?.datasetId || wx.getStorageSync('activeDatasetId') || '';
@@ -46,7 +46,7 @@ Page({
   },
   cancelEdit() { this.setData({ editing: false }); },
   onFilterInput(event) { this.setData({ [event.currentTarget.dataset.field]: event.detail.value }, () => this.applyFilters()); },
-  onFilterPicker(event) { const field = event.currentTarget.dataset.field; const index = Number(event.detail.value); const value = field === 'studentFilter' ? (this.data.filterStudents[index]?.uuid || '') : field === 'typeFilter' ? (this.data.types[index] || '') : (this.data.statuses[index] === '全部状态' ? '' : this.data.statuses[index] || ''); this.setData({ [field]: value }, () => this.applyFilters()); },
+  onFilterPicker(event) { const field = event.currentTarget.dataset.field; const index = Number(event.detail.value); const value = field === 'studentFilter' ? (this.data.filterStudents[index]?.uuid || '') : field === 'typeFilter' ? (this.data.filterTypes[index] === '全部类型' ? '' : this.data.filterTypes[index] || '') : (this.data.statuses[index] === '全部状态' ? '' : this.data.statuses[index] || ''); this.setData({ [field]: value }, () => this.applyFilters()); },
   applyFilters() { const { records, month, studentFilter, typeFilter, statusFilter } = this.data; this.setData({ visibleRecords: records.filter((row) => (!month || String(row.startDate || '').startsWith(month)) && (!studentFilter || row.studentUuid === studentFilter) && (!typeFilter || row.type === typeFilter) && (!statusFilter || row.status === statusFilter)) }); },
   copyExport() { copyLeaveExchange(buildLeaveExchange(this.data.visibleRecords, this.data.students, { datasetId: this.data.datasetId, classUuid: this.data.classUuid })).then(() => wx.showToast({ title: '请假 JSON 已复制', icon: 'success' })).catch(() => wx.showToast({ title: '复制导出失败', icon: 'none' })); },
 
