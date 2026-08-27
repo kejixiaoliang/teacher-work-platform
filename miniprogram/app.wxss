@@ -1,5 +1,7 @@
 page {
-  background: #f6f7fb;
-  color: #1f2937;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f5f2ea;
+  color: #202a32;
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
+
+button { margin: 0; }

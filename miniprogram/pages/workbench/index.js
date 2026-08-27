@@ -1,14 +1,17 @@
 const groups = [
   {
     title: '班级与学生',
+    kicker: 'FOUNDATION',
     items: ['班级设置', '学生管理', '座位管理', '班委学委', '课代表选择'],
   },
   {
     title: '日常记录',
+    kicker: 'DAILY ROUTINE',
     items: ['考勤管理', '请假管理', '表现量化', '跟进事项', '家校沟通', '值日管理'],
   },
   {
     title: '成绩与资料',
+    kicker: 'REVIEW & ARCHIVE',
     items: ['成绩管理', '数据分析', '文档管理'],
   },
 ];

@@ -1,28 +1,26 @@
-.page {
-  padding: 48rpx;
-}
-
-.title {
-  font-size: 44rpx;
-  font-weight: 600;
-}
-
-.state,
-.empty {
-  margin-top: 24rpx;
-  color: #6b7280;
-  line-height: 1.6;
-}
-
-.error {
-  color: #b42318;
-}
-
-.section-title {
-  margin-top: 36rpx;
-  font-size: 30rpx;
-  font-weight: 600;
-}
+.page { padding: 44rpx 32rpx 80rpx; }
+.topline,.section-head { display:flex; align-items:center; justify-content:space-between; }
+.eyebrow,.section-kicker { color:#c65a32; font-size:20rpx; letter-spacing:3rpx; font-weight:700; }
+.status-dot { color:#74836e; font-size:22rpx; }
+.title { margin:14rpx 0 12rpx; color:#202a32; font-family:"Noto Serif SC","Songti SC",serif; font-size:64rpx; font-weight:700; letter-spacing:-2rpx; }
+.lead { max-width:580rpx; color:#74808a; font-size:27rpx; line-height:1.7; }
+.state,.empty { margin-top:24rpx; color:#74808a; line-height:1.6; }
+.error { color:#b94a3a; }
+.section-head { margin-top:54rpx; align-items:flex-end; }
+.section-title { display:block; margin-top:8rpx; color:#202a32; font-size:30rpx; font-weight:700; }
+.section-count { color:#9b9b91; font-size:22rpx; }
+.student-heading { margin-top:48rpx; }
+.class-list { display:flex; width:calc(100% + 64rpx); margin-top:22rpx; margin-left:-32rpx; padding:0 32rpx; white-space:nowrap; }
+.class-chip { display:inline-block; margin-right:14rpx; padding:18rpx 26rpx; border:1rpx solid #ded8cc; border-radius:12rpx; background:#fffdf8; color:#5f6b72; font-size:26rpx; }
+.class-chip.active { border-color:#c65a32; background:#c65a32; color:#fffdf8; box-shadow:8rpx 8rpx 0 #e7c9b9; }
+.paper-panel { border:1rpx solid #ded8cc; border-radius:16rpx; background:#fffdf8; box-shadow:0 10rpx 24rpx rgba(52,45,35,.05); }
+.student-list { margin-top:20rpx; overflow:hidden; }
+.student-row { display:flex; align-items:center; justify-content:space-between; padding:24rpx 26rpx; border-bottom:1rpx solid #eee9df; color:#34424a; font-size:27rpx; }
+.student-row:last-child { border-bottom:0; }
+.school-no { color:#a4a39a; font-size:22rpx; }
+.empty-panel { padding:28rpx; border:1rpx dashed #cfc8bb; background:rgba(255,253,248,.6); }
+.home-note { display:flex; gap:14rpx; margin-top:48rpx; padding-top:22rpx; border-top:1rpx solid #ded8cc; color:#9b9b91; font-size:21rpx; line-height:1.6; }
+.note-mark { color:#c65a32; font-size:30rpx; font-weight:700; }
 
 .class-list {
   display: flex;

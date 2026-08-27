@@ -1,10 +1,10 @@
-<view class="page">
-  <view class="eyebrow">现有客户端功能</view>
+<view class="page page-workbench">
+  <view class="topline"><text class="eyebrow">02 / WORKBENCH</text><text class="status-dot">移动端操作</text></view>
   <view class="title">工作台</view>
-  <view class="hint">所有功能沿用客户端名称，后续按移动端操作方式逐项接入。</view>
+  <view class="hint">沿用客户端的功能边界，把班主任每天要做的事放在手边。</view>
 
   <view wx:for="{{groups}}" wx:key="title" class="group">
-    <view class="section-title">{{item.title}}</view>
+    <view class="group-head"><view><text class="section-kicker">{{item.kicker}}</text><text class="section-title">{{item.title}}</text></view><text class="group-index">0{{index + 1}}</text></view>
     <view class="feature-list">
       <view
         wx:for="{{item.items}}"
@@ -13,8 +13,8 @@
         data-name="{{item}}"
         bindtap="openFeature"
       >
-        <text>{{item}}</text>
-        <text class="chevron">›</text>
+        <text class="feature-label">{{item}}</text>
+        <text class="chevron">↗</text>
       </view>
     </view>
   </view>
