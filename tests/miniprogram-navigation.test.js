@@ -154,6 +154,8 @@ test('workbench routes the remaining client modules to mobile operation views', 
 
 test('score management has dedicated exam, batch entry and analysis actions', () => {
   const page = fs.readFileSync(path.join(root, 'miniprogram/pages/scores/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/scores/index.wxml'), 'utf8');
+  const fileService = fs.readFileSync(path.join(root, 'miniprogram/services/score-file-service.js'), 'utf8');
   assert.ok(app.pages.includes('pages/scores/index'));
   assert.match(page, /action: 'bulkSave'/);
   assert.match(page, /action: 'analysis'/);
@@ -161,6 +163,14 @@ test('score management has dedicated exam, batch entry and analysis actions', ()
   assert.match(page, /editExam/);
   assert.match(page, /deleteExam/);
   assert.match(page, /loadTrend/);
+  assert.match(page, /chooseScoreFile/);
+  assert.match(page, /confirmScoreImport/);
+  assert.match(page, /exportScoreFile/);
+  assert.match(page, /async selectClass[\s\S]*collection: 'exams'/);
+  assert.match(template, /选择成绩文件/);
+  assert.match(template, /导出成绩 CSV/);
+  assert.match(template, /导入预览/);
+  assert.match(fileService, /wx\.shareFileMessage/);
 });
 
 test('seat management has a mobile grid with placement and lock actions', () => {
