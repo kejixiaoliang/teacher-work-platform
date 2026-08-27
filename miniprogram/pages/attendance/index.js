@@ -3,7 +3,7 @@ import { callAttendanceData, loadTeacherData } from '../../services/teacher-data
 const STATUSES = ['出勤', '迟到', '请假', '缺勤'];
 
 Page({
-  data: { datasetId: '', classUuid: '', date: '', classes: [], rows: [], loading: false, saving: false, error: '', statuses: STATUSES },
+  data: { datasetId: '', classUuid: '', date: '', month: new Date().toISOString().slice(0, 7), view: 'daily', classes: [], rows: [], monthlyRows: [], loading: false, saving: false, error: '', statuses: STATUSES },
 
   onLoad(options) {
     const datasetId = options?.datasetId || wx.getStorageSync('activeDatasetId') || '';
@@ -36,6 +36,9 @@ Page({
 
   selectClass(event) { const classUuid = this.data.classes[Number(event.detail.value)]?.uuid || ''; this.setData({ classUuid }); this.loadRows(classUuid); },
   onDateChange(event) { const date = event.detail.value; this.setData({ date }); this.loadRows(this.data.classUuid, date); },
+  switchView(event) { const view = event.currentTarget.dataset.view; this.setData({ view }); if (view === 'monthly') this.loadMonthly(); else this.loadRows(); },
+  onMonthChange(event) { const month = event.detail.value; this.setData({ month }); if (this.data.view === 'monthly') this.loadMonthly(); },
+  async loadMonthly() { this.setData({ loading: true, error: '' }); const [result, students] = await Promise.all([callAttendanceData({ action: 'monthlySummary', datasetId: this.data.datasetId, classUuid: this.data.classUuid, month: this.data.month }), loadTeacherData({ collectionName: 'students', datasetId: this.data.datasetId, limit: 100 })]); if (!result?.ok) return this.setData({ loading: false, error: result?.errors?.[0] || '读取月度考勤失败' }); const names = new Map((students.records || []).map((student) => [student.uuid, student.name || '未命名学生'])); this.setData({ loading: false, monthlyRows: (result.rows || []).map((row) => ({ ...row, name: names.get(row.studentUuid) || row.studentUuid })) }); },
   onStatusChange(event) { const index = Number(event.currentTarget.dataset.index); const status = this.data.statuses[event.detail.value]; this.setData({ [`rows[${index}].status`]: status }); },
   onRemarkInput(event) { const index = Number(event.currentTarget.dataset.index); this.setData({ [`rows[${index}].remark`]: event.detail.value }); },
   markAllPresent() { this.setData({ rows: this.data.rows.map((row) => ({ ...row, status: '出勤' })) }); },

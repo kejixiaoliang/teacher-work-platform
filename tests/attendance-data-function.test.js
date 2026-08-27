@@ -11,6 +11,8 @@ test('attendance function validates date, class and supported statuses', async (
   const { normalizeRequest, normalizeRows, stableAttendanceUuid } = await import('../cloudfunctions/attendance-data/index.js');
   assert.equal(normalizeRequest({ action: 'query', datasetId: 'ds', classUuid: 'c', date: '2026-08-26' }).ok, true);
   assert.equal(normalizeRequest({ action: 'query', datasetId: 'ds', classUuid: 'c', date: 'bad' }).code, 'DATE_INVALID');
+  assert.equal(normalizeRequest({ action: 'monthlySummary', datasetId: 'ds', classUuid: 'c', month: '2026-08' }).ok, true);
+  assert.equal(normalizeRequest({ action: 'monthlySummary', datasetId: 'ds', classUuid: 'c', month: '2026-13' }).code, 'MONTH_INVALID');
   assert.deepEqual(normalizeRows([
     { studentUuid: 's1', status: '迟到' }, { studentUuid: 's1', status: '缺勤' }, { studentUuid: 's2', status: '未知' },
   ]), [{ studentUuid: 's1', status: '迟到', remark: '' }, { studentUuid: 's2', status: '出勤', remark: '' }]);

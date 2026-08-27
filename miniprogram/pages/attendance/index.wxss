@@ -25,3 +25,7 @@ button { margin-top: 28rpx; }
 .school-no { color: #75695e; }
 .status { border: 2rpx solid #201b17; border-radius: 999rpx; background: #8bd6af; color: #201b17; font-weight: 700; }
 .remark { border-bottom: 2rpx solid #d9cbb0; color: #5f554b; }
+.view-tabs { display: flex; gap: 18rpx; width: 100%; }
+.tab { padding: 12rpx 18rpx; color: #5f554b; border-bottom: 4rpx solid transparent; font-weight: 700; }
+.tab.active { color: #d64541; border-color: #d64541; }
+.monthly-row { display: grid; grid-template-columns: 1.3fr repeat(5, 1fr); gap: 10rpx; align-items: center; margin-top: 14rpx; padding: 20rpx 14rpx; border: 3rpx solid #201b17; border-radius: 12rpx; background: #fffdf5; box-shadow: 4rpx 4rpx 0 #d9cbb0; font-size: 22rpx; }
