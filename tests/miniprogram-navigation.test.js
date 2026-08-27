@@ -267,5 +267,8 @@ test('data analysis has a dedicated CloudBase summary page', () => {
   assert.match(page, /action: 'summary'/);
   assert.match(page, /callBusinessData/);
   assert.match(template, /数据概览/);
+  for (const label of ['身高分布', '视力健康', '成绩等级分布', '性别构成', '住宿情况', '成绩统计', '表现量化']) assert.match(template, new RegExp(label));
+  assert.match(template, /analysisWarning/);
+  assert.match(page, /数据分析云函数版本过旧/);
   assert.match(`${workbench}\n${moduleRegistry}`, /pages\/analysis\/index/);
 });

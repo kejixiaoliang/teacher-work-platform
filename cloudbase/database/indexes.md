@@ -14,6 +14,9 @@
 | `import_batches` | `ownerId_1_datasetId_1_batchType_1_classUuid_1_createdAt_-1` | `ownerId: 1, datasetId: 1, batchType: 1, classUuid: 1, createdAt: -1` | 否 | 按教师、数据集和班级查询学生名单导入历史（待部署） |
 | `classes` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 班级只读列表 |
 | `students` | `ownerId_1_datasetId_1` | `ownerId: 1, datasetId: 1` | 否 | 学生只读列表 |
+| `students` | `ownerId_1_datasetId_1_classUuid_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, deletedAt: 1` | 否 | 数据分析按班级分页读取学生（待部署） |
+| `scores` | `ownerId_1_datasetId_1_classUuid_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, deletedAt: 1` | 否 | 数据分析按班级分页读取成绩（待部署） |
+| `assessment_records` | `ownerId_1_datasetId_1_classUuid_1_status_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, status: 1, deletedAt: 1` | 否 | 数据分析按班级分页读取有效表现记录（待部署） |
 | `attendance` | `ownerId_1_datasetId_1_classUuid_1_date_1` | `ownerId: 1, datasetId: 1, classUuid: 1, date: 1` | 否 | 按班级和日期查询考勤 |
 | `leaves` | `ownerId_1_datasetId_1_classUuid_1_startDate_-1` | `ownerId: 1, datasetId: 1, classUuid: 1, startDate: -1` | 否 | 按班级和开始日期查询请假 |
 | `follow_up_tasks` | `ownerId_1_datasetId_1_classUuid_1_status_1_dueDate_1` | `ownerId: 1, datasetId: 1, classUuid: 1, status: 1, dueDate: 1` | 否 | 按班级、状态和截止日期查询跟进事项 |
@@ -32,4 +35,4 @@
 
 ## 核验记录
 
-2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核当时定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和对应业务索引。2026-08-28 新增的学生名单导入历史索引仅完成代码契约，尚未部署到线上环境。
+2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核当时定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和对应业务索引。2026-08-28 新增的学生名单导入历史索引及数据分析分页索引仅完成代码契约，尚未部署到线上环境。

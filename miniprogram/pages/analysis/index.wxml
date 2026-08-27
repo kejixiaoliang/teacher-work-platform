@@ -1,2 +1,23 @@
-<view class="page"><view class="eyebrow">学习分析</view><view class="title">数据分析</view><picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">{{classUuid ? '当前班级：' + classes[0].name : '选择班级'}}</view></picker><view class="toolbar"><text>数据概览</text><button size="mini" bindtap="refresh">刷新</button></view><view wx:if="{{loading}}" class="state">正在读取分析数据…</view><view wx:elif="{{!counts.length}}" class="state">暂无分析数据</view><view wx:else class="grid"><view wx:for="{{counts}}" wx:key="key" class="card"><text>{{item.value}}</text><label>{{item.label}}</label></view></view><view wx:if="{{error}}" class="error">{{error}}</view></view>
+<view class="page">
+  <view class="eyebrow">学习分析</view><view class="title">数据分析</view>
+  <picker mode="selector" range="{{classes}}" range-key="name" bindchange="selectClass"><view class="picker">{{classUuid ? '当前班级：' + currentClassName : '选择班级'}}</view></picker>
+  <view class="toolbar"><text>数据概览</text><button size="mini" bindtap="refresh">刷新</button></view>
+  <view wx:if="{{loading}}" class="state">正在读取分析数据…</view>
+  <block wx:else>
+    <view wx:if="{{analysisWarning}}" class="warning">{{analysisWarning}}，请使用电脑客户端查看全量结果。</view>
+    <view wx:if="{{!overviewCards.length}}" class="state">暂无分析数据</view>
+    <block wx:else>
+      <view class="grid overview"><view wx:for="{{overviewCards}}" wx:key="key" class="card"><text>{{item.value}}</text><label>{{item.label}}</label></view></view>
+    <view class="section"><view class="section-title">身高分布</view><view wx:for="{{height}}" wx:key="label" class="metric-row"><text>{{item.label}} cm</text><text>{{item.value}} 人</text></view></view>
+    <view class="section"><view class="section-title">视力健康</view><view wx:for="{{vision}}" wx:key="label" class="metric-row"><text>{{item.label}}</text><text>{{item.value}} 人</text></view></view>
+    <view class="section"><view class="section-title">成绩等级分布</view><view wx:for="{{grades}}" wx:key="label" class="metric-row"><text>{{item.label}}</text><text>{{item.value}} 人</text></view></view>
+    <view class="section"><view class="section-title">性别构成</view><view wx:for="{{gender}}" wx:key="label" class="metric-row"><text>{{item.label}}</text><text>{{item.value}} 人</text></view></view>
+    <view class="section"><view class="section-title">住宿情况</view><view wx:for="{{boarding}}" wx:key="label" class="metric-row"><text>{{item.label}}</text><text>{{item.value}} 人</text></view></view>
+    <view class="section"><view class="section-title">成绩统计</view><view wx:if="{{!scoreSubjects.length}}" class="empty-line">暂无已保存成绩</view><view wx:for="{{scoreSubjects}}" wx:key="subject" class="metric-row"><text>{{item.subject}}</text><text>{{item.count}} 条 · 平均 {{item.avg}} · 最高 {{item.max}}</text></view></view>
+    <view class="section"><view class="section-title">表现量化</view><view class="metric-row"><text>有效记录</text><text>{{performance.count}} 条</text></view><view class="metric-row"><text>累计分值</text><text>{{performance.total}} 分</text></view><view class="metric-row"><text>加分 / 扣分 / 零分</text><text>{{performance.positiveCount}} / {{performance.negativeCount}} / {{performance.zeroCount}}</text></view></view>
+      <view class="section"><view class="section-title">业务记录概览</view><view class="grid"><view wx:for="{{counts}}" wx:key="key" class="card compact"><text>{{item.value}}</text><label>{{item.label}}</label></view></view></view>
+    </block>
+  </block>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+</view>
 

@@ -14,7 +14,100 @@ function normalize(event = {}) {
   if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
   if (action === 'bulkSave' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['成绩保存必须指定班级'] };
+  if (action === 'summary' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['数据分析必须指定班级'] };
   return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
+}
+
+function numeric(value) {
+  if (value === '' || value == null) return null;
+  const result = Number(value);
+  return Number.isFinite(result) ? result : null;
+}
+
+function rounded(value, digits = 0) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+async function getAllRecords(query, { pageSize = 500, max = 5000 } = {}) {
+  const data = [];
+  const safePageSize = Math.max(1, Math.min(1000, Number(pageSize) || 500));
+  const safeMax = Math.max(1, Math.min(10000, Number(max) || 5000));
+  while (data.length < safeMax) {
+    const requested = Math.min(safePageSize, safeMax - data.length);
+    const result = await query.skip(data.length).limit(requested).get();
+    const page = Array.isArray(result.data) ? result.data : [];
+    data.push(...page);
+    if (page.length < requested) return { data, truncated: false };
+  }
+  const probe = await query.skip(data.length).limit(1).get();
+  return { data, truncated: Array.isArray(probe.data) && probe.data.length > 0 };
+}
+
+function buildAnalyticsSummary({ students = [], scores = [], assessmentRecords = [] } = {}) {
+  const activeStudents = students.filter((student) => !student.status || student.status === '在读');
+  const studentUuids = new Set(activeStudents.map((student) => student.uuid).filter(Boolean));
+  const heightLabels = Array.from({ length: 8 }, (_, index) => `${120 + index * 10}-${129 + index * 10}`);
+  const heightMap = new Map(heightLabels.map((label) => [label, 0]));
+  let otherHeight = 0;
+  const heights = [];
+  for (const student of activeStudents) {
+    const height = numeric(student.height_cm ?? student.heightCm);
+    if (height == null || height <= 0) continue;
+    heights.push(height);
+    const bucket = Math.floor((height - 120) / 10);
+    if (bucket >= 0 && bucket < heightLabels.length) heightMap.set(heightLabels[bucket], heightMap.get(heightLabels[bucket]) + 1);
+    else otherHeight += 1;
+  }
+  const myopiaCount = activeStudents.filter((student) => Boolean(student.is_myopia ?? student.isMyopia)).length;
+  const visionValues = activeStudents.map((student) => {
+    const left = numeric(student.vision_left ?? student.visionLeft);
+    const right = numeric(student.vision_right ?? student.visionRight);
+    return Math.min(left && left > 0 ? left : 5, right && right > 0 ? right : 5);
+  });
+  const gradeMap = new Map(['优', '良', '中', '待提高', '未录入'].map((label) => [label, 0]));
+  for (const student of activeStudents) {
+    const grade = String(student.grade_level ?? student.gradeLevel ?? '');
+    gradeMap.set(gradeMap.has(grade) && grade ? grade : '未录入', gradeMap.get(gradeMap.has(grade) && grade ? grade : '未录入') + 1);
+  }
+  const maleCount = activeStudents.filter((student) => student.gender === '男').length;
+  const boardingCount = activeStudents.filter((student) => Boolean(student.is_boarding ?? student.isBoarding)).length;
+  const validScores = scores.filter((row) => studentUuids.has(row.studentUuid) && numeric(row.score) != null);
+  const scoreSubjectMap = new Map();
+  for (const row of validScores) {
+    const subject = String(row.subject || '').trim() || '未命名科目';
+    const values = scoreSubjectMap.get(subject) || [];
+    values.push(Number(row.score));
+    scoreSubjectMap.set(subject, values);
+  }
+  const validAssessments = assessmentRecords.filter((row) => studentUuids.has(row.studentUuid) && numeric(row.score) != null);
+  const performanceScores = validAssessments.map((row) => Number(row.score));
+  const scoreValues = validScores.map((row) => Number(row.score));
+  return {
+    overview: {
+      studentCount: activeStudents.length,
+      myopiaCount,
+      myopiaRate: activeStudents.length ? Math.round(myopiaCount / activeStudents.length * 100) : 0,
+      avgHeight: heights.length ? Math.round(heights.reduce((sum, value) => sum + value, 0) / heights.length) : null,
+      avgVision: visionValues.length ? rounded(visionValues.reduce((sum, value) => sum + value, 0) / visionValues.length, 1) : null,
+      boardingCount,
+      scoreCount: validScores.length,
+      scoreAverage: scoreValues.length ? rounded(scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length, 2) : null,
+      performanceCount: validAssessments.length,
+      performanceTotal: performanceScores.reduce((sum, value) => sum + value, 0),
+    },
+    height: [...heightMap].map(([label, value]) => ({ label, value })).concat(otherHeight ? [{ label: '其他', value: otherHeight }] : []),
+    vision: [{ label: '近视', value: myopiaCount }, { label: '未近视', value: activeStudents.length - myopiaCount }],
+    grades: [...gradeMap].map(([label, value]) => ({ label, value })),
+    gender: [{ label: '男生', value: maleCount }, { label: '女生', value: activeStudents.length - maleCount }],
+    boarding: [{ label: '住宿', value: boardingCount }, { label: '走读', value: activeStudents.length - boardingCount }],
+    scoreSubjects: [...scoreSubjectMap].map(([subject, values]) => ({ subject, count: values.length, avg: rounded(values.reduce((sum, value) => sum + value, 0) / values.length, 2), max: Math.max(...values) })),
+    performance: {
+      positiveCount: performanceScores.filter((value) => value > 0).length,
+      negativeCount: performanceScores.filter((value) => value < 0).length,
+      zeroCount: performanceScores.filter((value) => value === 0).length,
+    },
+  };
 }
 
 function sanitize(record) {
@@ -159,13 +252,24 @@ async function main(event) {
     return { ok: true, points: result.data };
   }
   if (request.action === 'summary') {
+    const classResult = await db.collection('classes').where({ ...scope, uuid: request.classUuid, deletedAt: null }).limit(1).get();
+    if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['班级不存在或不属于当前数据集'] };
+    const [studentsResult, scoresResult, assessmentResult] = await Promise.all([
+      getAllRecords(db.collection('students').where({ ...scope, classUuid: request.classUuid, deletedAt: null }), { max: 1000 }),
+      getAllRecords(db.collection('scores').where({ ...scope, classUuid: request.classUuid, deletedAt: null }), { max: 5000 }),
+      getAllRecords(db.collection('assessment_records').where({ ...scope, classUuid: request.classUuid, status: 'active', deletedAt: null }), { max: 5000 }),
+    ]);
     const collections = [...COLLECTIONS];
-    const counts = {};
+    const counts = { classes: 1, students: studentsResult.data.length };
     for (const collection of collections) {
+      if (collection === 'scores') { counts.scores = scoresResult.data.length; continue; }
+      if (collection === 'assessment_records') { counts.assessment_records = assessmentResult.data.length; continue; }
       const classScoped = ['students', 'seats', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records'].includes(collection) && request.classUuid ? { classUuid: request.classUuid } : {};
       counts[collection] = (await db.collection(collection).where({ ...scope, ...classScoped, ...(collection === 'assessment_records' && request.includeVoided ? {} : { deletedAt: null }) }).count()).total;
     }
-    return { ok: true, counts };
+    const metrics = buildAnalyticsSummary({ students: studentsResult.data, scores: scoresResult.data, assessmentRecords: assessmentResult.data });
+    metrics.limits = { students: studentsResult.truncated, scores: scoresResult.truncated, assessmentRecords: assessmentResult.truncated };
+    return { ok: true, counts, metrics };
   }
   const collection = db.collection(request.collection);
   if (request.action === 'query') {
@@ -202,4 +306,4 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, main };
+module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, getAllRecords, buildAnalyticsSummary, main };
