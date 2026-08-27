@@ -17,7 +17,7 @@ Page({
     ]);
     if (!classes.ok || !students.ok) { this.setData({ loading: false, error: classes.error || students.error }); return; }
     const classUuid = this.data.classUuid || classes.records[0]?.uuid || '';
-    this.setData({ loading: false, classes: classes.records, students: students.records, classUuid });
+    this.setData({ loading: false, classes: classes.records, students: students.records.filter((student) => student.classUuid === classUuid && student.status !== '离校'), classUuid });
     this.loadRecords(classUuid);
   },
   async loadRecords(classUuid = this.data.classUuid) {
@@ -26,7 +26,7 @@ Page({
     if (!result?.ok) { this.setData({ loading: false, error: result?.errors?.[0] || '读取跟进事项失败' }); return; }
     this.setData({ loading: false, records: result.records || [] });
   },
-  selectClass(event) { const classUuid = this.data.classes[event.detail.value]?.uuid || ''; this.setData({ classUuid }); this.loadRecords(classUuid); },
+  selectClass(event) { const classUuid = this.data.classes[event.detail.value]?.uuid || ''; const students = this.data.students.filter((student) => student.classUuid === classUuid && student.status !== '离校'); this.setData({ classUuid, students, studentUuid: '' }); this.loadRecords(classUuid); },
   studentName(uuid) { return this.data.students.find((student) => student.uuid === uuid)?.name || '未命名学生'; },
   openCreate() { this.setData({ editing: true, form: { studentUuid: this.data.studentUuid || this.data.students.find((student) => student.classUuid === this.data.classUuid)?.uuid || '', title: '', content: '', dueDate: '', status: 'pending', result: '' } }); },
   openEdit(event) {

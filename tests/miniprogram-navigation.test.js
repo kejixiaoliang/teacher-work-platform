@@ -108,6 +108,7 @@ test('follow-up management exposes the existing task workflow', () => {
   assert.match(page, /action, datasetId/);
   assert.match(page, /changeStatus/);
   assert.match(page, /classUuid: options\?\.classUuid \|\| ''/);
+  assert.match(page, /students\.records\.filter/);
   assert.match(template, /编辑/);
   assert.match(template, /重新打开/);
   assert.match(template, /取消/);
