@@ -11,10 +11,11 @@ function validDate(value) {
 function normalizeRequest(event = {}) {
   const datasetId = typeof event.datasetId === 'string' ? event.datasetId.trim() : '';
   const classUuid = typeof event.classUuid === 'string' ? event.classUuid.trim() : '';
+  const studentUuid = typeof event.studentUuid === 'string' ? event.studentUuid.trim() : '';
   const uuid = typeof event.uuid === 'string' ? event.uuid.trim() : '';
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
   if (!['query', 'create', 'update', 'delete'].includes(event.action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['不支持该跟进事项操作'] };
-  if (event.action === 'query') return { ok: true, action: 'query', datasetId, classUuid, status: STATUSES.has(event.status) ? event.status : '' };
+  if (event.action === 'query') return { ok: true, action: 'query', datasetId, classUuid, studentUuid, status: STATUSES.has(event.status) ? event.status : '' };
   if (!classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['classUuid 不能为空'] };
   if (event.action !== 'create' && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['跟进事项 uuid 不能为空'] };
   const task = event.task || {};
@@ -43,7 +44,7 @@ async function main(event) {
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId };
   if (request.action === 'query') {
-    const result = await db.collection('follow_up_tasks').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), ...(request.status ? { status: request.status } : {}) }).orderBy('dueDate', 'asc').limit(100).get();
+    const result = await db.collection('follow_up_tasks').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), ...(request.studentUuid ? { studentUuid: request.studentUuid } : {}), ...(request.status ? { status: request.status } : {}) }).orderBy('dueDate', 'asc').limit(100).get();
     return { ok: true, action: 'query', records: result.data };
   }
   if (!request.task.studentUuid) return { ok: false, code: 'STUDENT_REQUIRED', errors: ['学生 uuid 不能为空'] };

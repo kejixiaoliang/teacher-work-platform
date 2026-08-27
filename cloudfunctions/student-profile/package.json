@@ -1,0 +1,5 @@
+{
+  "name": "student-profile",
+  "private": true,
+  "dependencies": { "wx-server-sdk": "latest" }
+}
