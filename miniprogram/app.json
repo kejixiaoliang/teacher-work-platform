@@ -10,7 +10,9 @@
     "pages/follow-up/index",
     "pages/import/index",
     "pages/redeem/index",
-    "pages/class-settings/index"
+    "pages/class-settings/index",
+    "pages/guide/index",
+    "pages/changelog/index"
     ,"pages/business/index"
     ,"pages/scores/index"
     ,"pages/seats/index"
