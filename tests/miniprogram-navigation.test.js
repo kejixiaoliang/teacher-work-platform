@@ -104,6 +104,7 @@ test('follow-up management exposes the existing task workflow', () => {
   assert.match(page, /openEdit/);
   assert.match(page, /action, datasetId/);
   assert.match(page, /changeStatus/);
+  assert.match(page, /classUuid: options\?\.classUuid \|\| ''/);
   assert.match(template, /编辑/);
   assert.match(template, /重新打开/);
   assert.match(template, /取消/);
@@ -186,6 +187,7 @@ test('home-school contact management has a dedicated mobile record workflow', ()
   assert.match(page, /contactStats/);
   assert.match(page, /action: 'create'/);
   assert.match(page, /action: 'update'/);
+  assert.match(page, /classUuid: options\?\.classUuid \|\| ''/);
   assert.match(template, /新增沟通/);
   assert.match(template, /沟通结果/);
   assert.match(`${workbench}\n${moduleRegistry}`, /pages\/contacts\/index/);

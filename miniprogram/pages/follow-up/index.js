@@ -5,7 +5,7 @@ Page({
 
   onLoad(options) {
     const datasetId = options?.datasetId || wx.getStorageSync('activeDatasetId') || '';
-    this.setData({ datasetId, studentUuid: options?.studentUuid || '' });
+    this.setData({ datasetId, classUuid: options?.classUuid || '', studentUuid: options?.studentUuid || '' });
     if (!datasetId) { this.setData({ error: '请先在设置中导入或选择数据集' }); return; }
     this.loadClasses();
   },
