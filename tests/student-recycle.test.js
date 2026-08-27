@@ -22,9 +22,9 @@ test('student list page exposes recycle and delete actions', async () => {
   assert.match(wxml, /复制名单 JSON/);
 });
 
-test('student roster export keeps stable identifiers and client field names', async () => {
+test('student roster export keeps stable identifiers and all desktop import fields', async () => {
   const { buildStudentRoster } = await import('../miniprogram/services/student-export-service.js');
-  const result = buildStudentRoster([{ uuid: 's1', schoolNo: '001', name: '学生甲', isBoarding: true }], { datasetId: 'ds' });
+  const result = buildStudentRoster([{ uuid: 's1', schoolNo: '001', name: '学生甲', isBoarding: true, healthNote: '花粉过敏' }], { datasetId: 'ds' });
   assert.equal(result.format, 'teacher-work-student-roster');
-  assert.deepEqual(result.students[0], { uuid: 's1', school_no: '001', name: '学生甲', gender: '', birth_date: null, phone: '', parent_phone: '', is_boarding: true, height_cm: null, vision_left: null, vision_right: null, is_myopia: false, grade_level: '', seat_note: '', interest_duty: '', status: '在读', follow_up_status: '正常', remark: '' });
+  assert.deepEqual(result.students[0], { uuid: 's1', school_no: '001', name: '学生甲', gender: '', birth_date: null, phone: '', parent_phone: '', is_boarding: true, height_cm: null, vision_left: null, vision_right: null, is_myopia: false, grade_level: '', seat_note: '', interest_duty: '', health_note: '花粉过敏', status: '在读', follow_up_status: '正常', remark: '' });
 });

@@ -6,6 +6,7 @@ function normalizeStudent(student = {}) {
     vision_left: student.visionLeft ?? student.vision_left ?? null, vision_right: student.visionRight ?? student.vision_right ?? null,
     is_myopia: Boolean(student.isMyopia ?? student.is_myopia), grade_level: student.gradeLevel ?? student.grade_level ?? '',
     seat_note: student.seatNote ?? student.seat_note ?? '', interest_duty: student.interestDuty ?? student.interest_duty ?? '',
+    health_note: student.healthNote ?? student.health_note ?? '',
     status: student.status || '在读', follow_up_status: student.followUpStatus ?? student.follow_up_status ?? '正常', remark: student.remark || '',
   };
 }

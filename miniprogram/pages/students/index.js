@@ -1,5 +1,11 @@
 import { listStudentData, loadTeacherData, writeStudentData } from '../../services/teacher-data.js';
 import { copyStudentRoster } from '../../services/student-export-service.js';
+import {
+  buildStudentImportRequest,
+  chooseStudentRosterFile,
+  mergeStudentImportResult,
+  previewStudentRosterFile,
+} from '../../services/student-import-service.js';
 
 Page({
   data: {
@@ -19,6 +25,9 @@ Page({
     visibleStudents: [],
     trashed: false,
     selectedUuids: [],
+    importFileName: '',
+    importPreview: null,
+    importResult: null,
     editing: false,
     form: { name: '', schoolNo: '', gender: '', phone: '', parentPhone: '', birthDate: '', status: '在读', followUpStatus: '正常', isMyopia: false, isBoarding: false, heightCm: '', visionLeft: '', visionRight: '', gradeLevel: '', seatNote: '', healthNote: '', interestDuty: '', remark: '' },
   },
@@ -134,6 +143,46 @@ Page({
       this.setData({ loading: false });
       wx.showToast({ title: '名单已复制', icon: 'success' });
     } catch (error) { this.setData({ loading: false, error: error?.message || '导出学生名单失败' }); }
+  },
+
+  async chooseImportFile() {
+    if (!this.data.classUuid) {
+      wx.showToast({ title: '请先选择班级', icon: 'none' });
+      return;
+    }
+    this.setData({ loading: true, error: '', importResult: null });
+    try {
+      const file = await chooseStudentRosterFile();
+      const preview = await previewStudentRosterFile(file, this.data.students);
+      this.setData({ loading: false, importFileName: file.name || '学生名单', importPreview: preview });
+    } catch (error) {
+      this.setData({ loading: false, error: error?.message || '读取学生名单失败' });
+    }
+  },
+
+  cancelStudentImport() {
+    this.setData({ importFileName: '', importPreview: null, importResult: null });
+  },
+
+  async confirmStudentImport() {
+    const preview = this.data.importPreview;
+    if (!preview?.rows?.length) return;
+    this.setData({ loading: true, error: '', importResult: null });
+    try {
+      const request = buildStudentImportRequest({
+        datasetId: this.data.datasetId,
+        classUuid: this.data.classUuid,
+        rows: preview.rows,
+      });
+      const response = await writeStudentData(request);
+      if (!response?.ok) throw new Error(response?.errors?.[0] || '导入学生失败');
+      const importResult = mergeStudentImportResult({ total: preview.total, localFails: preview.fails, response });
+      this.setData({ loading: false, importResult });
+      await this.loadStudents();
+      wx.showToast({ title: `成功导入 ${importResult.counts.success} 人`, icon: 'success' });
+    } catch (error) {
+      this.setData({ loading: false, error: error?.message || '导入学生失败' });
+    }
   },
 
   openDetail(event) {

@@ -4,11 +4,19 @@
 .eyebrow { color: #b54708; font-size: 24rpx; letter-spacing: 2rpx; }
 .title { margin-top: 10rpx; color: #1d2939; font-size: 48rpx; font-weight: 700; }
 .create-button { margin: 20rpx 0 0; margin-left: 0; }
-.toolbar { display: flex; gap: 16rpx; margin-top: 20rpx; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 20rpx; }
 .toolbar button { margin: 0; }
 .class-picker { margin-top: 16rpx; padding: 16rpx 18rpx; border: 2rpx solid #201b17; border-radius: 10rpx; background: #fffdf5; color: #201b17; }
 .search { box-sizing: border-box; height: 84rpx; margin-top: 28rpx; padding: 0 24rpx; border: 1rpx solid #eadfd5; border-radius: 16rpx; background: #fffdf9; color: #344054; }
 .editor { margin-top: 24rpx; padding: 24rpx; border: 1rpx solid #eadfd5; border-radius: 18rpx; background: #fffdf9; }
+.import-panel { margin-top: 24rpx; padding: 24rpx; border: 3rpx solid #201b17; border-radius: 14rpx; background: #fff3bf; box-shadow: 5rpx 5rpx 0 #201b17; }
+.import-file { color: #201b17; font-weight: 700; }
+.import-hint { margin-top: 10rpx; color: #5f554b; font-size: 24rpx; line-height: 1.6; }
+.import-counts { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 18rpx; }
+.import-counts text { padding: 8rpx 12rpx; border: 2rpx solid #201b17; border-radius: 999rpx; background: #fffdf5; font-size: 23rpx; }
+.failure-list, .import-result { margin-top: 18rpx; padding: 16rpx; border: 2rpx solid #d64541; border-radius: 10rpx; background: #fffdf5; }
+.failure-item { margin-top: 8rpx; color: #a8322e; font-size: 23rpx; line-height: 1.55; }
+.failure-item:first-child { margin-top: 0; }
 .editor-title { margin-bottom: 18rpx; color: #344054; font-size: 30rpx; font-weight: 600; }
 .editor input, .editor textarea { box-sizing: border-box; width: 100%; margin-top: 16rpx; padding: 18rpx; border: 1rpx solid #eadfd5; border-radius: 12rpx; background: #ffffff; }
 .editor textarea { min-height: 120rpx; }

@@ -26,11 +26,29 @@ function normalizeRequest(event = {}) {
   const classUuid = typeof event.classUuid === 'string' ? event.classUuid.trim() : '';
   const action = event.action || 'list';
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['list', 'create', 'update', 'delete', 'restore', 'purge'].includes(action)) {
+  if (!['list', 'create', 'update', 'delete', 'restore', 'purge', 'import'].includes(action)) {
     return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['不支持该学生操作'] };
   }
   if (['update', 'delete'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['学生 uuid 不能为空'] };
   if (action === 'list') return { ok: true, action, datasetId, classUuid, trashed: event.trashed === true };
+  if (action === 'import') {
+    if (!classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['classUuid 不能为空'] };
+    if (!Array.isArray(event.students) || !event.students.length) return { ok: false, code: 'STUDENTS_REQUIRED', errors: ['待导入学生不能为空'] };
+    if (event.students.length > 200) return { ok: false, code: 'IMPORT_LIMIT_EXCEEDED', errors: ['单次最多导入 200 名学生'] };
+    const students = [];
+    const rejected = [];
+    event.students.forEach((student, index) => {
+      const row = Number.isSafeInteger(student?._row) && student._row > 0 ? student._row : index + 1;
+      const cleaned = cleanFields(student);
+      if (!cleaned.ok) {
+        rejected.push({ row, name: typeof student?.name === 'string' ? student.name.trim() : '', reason: cleaned.errors[0] });
+        return;
+      }
+      const uuid = typeof student?.uuid === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(student.uuid.trim()) ? student.uuid.trim() : '';
+      students.push({ row, ...(uuid ? { uuid } : {}), fields: cleaned.fields });
+    });
+    return { ok: true, action, datasetId, classUuid, students, rejected };
+  }
   if (['restore', 'purge'].includes(action)) {
     const uuids = Array.isArray(event.uuids) ? event.uuids.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()) : [];
     if (!uuids.length) return { ok: false, code: 'UUIDS_REQUIRED', errors: ['未选择学生'] };
@@ -42,6 +60,64 @@ function normalizeRequest(event = {}) {
     return { ok: true, action, datasetId, uuid, classUuid, fields: cleaned.fields };
   }
   return { ok: true, action, datasetId, uuid, classUuid };
+}
+
+function studentIdentity(student = {}) {
+  const schoolNo = String(student.schoolNo ?? student.school_no ?? '').trim().toLowerCase();
+  if (schoolNo) return { key: `school:${schoolNo}`, label: `学号 ${String(student.schoolNo ?? student.school_no).trim()}` };
+  const name = String(student.name || '').trim().toLowerCase();
+  const birthDate = String(student.birthDate ?? student.birth_date ?? '').trim();
+  if (birthDate) return { key: `name-birth:${name}|${birthDate}`, label: `姓名和出生日期 ${student.name} / ${birthDate}` };
+  return { key: '', label: '' };
+}
+
+async function importStudents({ db, ownerId, datasetId, classUuid, students, rejected = [], now, uuidFactory = crypto.randomUUID }) {
+  const scope = { ownerId, datasetId };
+  const classResult = await db.collection('classes').where({ ...scope, uuid: classUuid, deletedAt: null }).limit(1).get();
+  if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['未找到当前数据集中的班级'] };
+
+  const current = await db.collection('students').where({ ...scope, classUuid, deletedAt: null }).limit(500).get();
+  const identities = new Set(current.data.map((student) => studentIdentity(student).key).filter(Boolean));
+  const uuids = new Set(current.data.map((student) => student.uuid).filter(Boolean));
+  const success = [];
+  const fail = [...rejected];
+  for (const student of students) {
+    const itemIdentity = studentIdentity(student.fields);
+    if (itemIdentity.key && identities.has(itemIdentity.key)) {
+      fail.push({ row: student.row, name: student.fields.name, reason: `${itemIdentity.label} 已存在于当前班级` });
+      continue;
+    }
+    const uuid = student.uuid || uuidFactory();
+    if (student.uuid) {
+      const duplicateUuid = await db.collection('students').where({ ...scope, uuid: student.uuid }).limit(1).get();
+      if (duplicateUuid.data.length) {
+        fail.push({ row: student.row, name: student.fields.name, reason: `学生 UUID ${student.uuid} 已存在于当前数据集` });
+        continue;
+      }
+    }
+    if (uuids.has(uuid)) {
+      fail.push({ row: student.row, name: student.fields.name, reason: `学生 UUID ${uuid} 已存在于当前数据集` });
+      continue;
+    }
+    try {
+      await db.collection('students').add({ data: {
+        ...student.fields, ...scope, _openid: ownerId, classUuid, uuid,
+        createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram-import',
+      } });
+      if (itemIdentity.key) identities.add(itemIdentity.key);
+      uuids.add(uuid);
+      success.push({ row: student.row, name: student.fields.name, uuid });
+    } catch {
+      fail.push({ row: student.row, name: student.fields.name, reason: '云端写入失败，请稍后重试' });
+    }
+  }
+  return {
+    ok: true,
+    action: 'import',
+    success,
+    fail,
+    counts: { total: students.length + rejected.length, success: success.length, failed: fail.length },
+  };
 }
 
 async function main(event) {
@@ -87,6 +163,13 @@ async function main(event) {
     return { ok: true, action: 'purge', count: rows.data.length };
   }
 
+  if (request.action === 'import') {
+    return importStudents({
+      db, ownerId: context.OPENID, datasetId: request.datasetId, classUuid: request.classUuid,
+      students: request.students, rejected: request.rejected, now,
+    });
+  }
+
   if (request.action === 'create') {
     const uuid = crypto.randomUUID();
     const result = await db.collection('students').add({ data: {
@@ -110,4 +193,4 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { WRITABLE_FIELDS, cleanFields, normalizeRequest, main };
+module.exports = { WRITABLE_FIELDS, cleanFields, normalizeRequest, studentIdentity, importStudents, main };
