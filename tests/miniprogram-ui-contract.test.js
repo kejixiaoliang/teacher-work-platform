@@ -35,9 +35,9 @@ test('mini program core pages use the client content vocabulary and real actions
   assert.match(home, /bindtap="openWorkbench"/);
   assert.match(workbench, /feature-grid/);
   assert.match(workbench, /bindtap="openFeature"/);
-  assert.match(settings, /数据/);
-  assert.match(settings, /账号与授权/);
-  assert.match(settings, /帮助/);
+  assert.match(settings, /数据与安全/);
+  assert.match(settings, /身份与授权/);
+  assert.match(settings, /帮助与关于/);
   assert.match(settings, /数据导入/);
   assert.match(settings, /兑换码/);
 });
