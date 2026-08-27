@@ -1,9 +1,9 @@
-import { listStudentData, writeStudentData } from '../../services/teacher-data.js';
+import { listStudentData, loadTeacherData, writeStudentData } from '../../services/teacher-data.js';
 import { copyStudentRoster } from '../../services/student-export-service.js';
 
 Page({
   data: {
-    datasetId: '',
+    datasetId: '', classUuid: '', currentClassName: '', classes: [],
     loading: false,
     error: '',
     keyword: '',
@@ -30,12 +30,19 @@ Page({
       this.setData({ error: '请先在设置中导入或选择数据集' });
       return;
     }
-    this.loadStudents();
+    this.loadClasses();
+  },
+
+  async loadClasses() {
+    const result = await loadTeacherData({ collectionName: 'classes', datasetId: this.data.datasetId });
+    if (!result.ok) { this.setData({ error: result.error }); return; }
+    const classUuid = this.data.classUuid || result.records[0]?.uuid || '';
+    this.setData({ classes: result.records, classUuid, currentClassName: result.records.find((item) => item.uuid === classUuid)?.name || '未命名班级' }, () => this.loadStudents());
   },
 
   async loadStudents() {
     this.setData({ loading: true, error: '' });
-    const result = await listStudentData({ datasetId: this.data.datasetId, trashed: this.data.trashed });
+    const result = await listStudentData({ datasetId: this.data.datasetId, classUuid: this.data.classUuid, trashed: this.data.trashed });
     if (!result.ok) {
       this.setData({ loading: false, error: result.error });
       return;
@@ -84,6 +91,12 @@ Page({
   clearFilters() {
     const filters = { gender: '', status: '', myopia: '', boarding: '', followUpStatus: '' };
     this.setData({ filters, visibleStudents: this.filterStudents(this.data.students, this.data.keyword, filters) });
+  },
+
+  onClassChange(event) {
+    const cls = this.data.classes[Number(event.detail.value)];
+    if (!cls) return;
+    this.setData({ classUuid: cls.uuid, currentClassName: cls.name || '未命名班级' }, () => this.loadStudents());
   },
 
   toggleTrash() { this.setData({ trashed: !this.data.trashed, editing: false }, () => this.loadStudents()); },
@@ -163,7 +176,7 @@ Page({
     }
     this.setData({ loading: true, error: '' });
     try {
-      const result = await writeStudentData({ action: 'create', datasetId: this.data.datasetId, student: this.data.form });
+      const result = await writeStudentData({ action: 'create', datasetId: this.data.datasetId, classUuid: this.data.classUuid, student: this.data.form });
       if (!result?.ok) throw new Error(result?.errors?.[0] || '保存学生失败');
       this.setData({ editing: false });
       wx.showToast({ title: '已保存', icon: 'success' });

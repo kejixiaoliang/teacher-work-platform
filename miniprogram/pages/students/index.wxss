@@ -6,6 +6,7 @@
 .create-button { margin: 20rpx 0 0; margin-left: 0; }
 .toolbar { display: flex; gap: 16rpx; margin-top: 20rpx; }
 .toolbar button { margin: 0; }
+.class-picker { margin-top: 16rpx; padding: 16rpx 18rpx; border: 2rpx solid #201b17; border-radius: 10rpx; background: #fffdf5; color: #201b17; }
 .search { box-sizing: border-box; height: 84rpx; margin-top: 28rpx; padding: 0 24rpx; border: 1rpx solid #eadfd5; border-radius: 16rpx; background: #fffdf9; color: #344054; }
 .editor { margin-top: 24rpx; padding: 24rpx; border: 1rpx solid #eadfd5; border-radius: 18rpx; background: #fffdf9; }
 .editor-title { margin-bottom: 18rpx; color: #344054; font-size: 30rpx; font-weight: 600; }

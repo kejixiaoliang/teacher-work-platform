@@ -13,7 +13,7 @@ test('student write function validates scoped actions and required names', async
   assert.equal(normalizeRequest({ action: 'create', datasetId: 'ds', student: {} }).code, 'NAME_REQUIRED');
   assert.equal(normalizeRequest({ action: 'update', datasetId: 'ds', student: { name: '张三' } }).code, 'UUID_REQUIRED');
   assert.deepEqual(normalizeRequest({ action: 'create', datasetId: 'ds', student: { name: '  张三  ', ownerId: 'forged', unknown: 'x' } }), {
-    ok: true, action: 'create', datasetId: 'ds', uuid: '', fields: { name: '张三' },
+    ok: true, action: 'create', datasetId: 'ds', uuid: '', classUuid: '', fields: { name: '张三' },
   });
 });
 

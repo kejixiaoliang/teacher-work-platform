@@ -23,13 +23,14 @@ function cleanFields(input = {}) {
 function normalizeRequest(event = {}) {
   const datasetId = typeof event.datasetId === 'string' ? event.datasetId.trim() : '';
   const uuid = typeof event.uuid === 'string' ? event.uuid.trim() : '';
+  const classUuid = typeof event.classUuid === 'string' ? event.classUuid.trim() : '';
   const action = event.action || 'list';
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
   if (!['list', 'create', 'update', 'delete', 'restore', 'purge'].includes(action)) {
     return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['不支持该学生操作'] };
   }
   if (['update', 'delete'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['学生 uuid 不能为空'] };
-  if (action === 'list') return { ok: true, action, datasetId, trashed: event.trashed === true };
+  if (action === 'list') return { ok: true, action, datasetId, classUuid, trashed: event.trashed === true };
   if (['restore', 'purge'].includes(action)) {
     const uuids = Array.isArray(event.uuids) ? event.uuids.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()) : [];
     if (!uuids.length) return { ok: false, code: 'UUIDS_REQUIRED', errors: ['未选择学生'] };
@@ -38,9 +39,9 @@ function normalizeRequest(event = {}) {
   if (action !== 'delete') {
     const cleaned = cleanFields(event.student);
     if (!cleaned.ok) return cleaned;
-    return { ok: true, action, datasetId, uuid, fields: cleaned.fields };
+    return { ok: true, action, datasetId, uuid, classUuid, fields: cleaned.fields };
   }
-  return { ok: true, action, datasetId, uuid };
+  return { ok: true, action, datasetId, uuid, classUuid };
 }
 
 async function main(event) {
@@ -57,7 +58,7 @@ async function main(event) {
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId };
 
   if (request.action === 'list') {
-    const result = await db.collection('students').where({ ...scope, deletedAt: request.trashed ? db.command.neq(null) : null }).orderBy('schoolNo', 'asc').limit(500).get();
+    const result = await db.collection('students').where({ ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), deletedAt: request.trashed ? db.command.neq(null) : null }).orderBy('schoolNo', 'asc').limit(500).get();
     return { ok: true, action: 'list', trashed: request.trashed, records: result.data };
   }
 
@@ -89,7 +90,7 @@ async function main(event) {
   if (request.action === 'create') {
     const uuid = crypto.randomUUID();
     const result = await db.collection('students').add({ data: {
-      ...request.fields, ...scope, uuid, createdAt: now, updatedAt: now,
+      ...request.fields, ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), uuid, createdAt: now, updatedAt: now,
       deletedAt: null, revision: 1, source: 'miniprogram',
     } });
     return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };

@@ -5,8 +5,8 @@ export async function writeStudentData(input) {
   return result?.result || result;
 }
 
-export async function listStudentData({ datasetId, trashed = false } = {}) {
-  const result = await callCloudFunction('student-data', { action: 'list', datasetId, trashed });
+export async function listStudentData({ datasetId, classUuid = '', trashed = false } = {}) {
+  const result = await callCloudFunction('student-data', { action: 'list', datasetId, classUuid, trashed });
   const payload = result?.result || result;
   if (payload?.ok !== true || !Array.isArray(payload.records)) return { ok: false, records: [], error: payload?.errors?.[0] || '云端学生数据返回格式无效' };
   return { ok: true, records: payload.records, error: '' };
