@@ -1,0 +1,7 @@
+function csvCell(value) { let text = String(value ?? ''); if (/^[=+\-@]/.test(text)) text = `'${text}`; return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
+
+export function decorateContacts(records = [], students = []) { const map = new Map(students.map((student) => [student.uuid, student])); return records.map((row) => { const student = map.get(row.studentUuid) || {}; return { ...row, studentName: student.name || '未知学生', schoolNo: student.schoolNo || student.school_no || '' }; }); }
+
+export function buildContactCsv(records = []) { const rows = [['学生', '学号', '日期', '方式', '事由', '结果/反馈', '备注'], ...records.map((row) => [row.studentName, row.schoolNo, row.date, row.method, row.topic, row.result, row.remark])]; return `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`; }
+
+export function exportContactCsvFile(records = [], { className = '班级' } = {}) { if (typeof wx === 'undefined' || !wx.env?.USER_DATA_PATH || typeof wx.shareFileMessage !== 'function') return Promise.reject(new Error('当前微信版本不支持文件分享')); const safeName = String(className || '班级').replace(/[\\/:*?"<>|]/g, '_'); const fileName = `沟通台账-${safeName}.csv`; const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`; return new Promise((resolve, reject) => wx.getFileSystemManager().writeFile({ filePath, data: buildContactCsv(records), encoding: 'utf8', success: () => wx.shareFileMessage({ filePath, fileName, success: () => resolve(filePath), fail: reject }), fail: reject })); }

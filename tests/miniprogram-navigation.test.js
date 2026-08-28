@@ -245,6 +245,11 @@ test('home-school contact management has a dedicated mobile record workflow', ()
   assert.match(page, /wx\.showModal/);
   assert.match(template, /新增沟通/);
   assert.match(template, /沟通结果/);
+  for (const label of ['按学生筛选', '按方式筛选', '关键词', '导出沟通台账 CSV']) assert.match(template, new RegExp(label));
+  assert.match(page, /allStudents/);
+  assert.match(page, /applyFilters/);
+  assert.match(page, /exportContactCsvFile/);
+  assert.doesNotMatch(template, /studentName\(/);
   assert.match(`${workbench}\n${moduleRegistry}`, /pages\/contacts\/index/);
 });
 

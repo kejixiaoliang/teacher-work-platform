@@ -70,6 +70,16 @@ test('duty writes enforce class membership and role uniqueness', () => {
   assert.match(source, /deleteDutyGroup/);
 });
 
+test('contact writes enforce class membership, method and content constraints', () => {
+  const source = require('node:fs').readFileSync(path.resolve('cloudfunctions/business-data/index.js'), 'utf8');
+  assert.match(source, /CONTACT_METHODS/);
+  assert.match(source, /CONTACT_INVALID/);
+  assert.match(source, /request\.collection === 'contacts'[\s\S]*STUDENT_NOT_IN_CLASS/);
+  assert.equal(fn.validDateKey('2026-02-28'), true);
+  assert.equal(fn.validDateKey('2026-02-30'), false);
+  assert.equal(fn.validDateKey('2026-2-8'), false);
+});
+
 test('assessment batch contract enforces rule linkage and diagnostic skips', () => {
   const source = require('node:fs').readFileSync(path.resolve('cloudfunctions/business-data/index.js'), 'utf8');
   assert.match(source, /request\.itemUuid/);

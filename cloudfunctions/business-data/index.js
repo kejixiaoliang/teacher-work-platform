@@ -4,6 +4,14 @@ const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulk
 const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName', 'categoryName', 'itemName', 'description', 'reason', 'action'];
 const LEADER_ROLES = ['班长', '副班长', '学习委员', '卫生委员', '体育委员', '文艺委员', '纪律委员', '生活委员', '宣传委员'];
 const SUBJECT_LEADER_ROLES = ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
+const CONTACT_METHODS = ['家访', '电话', '微信', '到校面谈', '其他'];
+
+function validDateKey(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
 
 function normalize(event = {}) {
   const collection = String(event.collection || '').trim();
@@ -399,6 +407,16 @@ async function main(event) {
     const result = await collection.add({ data: { ...sanitize(request.record), ...scope, classUuid: request.classUuid, studentUuid, role, groupNo: role === '值日生' ? groupNo : null, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
     return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
   }
+  if (request.action === 'create' && request.collection === 'contacts') {
+    if (!request.classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['沟通记录必须指定班级'] };
+    const studentUuid = String(request.record.studentUuid || '').trim(); const method = String(request.record.method || '').trim(); const date = String(request.record.date || '').trim(); const topic = String(request.record.topic || '').trim(); const contactResult = String(request.record.result || '').trim();
+    if (!studentUuid || !CONTACT_METHODS.includes(method) || !validDateKey(date) || (!topic && !contactResult)) return { ok: false, code: 'CONTACT_INVALID', errors: ['请选择学生和有效方式、日期，并填写事由或结果'] };
+    const student = await db.collection('students').where({ ...scope, classUuid: request.classUuid, uuid: studentUuid, deletedAt: null }).limit(1).get();
+    if (!student.data.length || student.data[0].status === '离校') return { ok: false, code: 'STUDENT_NOT_IN_CLASS', errors: ['学生不属于当前班级或已离校'] };
+    const uuid = crypto.randomUUID();
+    const result = await collection.add({ data: { ...sanitize(request.record), ...scope, classUuid: request.classUuid, studentUuid, method, date, topic, result: contactResult, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
+    return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
+  }
   if (request.action === 'create') {
     const uuid = crypto.randomUUID();
     const result = await collection.add({ data: { ...sanitize(request.record), ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
@@ -434,6 +452,17 @@ async function main(event) {
     await collection.doc(current._id).update({ data: { ...sanitize(request.record), studentUuid, role, groupNo: role === '值日生' ? groupNo : null, updatedAt: new Date().toISOString(), revision } });
     return { ok: true, action: 'update', uuid: request.uuid, revision };
   }
+  if (request.action === 'update' && request.collection === 'contacts') {
+    const foundContact = await collection.where({ ...scope, uuid: request.uuid, deletedAt: null }).limit(1).get();
+    if (!foundContact.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['沟通记录不存在'] };
+    const current = foundContact.data[0]; const studentUuid = String(request.record.studentUuid ?? current.studentUuid ?? '').trim(); const method = String(request.record.method ?? current.method ?? '').trim(); const date = String(request.record.date ?? current.date ?? '').trim(); const topic = String(request.record.topic ?? current.topic ?? '').trim(); const contactResult = String(request.record.result ?? current.result ?? '').trim();
+    if (!studentUuid || !CONTACT_METHODS.includes(method) || !validDateKey(date) || (!topic && !contactResult)) return { ok: false, code: 'CONTACT_INVALID', errors: ['请选择学生和有效方式、日期，并填写事由或结果'] };
+    const student = await db.collection('students').where({ ...scope, classUuid: current.classUuid, uuid: studentUuid, deletedAt: null }).limit(1).get();
+    if (!student.data.length || student.data[0].status === '离校') return { ok: false, code: 'STUDENT_NOT_IN_CLASS', errors: ['学生不属于当前班级或已离校'] };
+    const revision = (current.revision || 1) + 1;
+    await collection.doc(current._id).update({ data: { ...sanitize(request.record), studentUuid, method, date, topic, result: contactResult, classUuid: current.classUuid, updatedAt: now, revision } });
+    return { ok: true, action: 'update', uuid: request.uuid, revision };
+  }
   const found = await collection.where({ ...scope, uuid: request.uuid, deletedAt: null }).limit(1).get();
   if (!found.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['业务记录不存在'] };
   const row = found.data[0];
@@ -447,4 +476,4 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { COLLECTIONS, ACTIONS, LEADER_ROLES, SUBJECT_LEADER_ROLES, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, buildAssessmentStats, main };
+module.exports = { COLLECTIONS, ACTIONS, LEADER_ROLES, SUBJECT_LEADER_ROLES, CONTACT_METHODS, validDateKey, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, buildAssessmentStats, main };
