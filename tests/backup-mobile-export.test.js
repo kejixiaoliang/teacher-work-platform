@@ -20,6 +20,7 @@ test('backup export envelope removes cloud ownership fields and preserves stable
 
 test('mobile backup export is scoped, integrity protected and attachment explicit', () => {
   const source = fs.readFileSync(path.join(root, 'cloudfunctions/backup-data/index.js'), 'utf8');
+  const desktopBackup = fs.readFileSync(path.join(root, 'server/routes/backup.js'), 'utf8');
   const service = fs.readFileSync(path.join(root, 'miniprogram/services/backup-service.js'), 'utf8');
   const page = fs.readFileSync(path.join(root, 'miniprogram/pages/backup/index.js'), 'utf8');
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/backup/index.wxml'), 'utf8');
@@ -29,6 +30,8 @@ test('mobile backup export is scoped, integrity protected and attachment explici
   assert.match(source, /attachments: \{ included: false/);
   assert.match(source, /assessment/);
   assert.match(source, /attachIntegrity/);
+  assert.match(source, /CLASS_SCOPED/);
+  assert.match(source, /backupScope/);
   assert.match(service, /backup-data/);
   assert.match(service, /wx\.shareFileMessage/);
   assert.match(page, /wx\.showModal/);
@@ -39,10 +42,12 @@ test('mobile backup export is scoped, integrity protected and attachment explici
   assert.match(template, /不会自动发送/);
   assert.ok(app.pages.includes('pages/backup/index'));
   assert.match(settings, /openBackup/);
+  assert.match(desktopBackup, /pre-restore-/);
+  assert.match(desktopBackup, /await db\.backup\(snapFile\)/);
 });
 
 test('backup export rejects missing dataset and unsupported actions before any database read', () => {
   assert.deepEqual(backup.normalizeRequest({ action: 'export' }), { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] });
   assert.equal(backup.normalizeRequest({ action: 'import', datasetId: 'dataset-1' }).code, 'ACTION_NOT_ALLOWED');
-  assert.deepEqual(backup.normalizeRequest({ action: 'export', datasetId: ' dataset-1 ' }), { ok: true, action: 'export', datasetId: 'dataset-1' });
+  assert.deepEqual(backup.normalizeRequest({ action: 'export', datasetId: ' dataset-1 ', classUuid: 'class-1' }), { ok: true, action: 'export', datasetId: 'dataset-1', classUuid: 'class-1' });
 });

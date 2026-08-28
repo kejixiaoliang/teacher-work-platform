@@ -1,0 +1,10 @@
+{
+  "name": "teacher-work-excel-exchange",
+  "version": "0.8.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "wx-server-sdk": "latest"
+  }
+}

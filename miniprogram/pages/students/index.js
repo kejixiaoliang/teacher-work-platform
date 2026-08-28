@@ -1,5 +1,5 @@
 import { listStudentData, loadTeacherData, writeStudentData } from '../../services/teacher-data.js';
-import { copyStudentRoster } from '../../services/student-export-service.js';
+import { copyStudentRoster, exportStudentRosterXlsxFile } from '../../services/student-export-service.js';
 import {
   buildStudentImportRequest,
   chooseStudentRosterFile,
@@ -157,6 +157,15 @@ Page({
       this.setData({ loading: false });
       wx.showToast({ title: '名单已复制', icon: 'success' });
     } catch (error) { this.setData({ loading: false, error: error?.message || '导出学生名单失败' }); }
+  },
+
+  async exportStudentsXlsx() {
+    this.setData({ loading: true, error: '' });
+    try {
+      await exportStudentRosterXlsxFile(this.data.visibleStudents);
+      this.setData({ loading: false });
+      wx.showToast({ title: '学生 Excel 已生成', icon: 'success' });
+    } catch (error) { this.setData({ loading: false, error: error?.errMsg || error?.message || '导出学生 Excel 失败' }); }
   },
 
   async chooseImportFile() {

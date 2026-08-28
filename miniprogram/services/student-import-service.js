@@ -1,4 +1,6 @@
-const MAX_STUDENT_FILE_BYTES = 5 * 1024 * 1024;
+import { callCloudFunction } from './cloudbase.js';
+
+const MAX_STUDENT_FILE_BYTES = 8 * 1024 * 1024;
 
 const FIELD_ALIASES = {
   school_no: ['学号', '学生学号'],
@@ -182,11 +184,15 @@ function readFile(filePath) {
   }));
 }
 
+function readBase64(filePath) {
+  return new Promise((resolve, reject) => wx.getFileSystemManager().readFile({ filePath, encoding: 'base64', success: (result) => resolve(result.data), fail: reject }));
+}
+
 export function chooseStudentRosterFile() {
   return new Promise((resolve, reject) => wx.chooseMessageFile({
     count: 1,
     type: 'file',
-    extension: ['csv', 'json'],
+    extension: ['csv', 'json', 'xlsx'],
     success: (result) => {
       const file = result.tempFiles?.[0];
       if (!file) return reject(new Error('未选择文件'));
@@ -199,6 +205,14 @@ export function chooseStudentRosterFile() {
 
 export async function previewStudentRosterFile(file, existingStudents = []) {
   if (!file?.path) throw new Error('文件路径无效');
+  if (String(file.name || file.path).toLowerCase().endsWith('.xlsx')) {
+    const response = await callCloudFunction('excel-exchange', { action: 'parseStudents', contentBase64: await readBase64(file.path) });
+    const result = response?.result || response;
+    if (!result?.ok) throw new Error(result?.errors?.[0] || '读取 Excel 学生名单失败');
+    const rows = (result.rows || []).map((row) => ({ ...normalizeRecord(row, row._row), _error: row._error || '' }));
+    const checked = precheckStudentRows(rows, existingStudents);
+    return { format: 'xlsx', rows: checked.rows, fails: [...checked.fails, ...rows.filter((row) => row._error).map((row) => ({ row: row._row, name: row.name, reason: row._error }))], total: rows.length };
+  }
   const payload = await readFile(file.path);
   return parseStudentRosterText(payload, { fileName: file.name || file.path, existingStudents });
 }
@@ -214,7 +228,7 @@ export function buildStudentImportRequest({ datasetId, classUuid, fileName = '',
   return {
     action: 'import', datasetId: scopedDatasetId, classUuid: scopedClassUuid,
     fileName: String(fileName || '').trim() || '学生名单',
-    fileFormat: ['csv', 'json'].includes(fileFormat) ? fileFormat : 'unknown',
+    fileFormat: ['csv', 'json', 'xlsx'].includes(fileFormat) ? fileFormat : 'unknown',
     students: rows,
     precheckFailures: precheckFailures.map((failure) => ({
       row: Number(failure.row) || 0,
@@ -256,7 +270,7 @@ export function normalizeStudentImportHistory(response = {}) {
     records: response.records.map((record) => ({
       importBatchId: String(record.importBatchId || ''),
       fileName: String(record.sourceFileName || '学生名单'),
-      fileFormat: ['csv', 'json'].includes(record.sourceFormat) ? record.sourceFormat : 'unknown',
+      fileFormat: ['csv', 'json', 'xlsx'].includes(record.sourceFormat) ? record.sourceFormat : 'unknown',
       resultStatus: ['completed', 'partial', 'failed'].includes(record.resultStatus) ? record.resultStatus : 'completed',
       totalCount: Number(record.totalCount) || 0,
       successCount: Number(record.successCount) || 0,

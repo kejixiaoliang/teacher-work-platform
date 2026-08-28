@@ -2,8 +2,7 @@
   <view class="eyebrow">DATA / BACKUP</view>
   <view class="title">完整备份</view>
   <view class="card warning"><text class="section-title">敏感数据提醒</text><text class="body">备份包含学生、成绩、考勤、请假、表现量化和家校沟通等完整记录，请只保存到你控制的可信位置。</text></view>
-  <view class="card"><text class="section-title">导出与恢复</text><text class="body">导出先写入微信本地用户文件目录，不会自动发送。附件不会包含在小程序备份中；文档仅保留元数据。</text><button type="primary" loading="{{loading}}" bindtap="exportBackup">生成完整备份 JSON</button><button wx:if="{{filePath}}" bindtap="shareBackup">分享已生成的备份文件</button><button bindtap="openImport">从 JSON 恢复为新数据集</button></view>
+  <view class="card"><text class="section-title">导出与恢复</text><picker wx:if="{{classes.length}}" mode="selector" range="{{classes}}" range-key="name" value="{{classIndex}}" bindchange="selectClass"><view class="picker">备份范围：{{className || '请选择班级'}}</view></picker><text wx:else class="body">当前没有可选择的班级，将按整个数据集导出。</text><text class="body">导出先写入微信本地用户文件目录，不会自动发送。附件不会包含在小程序备份中；文档仅保留元数据。</text><button type="primary" loading="{{loading}}" bindtap="exportBackup">生成当前范围备份 JSON</button><button wx:if="{{filePath}}" bindtap="shareBackup">分享已生成的备份文件</button><button bindtap="openImport">从 JSON 恢复为新数据集</button></view>
   <view wx:if="{{fileName}}" class="card success"><text class="section-title">文件已生成</text><text class="body">{{fileName}}</text><text wx:if="{{counts}}" class="meta">已导出 {{counts.students || 0}} 名学生、{{counts.scores || 0}} 条成绩、{{counts.attendance || 0}} 条考勤记录</text></view>
   <view wx:if="{{error}}" class="error">{{error}}</view>
 </view>
-

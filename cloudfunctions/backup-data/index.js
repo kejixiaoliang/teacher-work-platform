@@ -20,6 +20,7 @@ const COLLECTION_MAP = {
 const ASSESSMENT_MAP = { categories: 'assessment_categories', items: 'assessment_items', records: 'assessment_records', revisions: 'assessment_revisions' };
 const COLLECTIONS = [...Object.keys(COLLECTION_MAP), 'assessment', 'settings'];
 const MAX_ROWS_PER_COLLECTION = 10000;
+const CLASS_SCOPED = new Set(['classes', 'students', 'studentHistory', 'seats', 'seatLayouts', 'documents', 'duties', 'exams', 'scores', 'attendance', 'studentRecords', 'leaves', 'contacts', 'followUpTasks', 'importBatches']);
 
 function canonicalize(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
@@ -66,9 +67,9 @@ async function getAll(query, max = MAX_ROWS_PER_COLLECTION) {
   return { rows, truncated: Array.isArray(probe.data) && probe.data.length > 0 };
 }
 
-async function readCollection(db, collectionName, scope) {
+async function readCollection(db, collectionName, scope, classUuid = '') {
   try {
-    return await getAll(db.collection(collectionName).where(scope));
+    return await getAll(db.collection(collectionName).where({ ...scope, ...(classUuid ? { classUuid } : {}) }));
   } catch (error) {
     if (/collection(?:\s+|.*)(?:not exist|does not exist|不存在)/i.test(String(error?.message || error))) return { rows: [], truncated: false };
     throw error;
@@ -87,8 +88,12 @@ async function main(event = {}) {
 
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId };
-  const entries = await Promise.all(Object.entries(COLLECTION_MAP).map(async ([name, collectionName]) => [name, await readCollection(db, collectionName, scope)]));
-  const assessmentEntries = await Promise.all(Object.entries(ASSESSMENT_MAP).map(async ([name, collectionName]) => [name, await readCollection(db, collectionName, scope)]));
+  if (request.classUuid) {
+    const classResult = await db.collection('classes').where({ ...scope, uuid: request.classUuid }).limit(1).get();
+    if (!classResult.data?.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['班级不存在或不属于当前数据集'] };
+  }
+  const entries = await Promise.all(Object.entries(COLLECTION_MAP).map(async ([name, collectionName]) => [name, await readCollection(db, collectionName, scope, request.classUuid && CLASS_SCOPED.has(name) ? request.classUuid : '')]));
+  const assessmentEntries = await Promise.all(Object.entries(ASSESSMENT_MAP).map(async ([name, collectionName]) => [name, await readCollection(db, collectionName, scope, request.classUuid && ['records', 'revisions'].includes(name) ? request.classUuid : '')]));
   const truncated = [...entries, ...assessmentEntries].filter(([, result]) => result.truncated).map(([name]) => name);
   if (truncated.length) return { ok: false, code: 'EXPORT_TOO_LARGE', errors: [`备份集合记录超过每集合 ${MAX_ROWS_PER_COLLECTION} 条上限：${truncated.join('、')}`] };
 
@@ -106,14 +111,16 @@ async function main(event = {}) {
     content,
     attachments: { included: false, omittedCount: content.documents.filter((row) => row.fileName || row.storedName).length },
   });
-  return { ok: true, action: 'export', datasetId, payload, counts: Object.fromEntries(COLLECTIONS.map((name) => [name, name === 'assessment' || name === 'settings' ? Object.values(content[name]).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0) : content[name].length])) };
+  return { ok: true, action: 'export', datasetId, ...(request.classUuid ? { classUuid: request.classUuid } : {}), backupScope: request.classUuid ? 'class' : 'dataset', payload, counts: Object.fromEntries(COLLECTIONS.map((name) => [name, name === 'assessment' || name === 'settings' ? Object.values(content[name]).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0) : content[name].length])) };
 }
 
 function normalizeRequest(event = {}) {
   if (event.action !== 'export') return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['当前仅支持完整备份导出'] };
   const datasetId = typeof event.datasetId === 'string' ? event.datasetId.trim() : '';
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  return { ok: true, action: 'export', datasetId };
+  const classUuid = typeof event.classUuid === 'string' ? event.classUuid.trim() : '';
+  if (classUuid && classUuid.length > 120) return { ok: false, code: 'CLASS_INVALID', errors: ['classUuid 无效'] };
+  return { ok: true, action: 'export', datasetId, classUuid };
 }
 
-module.exports = { COLLECTIONS, COLLECTION_MAP, ASSESSMENT_MAP, canonicalize, attachIntegrity, stableUuid, exportRow, getAll, normalizeRequest, main };
+module.exports = { COLLECTIONS, COLLECTION_MAP, ASSESSMENT_MAP, CLASS_SCOPED, canonicalize, attachIntegrity, stableUuid, exportRow, getAll, normalizeRequest, main };

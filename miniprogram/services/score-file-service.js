@@ -1,4 +1,6 @@
-const MAX_SCORE_FILE_BYTES = 5 * 1024 * 1024;
+import { callCloudFunction } from './cloudbase.js';
+
+const MAX_SCORE_FILE_BYTES = 8 * 1024 * 1024;
 
 function text(value) {
   return String(value ?? '').trim();
@@ -176,11 +178,15 @@ function readFile(filePath) {
   }));
 }
 
+function readBase64(filePath) {
+  return new Promise((resolve, reject) => wx.getFileSystemManager().readFile({ filePath, encoding: 'base64', success: (result) => resolve(result.data), fail: reject }));
+}
+
 export function chooseScoreExchangeFile() {
   return new Promise((resolve, reject) => wx.chooseMessageFile({
     count: 1,
     type: 'file',
-    extension: ['csv', 'json'],
+    extension: ['csv', 'json', 'xlsx'],
     success: (result) => {
       const file = result.tempFiles?.[0];
       if (!file) return reject(new Error('未选择文件'));
@@ -193,6 +199,12 @@ export function chooseScoreExchangeFile() {
 
 export async function previewScoreExchangeFile(file, options = {}) {
   if (!file?.path) throw new Error('文件路径无效');
+  if (String(file.name || file.path).toLowerCase().endsWith('.xlsx')) {
+    const response = await callCloudFunction('excel-exchange', { action: 'parseScores', contentBase64: await readBase64(file.path) });
+    const result = response?.result || response;
+    if (!result?.ok) throw new Error(result?.errors?.[0] || '读取 Excel 成绩失败');
+    return { format: 'xlsx', ...normalizeEntries(result.rows || [], options) };
+  }
   return parseScoreExchangeText(await readFile(file.path), { ...options, fileName: file.name || file.path });
 }
 
@@ -210,6 +222,23 @@ export function exportScoreCsvFile({ examName = '成绩表', subjects = [], rows
     success: () => wx.shareFileMessage({ filePath, fileName, success: () => resolve(filePath), fail: reject }),
     fail: reject,
   }));
+}
+
+function writeBase64(filePath, data) {
+  return new Promise((resolve, reject) => wx.getFileSystemManager().writeFile({ filePath, data, encoding: 'base64', success: () => resolve(filePath), fail: reject }));
+}
+
+export async function exportScoreXlsxFile({ examName = '成绩表', subjects = [], rows = [] } = {}) {
+  if (typeof wx === 'undefined' || !wx.env?.USER_DATA_PATH) throw new Error('当前微信版本不支持 Excel 文件导出');
+  const response = await callCloudFunction('excel-exchange', { action: 'exportScores', subjects, rows });
+  const result = response?.result || response;
+  if (!result?.ok || !result.fileBase64) throw new Error(result?.errors?.[0] || '导出成绩 Excel 失败');
+  const safeName = text(examName).replace(/[\\/:*?"<>|]/g, '_') || '成绩表';
+  const fileName = `成绩表-${safeName}.xlsx`;
+  const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
+  await writeBase64(filePath, result.fileBase64);
+  if (typeof wx.shareFileMessage !== 'function') return filePath;
+  return new Promise((resolve, reject) => wx.shareFileMessage({ filePath, fileName, success: () => resolve(filePath), fail: reject }));
 }
 
 export { MAX_SCORE_FILE_BYTES };

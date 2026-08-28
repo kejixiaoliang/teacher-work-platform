@@ -1,7 +1,7 @@
 <view class="page">
   <view class="eyebrow">班级资料</view>
   <view class="title">学生管理</view>
-  <view class="toolbar"><button wx:if="{{datasetId && !trashed}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="chooseImportFile">导入名单</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="toggleImportHistory">{{historyVisible ? '收起历史' : '导入历史'}}</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="exportStudents">复制名单 JSON</button><button size="mini" bindtap="toggleTrash">{{trashed ? '返回学生列表' : '回收站'}}</button></view>
+  <view class="toolbar"><button wx:if="{{datasetId && !trashed}}" class="create-button" size="mini" bindtap="openCreate">新增学生</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="chooseImportFile">导入名单</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="toggleImportHistory">{{historyVisible ? '收起历史' : '导入历史'}}</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="exportStudents">复制名单 JSON</button><button wx:if="{{datasetId && !trashed}}" size="mini" bindtap="exportStudentsXlsx">导出学生 Excel</button><button size="mini" bindtap="toggleTrash">{{trashed ? '返回学生列表' : '回收站'}}</button></view>
   <picker wx:if="{{classes.length}}" range="{{classes}}" range-key="name" bindchange="onClassChange"><view class="class-picker">当前班级：{{currentClassName}}</view></picker>
   <input class="search" placeholder="搜索姓名或学号" value="{{keyword}}" bindinput="onKeywordInput" />
   <view wx:if="{{importPreview}}" class="import-panel">
