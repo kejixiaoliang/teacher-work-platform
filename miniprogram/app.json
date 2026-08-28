@@ -13,6 +13,7 @@
     "pages/class-settings/index",
     "pages/guide/index",
     "pages/changelog/index",
+    "pages/about/index",
     "pages/sync/index",
     "pages/business/index",
     "pages/scores/index",

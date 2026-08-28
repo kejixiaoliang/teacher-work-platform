@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="eyebrow">ABOUT / PRIVACY</view>
+  <view class="title">联系作者与关于</view>
+  <view class="hero">
+    <view class="mark">TW</view>
+    <view class="hero-copy"><text class="product">{{product}}</text><text class="version">小程序目标版本 v{{version}} · 桌面稳定版 v{{desktopVersion}}</text></view>
+  </view>
+
+  <view class="card maker-card">
+    <text class="section-title">制作人</text>
+    <text class="maker">{{maker}}</text>
+    <text class="body">持续探索 AI、内容创作与实用工作流，希望把班主任日常管理中分散、繁琐的工作整理成一套轻量、清晰、可持续使用的工具。</text>
+    <button size="mini" bindtap="copyProjectUrl">复制项目地址</button>
+    <text class="url">{{projectUrl}}</text>
+  </view>
+
+  <view class="card">
+    <text class="section-title">数据与隐私</text>
+    <view wx:for="{{privacyItems}}" wx:key="*this" class="privacy-row"><text class="dot">{{index + 1}}</text><text class="body">{{item}}</text></view>
+  </view>
+
+  <view class="card license-card">
+    <text class="section-title">授权说明</text>
+    <text class="body">本项目源码可见，采用《教师工作台源代码可见与非商业使用许可协议》，不是 MIT、Apache-2.0 或 GPL。商业使用、销售、采购或大规模部署需另行取得书面授权。</text>
+  </view>
+</view>

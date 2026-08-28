@@ -137,6 +137,17 @@ test('workbench and settings retain existing client feature names', () => {
   assert.match(syncPage, /getSyncStatus/);
 });
 
+test('settings exposes a real about, contact and privacy page', () => {
+  const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/about/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/about/index.wxml'), 'utf8');
+  assert.ok(app.pages.includes('pages/about/index'));
+  assert.match(settings, /openAbout/);
+  assert.match(settings, /\/pages\/about\/index/);
+  for (const label of ['科技小亮', '0.8.0', '数据与隐私', 'CloudBase', '附件内容', '非商业使用许可', '复制项目地址']) assert.match(`${page}\n${template}`, new RegExp(label));
+  assert.match(page, /wx\.setClipboardData/);
+});
+
 test('settings exposes the server-authorized redeem code flow', () => {
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
   const redeem = fs.readFileSync(path.join(root, 'miniprogram/pages/redeem/index.js'), 'utf8');
