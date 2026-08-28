@@ -25,6 +25,7 @@
 | `follow_up_tasks` | `ownerId_1_datasetId_1_classUuid_1_status_1_dueDate_1` | `ownerId: 1, datasetId: 1, classUuid: 1, status: 1, dueDate: 1` | 否 | 按班级、状态和截止日期查询跟进事项 |
 | `license_codes` | `codeHash_1` | `codeHash: 1` | 否 | 兑换码哈希查询 |
 | `license_grants` | `ownerId_1_createdAt_-1` | `ownerId: 1, createdAt: -1` | 否 | 当前教师授权查询 |
+| `license_grants` | `codeUuid_1_unique` | `codeUuid: 1` | 是 | 防止同一兑换码在并发请求中被重复兑换（待部署） |
 | `admin_audit_logs` | `createdAt_-1` | `createdAt: -1` | 否 | 管理员审计记录 |
 
 索引不是权限控制。每条业务查询仍必须由云函数从微信上下文获取 `ownerId`，并同时限制 `datasetId`；客户端不能自行指定查询用户。

@@ -155,6 +155,9 @@ test('settings exposes the server-authorized redeem code flow', () => {
   assert.match(settings, /openRedeem/);
   assert.match(redeem, /action: 'redeem'/);
   assert.match(redeem, /callRedeemCode/);
+  assert.match(redeem, /CODE_USED|CODE_EXPIRED/);
+  assert.match(redeem, /history/);
+  assert.match(redeem, /statusError/);
 });
 
 test('workbench routes the remaining client modules to mobile operation views', () => {

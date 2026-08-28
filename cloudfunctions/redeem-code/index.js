@@ -10,6 +10,12 @@ function validUntil(planType, expiresAt, version) {
   if (planType !== 'permanent' && (!expiresAt || !Number.isFinite(Date.parse(expiresAt)))) return { ok: false, code: 'EXPIRY_REQUIRED', errors: ['授权有效期无效'] };
   return { ok: true };
 }
+function grantState(grant = {}, now = Date.now()) {
+  if (grant.revokedAt) return { state: 'revoked', stateLabel: '已撤销', active: false };
+  if (grant.expiresAt && (!Number.isFinite(Date.parse(grant.expiresAt)) || Date.parse(grant.expiresAt) <= now)) return { state: 'expired', stateLabel: '已过期', active: false };
+  return { state: 'active', stateLabel: '有效', active: true };
+}
+function presentGrant(grant, now = Date.now()) { return { ...grant, ...grantState(grant, now) }; }
 
 async function main(event = {}) {
   const cloudModule = await import('wx-server-sdk');
@@ -32,10 +38,12 @@ async function main(event = {}) {
     return { ok: true, grantId: result._id, planType: license.planType, version: license.version || '', expiresAt: license.expiresAt || null };
   }
   if (event.action === 'status') {
-    const result = await db.collection('license_grants').where({ ownerId: context.OPENID, revokedAt: null }).orderBy('createdAt', 'desc').limit(20).get();
-    return { ok: true, grants: result.data.filter((item) => !item.expiresAt || Date.parse(item.expiresAt) > Date.now()) };
+    const result = await db.collection('license_grants').where({ ownerId: context.OPENID }).orderBy('createdAt', 'desc').limit(50).get();
+    const history = result.data.map((item) => presentGrant(item));
+    const grants = history.filter((item) => item.active);
+    return { ok: true, grants, history, summary: { active: grants.length, expired: history.filter((item) => item.state === 'expired').length, revoked: history.filter((item) => item.state === 'revoked').length } };
   }
   return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['不支持该授权操作'] };
 }
 
-module.exports = { CODE_RE, PLAN_TYPES, hashCode, normalizeCode, validUntil, main };
+module.exports = { CODE_RE, PLAN_TYPES, hashCode, normalizeCode, validUntil, grantState, presentGrant, main };
