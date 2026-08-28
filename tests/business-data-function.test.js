@@ -22,6 +22,7 @@ test('business data keeps existing client modules in a server-scoped whitelist',
   assert.equal(fn.normalize({ collection: 'assessment_records', action: 'restore', datasetId: 'd1', uuid: 'r1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'seat_layouts', action: 'layoutHistory', datasetId: 'd1', classUuid: 'c1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'seat_layouts', action: 'layoutSave', datasetId: 'd1', classUuid: 'c1', layout: { rows: 2, cols: 2, grid: [] } }).ok, true);
+  assert.equal(fn.normalize({ collection: 'seats', action: 'create', datasetId: 'd1', record: { row: 0, col: 0 } }).code, 'CLASS_REQUIRED');
   assert.equal(fn.normalize({ collection: 'users', action: 'query', datasetId: 'd1' }).code, 'COLLECTION_NOT_ALLOWED');
 });
 
@@ -31,6 +32,28 @@ test('business data strips client ownership metadata before cloud writes', () =>
   assert.equal(value.datasetId, undefined);
   assert.equal(value.title, '家长沟通');
   assert.equal(value.score, 98);
+});
+
+test('seat layout snapshots preserve optional layout rules with bounded values', () => {
+  assert.deepEqual(fn.normalizeLayoutSnapshot({
+    rows: 4, cols: 6, aisleMode: 2, podiumLabel: '  主讲台  ', remark: '  月度轮换  ',
+    autoOpts: { nearVision: true, gender: false, peerHelp: true, forged: true },
+    grid: [{ row: 0, col: 0, studentUuid: 's1', locked: true, ownerId: 'forged' }],
+  }), {
+    rows: 4, cols: 6, aisleMode: 2, podiumLabel: '主讲台', remark: '月度轮换',
+    autoOpts: { nearVision: true, gender: false, peerHelp: true },
+    grid: [{ row: 0, col: 0, studentUuid: 's1', locked: true }],
+  });
+  assert.equal(fn.normalizeLayoutSnapshot({ rows: 0, cols: 6, grid: [] }), null);
+  assert.equal(fn.normalizeLayoutSnapshot({ rows: 4, cols: 6, aisleMode: 9, grid: [] }), null);
+});
+
+test('seat writes validate class ownership and persist the class scope', () => {
+  const source = require('node:fs').readFileSync(path.resolve('cloudfunctions/business-data/index.js'), 'utf8');
+  assert.match(source, /request\.collection === 'seats'[\s\S]*CLASS_NOT_FOUND/);
+  assert.match(source, /classUuid: request\.classUuid/);
+  assert.match(source, /SEAT_POSITION_INVALID/);
+  assert.match(source, /STUDENT_NOT_IN_CLASS/);
 });
 
 test('assessment batch contract enforces rule linkage and diagnostic skips', () => {

@@ -15,6 +15,13 @@ test('class data rejects missing identity and invalid layouts', () => {
   assert.equal(normalize({ action: 'query' }).code, 'DATASET_REQUIRED');
   assert.equal(normalize({ action: 'update', datasetId: 'dataset-1', class: { name: '1班' } }).code, 'UUID_REQUIRED');
   assert.equal(normalize({ action: 'create', datasetId: 'dataset-1', class: { name: '1班', seatRows: 0, seatCols: 8 } }).code, 'SEAT_LAYOUT_INVALID');
+  assert.equal(normalize({ action: 'create', datasetId: 'dataset-1', class: { name: '1班', aisleMode: 3 } }).code, 'AISLE_MODE_INVALID');
+});
+
+test('class data preserves all desktop aisle modes', () => {
+  for (const aisleMode of [0, 1, 2]) {
+    assert.equal(normalize({ action: 'create', datasetId: 'dataset-1', class: { name: '1班', aisleMode } }).fields.aisleMode, aisleMode);
+  }
 });
 
 test('class settings route and service are registered', async () => {

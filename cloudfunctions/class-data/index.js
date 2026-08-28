@@ -11,7 +11,9 @@ function normalize(event = {}) {
   if (!name || name.length > 120) return { ok: false, code: 'NAME_REQUIRED', errors: ['班级名称不能为空且不能超过 120 个字符'] };
   const seatRows = Number(input.seatRows ?? input.seat_rows ?? 6); const seatCols = Number(input.seatCols ?? input.seat_cols ?? 8);
   if (!Number.isInteger(seatRows) || seatRows < 1 || seatRows > 20 || !Number.isInteger(seatCols) || seatCols < 1 || seatCols > 20) return { ok: false, code: 'SEAT_LAYOUT_INVALID', errors: ['座位行列应为 1 至 20 的整数'] };
-  return { ok: true, action, datasetId, uuid, fields: { name, academicYear: String(input.academicYear ?? input.academic_year ?? '').trim(), term: String(input.term || '').trim(), seatRows, seatCols, aisleMode: Number(input.aisleMode ?? input.aisle_mode ?? 1) ? 1 : 0, headTeacher: String(input.headTeacher ?? input.head_teacher ?? '').trim(), remark: String(input.remark || '').trim() } };
+  const aisleMode = Number(input.aisleMode ?? input.aisle_mode ?? 1);
+  if (![0, 1, 2].includes(aisleMode)) return { ok: false, code: 'AISLE_MODE_INVALID', errors: ['过道模式应为均分、中间走道或双走道'] };
+  return { ok: true, action, datasetId, uuid, fields: { name, academicYear: String(input.academicYear ?? input.academic_year ?? '').trim(), term: String(input.term || '').trim(), seatRows, seatCols, aisleMode, headTeacher: String(input.headTeacher ?? input.head_teacher ?? '').trim(), remark: String(input.remark || '').trim() } };
 }
 function sanitize(fields = {}) { const result = {}; for (const key of TEXT_FIELDS) if (fields[key] !== undefined) result[key] = String(fields[key]).trim().slice(0, 500); for (const key of ['seatRows', 'seatCols', 'aisleMode']) if (Number.isFinite(Number(fields[key]))) result[key] = Number(fields[key]); return result; }
 async function main(event) {

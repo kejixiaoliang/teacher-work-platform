@@ -188,6 +188,10 @@ test('seat management has a mobile grid with placement and lock actions', () => 
   assert.match(page, /save/);
   assert.match(template, /grid/);
   assert.match(template, /安排学生/);
+  for (const label of ['行数', '列数', '均分', '中间走道', '双走道', '讲台', '座位备注']) assert.match(template, new RegExp(label));
+  assert.match(page, /allStudents/);
+  assert.match(page, /callClassData/);
+  assert.match(page, /resizeGrid/);
 });
 
 test('duty management has a dedicated grouping and weekday workflow', () => {

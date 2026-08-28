@@ -13,6 +13,7 @@ function normalize(event = {}) {
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
   if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
+  if (action === 'create' && collection === 'seats' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['座位保存必须指定班级'] };
   if (action === 'bulkSave' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['成绩保存必须指定班级'] };
   if (action === 'summary' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['数据分析必须指定班级'] };
   return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
@@ -121,6 +122,27 @@ function sanitize(record) {
   return result;
 }
 
+function normalizeLayoutSnapshot(layout = {}) {
+  if (!layout || !Array.isArray(layout.grid)) return null;
+  const rows = Number(layout.rows); const cols = Number(layout.cols);
+  const aisleMode = Number(layout.aisleMode ?? 1);
+  if (!Number.isInteger(rows) || rows < 1 || rows > 20 || !Number.isInteger(cols) || cols < 1 || cols > 20 || ![0, 1, 2].includes(aisleMode)) return null;
+  const grid = layout.grid.slice(0, Math.min(500, rows * cols)).map((seat) => ({
+    row: Number(seat?.row), col: Number(seat?.col), studentUuid: String(seat?.studentUuid || '').slice(0, 120), locked: seat?.locked === true,
+  })).filter((seat) => Number.isInteger(seat.row) && seat.row >= 0 && seat.row < rows && Number.isInteger(seat.col) && seat.col >= 0 && seat.col < cols);
+  return {
+    rows, cols, aisleMode,
+    podiumLabel: String(layout.podiumLabel || '讲台').trim().slice(0, 40) || '讲台',
+    remark: String(layout.remark || '').trim().slice(0, 500),
+    autoOpts: {
+      nearVision: layout.autoOpts?.nearVision !== false,
+      gender: layout.autoOpts?.gender === true,
+      peerHelp: layout.autoOpts?.peerHelp === true,
+    },
+    grid,
+  };
+}
+
 async function main(event) {
   const cloudModule = await import('wx-server-sdk');
   const cloud = cloudModule.default || cloudModule;
@@ -137,9 +159,12 @@ async function main(event) {
     return { ok: true, records: result.data };
   }
   if (request.action === 'layoutSave') {
-    if (request.collection !== 'seat_layouts' || !request.classUuid || !request.layout || !Array.isArray(request.layout.grid)) return { ok: false, code: 'LAYOUT_INVALID', errors: ['布局快照参数无效'] };
+    const layout = normalizeLayoutSnapshot(request.layout);
+    if (request.collection !== 'seat_layouts' || !request.classUuid || !layout) return { ok: false, code: 'LAYOUT_INVALID', errors: ['布局快照参数无效'] };
+    const classResult = await db.collection('classes').where({ ...scope, uuid: request.classUuid, deletedAt: null }).limit(1).get();
+    if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['班级不存在或不属于当前数据集'] };
     const now = new Date().toISOString();
-    const result = await db.collection('seat_layouts').add({ data: { ...scope, classUuid: request.classUuid, rows: Number(request.layout.rows) || 0, cols: Number(request.layout.cols) || 0, grid: request.layout.grid.slice(0, 500), savedAt: now, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, uuid: crypto.randomUUID(), source: 'miniprogram' } });
+    const result = await db.collection('seat_layouts').add({ data: { ...scope, classUuid: request.classUuid, ...layout, savedAt: now, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, uuid: crypto.randomUUID(), source: 'miniprogram' } });
     return { ok: true, action: 'layoutSave', cloudId: result._id };
   }
   if (request.action === 'history') {
@@ -277,9 +302,24 @@ async function main(event) {
     return { ok: true, records: result.data };
   }
   const now = new Date().toISOString();
+  if (request.action === 'create' && request.collection === 'seats') {
+    const classResult = await db.collection('classes').where({ ...scope, uuid: request.classUuid, deletedAt: null }).limit(1).get();
+    if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['班级不存在或不属于当前数据集'] };
+    const cls = classResult.data[0]; const row = Number(request.record.row); const col = Number(request.record.col);
+    const rows = Number(cls.seatRows ?? cls.seat_rows ?? 6); const cols = Number(cls.seatCols ?? cls.seat_cols ?? 8);
+    if (!Number.isInteger(row) || row < 0 || row >= rows || !Number.isInteger(col) || col < 0 || col >= cols) return { ok: false, code: 'SEAT_POSITION_INVALID', errors: ['座位位置超出当前班级布局'] };
+    const studentUuid = String(request.record.studentUuid || '').trim();
+    if (studentUuid) {
+      const studentResult = await db.collection('students').where({ ...scope, classUuid: request.classUuid, uuid: studentUuid, deletedAt: null }).limit(1).get();
+      if (!studentResult.data.length || studentResult.data[0].status === '离校') return { ok: false, code: 'STUDENT_NOT_IN_CLASS', errors: ['学生不属于当前班级或已离校'] };
+    }
+    const uuid = crypto.randomUUID();
+    const result = await collection.add({ data: { ...sanitize(request.record), ...scope, classUuid: request.classUuid, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
+    return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
+  }
   if (request.action === 'create') {
     const uuid = crypto.randomUUID();
-    const result = await collection.add({ data: { ...sanitize(request.record), ...scope, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
+    const result = await collection.add({ data: { ...sanitize(request.record), ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
     return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
   }
   if ((request.action === 'void' || request.action === 'restore') && request.collection === 'assessment_records') {
@@ -306,4 +346,4 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, getAllRecords, buildAnalyticsSummary, main };
+module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, main };

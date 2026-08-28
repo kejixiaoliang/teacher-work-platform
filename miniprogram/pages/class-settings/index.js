@@ -8,6 +8,7 @@ Page({
   onInput(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: event.detail.value }); },
   onNumber(event) { this.setData({ [`form.${event.currentTarget.dataset.field}`]: Number(event.detail.value) }); },
   onTermChange(event) { this.setData({ 'form.term': ['上', '下'][Number(event.detail.value)] || '上' }); },
+  onAisleChange(event) { this.setData({ 'form.aisleMode': Number(event.detail.value) }); },
   openCreate() { this.setData({ editingUuid: '', form: blank() }); },
   edit(event) { const row = this.data.records.find((item) => item.uuid === event.currentTarget.dataset.uuid); if (row) this.setData({ editingUuid: row.uuid, form: { ...blank(), ...row } }); },
   cancel() { this.setData({ editingUuid: '', form: blank() }); },
