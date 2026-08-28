@@ -1,7 +1,9 @@
 const crypto = require('node:crypto');
 const COLLECTIONS = new Set(['seats', 'seat_layouts', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records', 'assessment_categories', 'assessment_items', 'assessment_revisions']);
-const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'assessmentStats', 'void', 'restore', 'layoutSave', 'layoutHistory']);
+const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'renameDutyGroup', 'deleteDutyGroup', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'assessmentStats', 'void', 'restore', 'layoutSave', 'layoutHistory']);
 const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName', 'categoryName', 'itemName', 'description', 'reason', 'action'];
+const LEADER_ROLES = ['班长', '副班长', '学习委员', '卫生委员', '体育委员', '文艺委员', '纪律委员', '生活委员', '宣传委员'];
+const SUBJECT_LEADER_ROLES = ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
 
 function normalize(event = {}) {
   const collection = String(event.collection || '').trim();
@@ -11,13 +13,13 @@ function normalize(event = {}) {
   if (!COLLECTIONS.has(collection)) return { ok: false, code: 'COLLECTION_NOT_ALLOWED', errors: ['业务集合不在白名单中'] };
   if (!ACTIONS.has(action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['业务操作不支持'] };
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'assessmentStats', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
+  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'renameDutyGroup', 'deleteDutyGroup', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'assessmentStats', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
   if (action === 'create' && collection === 'seats' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['座位保存必须指定班级'] };
   if (action === 'bulkSave' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['成绩保存必须指定班级'] };
   if (action === 'summary' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['数据分析必须指定班级'] };
   if (action === 'assessmentStats' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['表现统计必须指定班级'] };
-  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), period: String(event.period || 'monthly').trim(), academicYear: String(event.academicYear || '').trim(), term: String(event.term || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
+  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), period: String(event.period || 'monthly').trim(), academicYear: String(event.academicYear || '').trim(), term: String(event.term || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), targetGroupNo: Number(event.targetGroupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
 }
 
 function numeric(value) {
@@ -256,14 +258,26 @@ async function main(event) {
     const rows = request.month ? result.data.filter((row) => String(row.date || '').startsWith(request.month)) : result.data;
     return { ok: true, total: rows.length, students: new Set(rows.map((row) => row.studentUuid).filter(Boolean)).size, visits: rows.filter((row) => row.method === '家访').length, phones: rows.filter((row) => row.method === '电话').length };
   }
-  if (['autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders'].includes(request.action) && request.collection !== 'duties') return { ok: false, code: 'DUTY_ACTION_INVALID', errors: ['值日操作只能用于 duties 集合'] };
-  if (['autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders'].includes(request.action) && !request.classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['请先选择班级'] };
+  if (['autoGroup', 'groupDays', 'renameDutyGroup', 'deleteDutyGroup', 'presetLeaders', 'presetSubjectLeaders'].includes(request.action) && request.collection !== 'duties') return { ok: false, code: 'DUTY_ACTION_INVALID', errors: ['值日操作只能用于 duties 集合'] };
+  if (['autoGroup', 'groupDays', 'renameDutyGroup', 'deleteDutyGroup', 'presetLeaders', 'presetSubjectLeaders'].includes(request.action) && !request.classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['请先选择班级'] };
   if (request.action === 'groupDays') {
     if (!Number.isInteger(request.groupNo) || request.groupNo < 1 || request.groupNo > 20 || (request.groupDays && !/^[1-7](,[1-7])*$/.test(request.groupDays))) return { ok: false, code: 'DUTY_DAYS_INVALID', errors: ['组号或星期格式无效'] };
     const rows = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, role: '值日生', groupNo: request.groupNo, deletedAt: null }).limit(100).get();
     if (!rows.data.length) return { ok: false, code: 'DUTY_GROUP_NOT_FOUND', errors: ['值日组不存在'] };
     for (const row of rows.data) await db.collection('duties').doc(row._id).update({ data: { groupDays: request.groupDays, updatedAt: new Date().toISOString(), revision: (row.revision || 1) + 1 } });
     return { ok: true, action: 'groupDays', count: rows.data.length };
+  }
+  if (request.action === 'renameDutyGroup' || request.action === 'deleteDutyGroup') {
+    if (!Number.isInteger(request.groupNo) || request.groupNo < 1 || request.groupNo > 20) return { ok: false, code: 'DUTY_GROUP_INVALID', errors: ['值日组号应为 1 至 20'] };
+    const rows = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, role: '值日生', groupNo: request.groupNo, deletedAt: null }).limit(500).get();
+    if (!rows.data.length) return { ok: false, code: 'DUTY_GROUP_NOT_FOUND', errors: ['值日组不存在'] };
+    const now = new Date().toISOString();
+    if (request.action === 'deleteDutyGroup') { for (const row of rows.data) await db.collection('duties').doc(row._id).update({ data: { deletedAt: now, updatedAt: now, revision: (row.revision || 1) + 1 } }); return { ok: true, action: 'deleteDutyGroup', count: rows.data.length }; }
+    if (!Number.isInteger(request.targetGroupNo) || request.targetGroupNo < 1 || request.targetGroupNo > 20) return { ok: false, code: 'DUTY_GROUP_INVALID', errors: ['新组号应为 1 至 20'] };
+    const target = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, role: '值日生', groupNo: request.targetGroupNo, deletedAt: null }).limit(1).get();
+    if (target.data.length) return { ok: false, code: 'DUTY_GROUP_CONFLICT', errors: ['新组号已经存在'] };
+    for (const row of rows.data) await db.collection('duties').doc(row._id).update({ data: { groupNo: request.targetGroupNo, updatedAt: now, revision: (row.revision || 1) + 1 } });
+    return { ok: true, action: 'renameDutyGroup', count: rows.data.length };
   }
   if (request.action === 'autoGroup') {
     const n = Math.max(1, Math.min(15, Number.isInteger(request.groupCount) ? request.groupCount : 4));
@@ -277,10 +291,10 @@ async function main(event) {
     return { ok: true, action: 'autoGroup', count: students.data.length, groupCount: n, groups };
   }
   if (request.action === 'presetLeaders' || request.action === 'presetSubjectLeaders') {
-    const roles = request.action === 'presetLeaders' ? ['班长', '副班长', '学习委员', '卫生委员', '体育委员', '文艺委员', '纪律委员', '生活委员', '宣传委员'] : ['语文课代表', '数学课代表', '英语课代表', '物理课代表', '化学课代表', '生物课代表', '政治课代表', '历史课代表', '地理课代表'];
+    const roles = request.action === 'presetLeaders' ? LEADER_ROLES : SUBJECT_LEADER_ROLES;
     const existing = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, deletedAt: null }).limit(500).get();
     const existingRoles = new Set(existing.data.map((row) => row.role));
-    const held = new Set(existing.data.filter((row) => row.role !== '值日生').map((row) => row.studentUuid));
+    const held = new Set(existing.data.filter((row) => LEADER_ROLES.includes(row.role)).map((row) => row.studentUuid));
     const students = await db.collection('students').where({ ...scope, classUuid: request.classUuid, status: '在读', deletedAt: null }).orderBy('schoolNo', 'asc').limit(500).get();
     const added = []; let cursor = 0; const now = new Date().toISOString();
     for (const role of roles) { if (existingRoles.has(role)) continue; let student = null; for (; cursor < students.data.length; cursor += 1) { const candidate = students.data[cursor]; if (request.action === 'presetSubjectLeaders' || !held.has(candidate.uuid)) { student = candidate; cursor += 1; break; } } if (!student) break; await db.collection('duties').add({ data: { ...scope, classUuid: request.classUuid, studentUuid: student.uuid, role, groupNo: null, groupDays: '', remark: '', uuid: crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } }); held.add(student.uuid); added.push({ role, name: student.name || '未命名学生' }); }
@@ -362,6 +376,29 @@ async function main(event) {
     const result = await collection.add({ data: { ...sanitize(request.record), ...scope, classUuid: request.classUuid, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
     return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
   }
+  if (request.action === 'create' && request.collection === 'duties') {
+    if (!request.classUuid) return { ok: false, code: 'CLASS_REQUIRED', errors: ['职务保存必须指定班级'] };
+    const studentUuid = String(request.record.studentUuid || '').trim(); const role = String(request.record.role || '').trim(); const groupNo = Number(request.record.groupNo);
+    if (!studentUuid || !role || role.length > 80) return { ok: false, code: 'DUTY_INVALID', errors: ['学生和职务不能为空'] };
+    if (role !== '值日生' && !LEADER_ROLES.includes(role) && !SUBJECT_LEADER_ROLES.includes(role)) return { ok: false, code: 'DUTY_ROLE_INVALID', errors: ['职务或科目不在允许范围内'] };
+    const studentResult = await db.collection('students').where({ ...scope, classUuid: request.classUuid, uuid: studentUuid, deletedAt: null }).limit(1).get();
+    if (!studentResult.data.length || studentResult.data[0].status === '离校') return { ok: false, code: 'STUDENT_NOT_IN_CLASS', errors: ['学生不属于当前班级或已离校'] };
+    if (role === '值日生') {
+      if (!Number.isInteger(groupNo) || groupNo < 1 || groupNo > 20) return { ok: false, code: 'DUTY_GROUP_INVALID', errors: ['值日组号应为 1 至 20'] };
+      const duplicate = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, studentUuid, role: '值日生', deletedAt: null }).limit(1).get();
+      if (duplicate.data.length) return { ok: false, code: 'DUTY_CONFLICT', errors: [`${studentResult.data[0].name || '该学生'} 已在其他值日组`] };
+    } else {
+      const duplicate = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, role, deletedAt: null }).limit(1).get();
+      if (duplicate.data.length) return { ok: false, code: 'DUTY_CONFLICT', errors: [`「${role}」已由其他学生担任`] };
+      if (LEADER_ROLES.includes(role)) {
+        const heldRoles = await db.collection('duties').where({ ...scope, classUuid: request.classUuid, studentUuid, deletedAt: null }).limit(100).get();
+        if (heldRoles.data.some((row) => LEADER_ROLES.includes(row.role))) return { ok: false, code: 'DUTY_CONFLICT', errors: [`${studentResult.data[0].name || '该学生'} 已担任其他班委职务`] };
+      }
+    }
+    const uuid = crypto.randomUUID(); const now = new Date().toISOString();
+    const result = await collection.add({ data: { ...sanitize(request.record), ...scope, classUuid: request.classUuid, studentUuid, role, groupNo: role === '值日生' ? groupNo : null, uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
+    return { ok: true, action: 'create', uuid, cloudId: result._id, revision: 1 };
+  }
   if (request.action === 'create') {
     const uuid = crypto.randomUUID();
     const result = await collection.add({ data: { ...sanitize(request.record), ...scope, ...(request.classUuid ? { classUuid: request.classUuid } : {}), uuid, createdAt: now, updatedAt: now, deletedAt: null, revision: 1, source: 'miniprogram' } });
@@ -378,6 +415,25 @@ async function main(event) {
     await collection.doc(row._id).update({ data: { status: nextStatus, deletedAt: request.action === 'void' ? now : null, updatedAt: now, revision: (row.revision || 1) + 1 } });
     return { ok: true, action: request.action, uuid: request.uuid };
   }
+  if (request.action === 'update' && request.collection === 'duties') {
+    const foundDuty = await collection.where({ ...scope, uuid: request.uuid, deletedAt: null }).limit(1).get();
+    if (!foundDuty.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['职务记录不存在'] };
+    const current = foundDuty.data[0]; const studentUuid = String(request.record.studentUuid ?? current.studentUuid ?? '').trim(); const role = String(request.record.role ?? current.role ?? '').trim(); const groupNo = Number(request.record.groupNo ?? current.groupNo);
+    if (role !== '值日生' && !LEADER_ROLES.includes(role) && !SUBJECT_LEADER_ROLES.includes(role)) return { ok: false, code: 'DUTY_ROLE_INVALID', errors: ['职务或科目不在允许范围内'] };
+    const studentResult = await db.collection('students').where({ ...scope, classUuid: current.classUuid, uuid: studentUuid, deletedAt: null }).limit(1).get();
+    if (!studentResult.data.length || studentResult.data[0].status === '离校') return { ok: false, code: 'STUDENT_NOT_IN_CLASS', errors: ['学生不属于当前班级或已离校'] };
+    if (role === '值日生' && (!Number.isInteger(groupNo) || groupNo < 1 || groupNo > 20)) return { ok: false, code: 'DUTY_GROUP_INVALID', errors: ['值日组号应为 1 至 20'] };
+    const duplicateQuery = role === '值日生' ? { ...scope, classUuid: current.classUuid, studentUuid, role, deletedAt: null } : { ...scope, classUuid: current.classUuid, role, deletedAt: null };
+    const duplicates = await db.collection('duties').where(duplicateQuery).limit(100).get();
+    if (duplicates.data.some((row) => row.uuid !== request.uuid)) return { ok: false, code: 'DUTY_CONFLICT', errors: [role === '值日生' ? '该学生已在其他值日组' : `「${role}」已由其他学生担任`] };
+    if (LEADER_ROLES.includes(role)) {
+      const heldRoles = await db.collection('duties').where({ ...scope, classUuid: current.classUuid, studentUuid, deletedAt: null }).limit(100).get();
+      if (heldRoles.data.some((row) => row.uuid !== request.uuid && LEADER_ROLES.includes(row.role))) return { ok: false, code: 'DUTY_CONFLICT', errors: [`${studentResult.data[0].name || '该学生'} 已担任其他班委职务`] };
+    }
+    const revision = (current.revision || 1) + 1;
+    await collection.doc(current._id).update({ data: { ...sanitize(request.record), studentUuid, role, groupNo: role === '值日生' ? groupNo : null, updatedAt: new Date().toISOString(), revision } });
+    return { ok: true, action: 'update', uuid: request.uuid, revision };
+  }
   const found = await collection.where({ ...scope, uuid: request.uuid, deletedAt: null }).limit(1).get();
   if (!found.data.length) return { ok: false, code: 'RECORD_NOT_FOUND', errors: ['业务记录不存在'] };
   const row = found.data[0];
@@ -391,4 +447,4 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, buildAssessmentStats, main };
+module.exports = { COLLECTIONS, ACTIONS, LEADER_ROLES, SUBJECT_LEADER_ROLES, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, buildAssessmentStats, main };

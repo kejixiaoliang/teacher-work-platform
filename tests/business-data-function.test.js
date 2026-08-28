@@ -12,7 +12,7 @@ test('business data keeps existing client modules in a server-scoped whitelist',
   assert.equal(fn.normalize({ collection: 'exams', action: 'query', datasetId: 'd1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'scores', action: 'bulkSave', datasetId: 'd1', classUuid: 'c1', examUuid: 'e1', rows: [{ studentUuid: 's1', subject: '语文', score: 90 }] }).ok, true);
   assert.equal(fn.normalize({ collection: 'scores', action: 'bulkSave', datasetId: 'd1', examUuid: 'e1', rows: [{ studentUuid: 's1', subject: '语文', score: 90 }] }).code, 'CLASS_REQUIRED');
-  for (const action of ['autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders']) {
+  for (const action of ['autoGroup', 'groupDays', 'renameDutyGroup', 'deleteDutyGroup', 'presetLeaders', 'presetSubjectLeaders']) {
     assert.equal(fn.normalize({ collection: 'duties', action, datasetId: 'd1', classUuid: 'c1' }).ok, true);
   }
   assert.equal(fn.normalize({ collection: 'contacts', action: 'contactStats', datasetId: 'd1', classUuid: 'c1', month: '2026-08' }).ok, true);
@@ -56,6 +56,18 @@ test('seat writes validate class ownership and persist the class scope', () => {
   assert.match(source, /classUuid: request\.classUuid/);
   assert.match(source, /SEAT_POSITION_INVALID/);
   assert.match(source, /STUDENT_NOT_IN_CLASS/);
+});
+
+test('duty writes enforce class membership and role uniqueness', () => {
+  const source = require('node:fs').readFileSync(path.resolve('cloudfunctions/business-data/index.js'), 'utf8');
+  assert.match(source, /request\.collection === 'duties'[\s\S]*DUTY_CONFLICT/);
+  assert.match(source, /STUDENT_NOT_IN_CLASS/);
+  assert.match(source, /DUTY_ROLE_INVALID/);
+  assert.match(source, /LEADER_ROLES/);
+  assert.match(source, /SUBJECT_LEADER_ROLES/);
+  assert.match(source, /已担任其他班委职务/);
+  assert.match(source, /renameDutyGroup/);
+  assert.match(source, /deleteDutyGroup/);
 });
 
 test('assessment batch contract enforces rule linkage and diagnostic skips', () => {

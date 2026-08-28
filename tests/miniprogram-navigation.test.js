@@ -204,7 +204,28 @@ test('duty management has a dedicated grouping and weekday workflow', () => {
   assert.match(template, /一键自动分组/);
   assert.match(template, /data-action="presetLeaders"/);
   assert.match(template, /设置值日星期/);
+  for (const label of ['新增组', '修改组号', '删除整组', '完整轮换表', '导出值日表 CSV']) assert.match(template, new RegExp(label));
+  assert.match(page, /renameDutyGroup/);
+  assert.match(page, /deleteDutyGroup/);
+  assert.match(page, /allStudents/);
   assert.match(`${workbench}\n${moduleRegistry}`, /pages\/duties\/index/);
+});
+
+test('leader pages enforce class-scoped role assignment feedback', () => {
+  for (const route of ['leaders', 'subject-leaders']) {
+    const page = fs.readFileSync(path.join(root, `miniprogram/pages/${route}/index.js`), 'utf8');
+    const template = fs.readFileSync(path.join(root, `miniprogram/pages/${route}/index.wxml`), 'utf8');
+    assert.match(page, /allStudents/);
+    assert.match(page, /selectClass/);
+    assert.match(page, /studentName/);
+    assert.doesNotMatch(template, /studentName\(/);
+    assert.match(template, /班级：/);
+    assert.match(template, /冲突/);
+  }
+  const leaders = fs.readFileSync(path.join(root, 'miniprogram/pages/leaders/index.js'), 'utf8');
+  const subjectLeaders = fs.readFileSync(path.join(root, 'miniprogram/pages/subject-leaders/index.js'), 'utf8');
+  assert.match(leaders, /每名学生只能担任一个班委职务/);
+  assert.match(subjectLeaders, /同一科目只能设置一名课代表/);
 });
 
 test('home-school contact management has a dedicated mobile record workflow', () => {
