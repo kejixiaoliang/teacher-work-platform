@@ -31,16 +31,16 @@
   ],
   "window": {
     "navigationBarTitleText": "教师工作台",
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarBackgroundColor": "#fff4dc",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f6f7fb"
+    "backgroundColor": "#fff4dc"
   },
   "subPackages": [],
   "tabBar": {
-    "color": "#667085",
-    "selectedColor": "#b54708",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "color": "#685f55",
+    "selectedColor": "#d64541",
+    "backgroundColor": "#fff9ea",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",

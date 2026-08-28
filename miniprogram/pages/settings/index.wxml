@@ -2,6 +2,10 @@
   <view class="topline"><text class="eyebrow">03 / SETTINGS</text><text class="status-dot">系统入口</text></view>
   <view class="title">设置</view>
   <view class="hint">管理数据、身份与软件信息。高风险操作会在执行前再次确认。</view>
+  <view class="identity-summary identity-{{identityState}}" bindtap="handleItemTap" data-name="微信身份与授权" data-action="openIdentity">
+    <view class="identity-summary-copy"><text class="identity-kicker">WECHAT IDENTITY</text><text class="identity-label">{{identityLabel}}</text><text class="identity-hint">{{identityHint}}</text></view>
+    <text class="identity-arrow">↗</text>
+  </view>
   <view wx:for="{{sections}}" wx:key="title" class="group group-{{item.tone}}">
     <view class="group-head"><view><text class="section-kicker">{{item.title}}</text><text class="section-title">{{item.title}}</text><text class="section-note">{{item.description}}</text></view><text class="group-index">0{{index + 1}}</text></view>
     <view class="setting-list">

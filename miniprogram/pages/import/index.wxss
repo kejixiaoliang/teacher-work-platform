@@ -42,3 +42,4 @@
   margin-top: 24rpx;
   color: #067647;
 }
+@import "../../tokens.wxss";

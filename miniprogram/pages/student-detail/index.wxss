@@ -13,3 +13,4 @@
 .editor textarea { min-height: 120rpx; }
 .actions { display: flex; justify-content: flex-end; gap: 16rpx; margin-top: 20rpx; }
 .switch-line { display: flex; align-items: center; justify-content: space-between; margin-top: 16rpx; padding: 4rpx 8rpx; color: #5f554b; }
+@import "../../tokens.wxss";

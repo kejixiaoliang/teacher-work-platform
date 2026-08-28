@@ -21,3 +21,13 @@
 .group-sky .setting-row:first-child { background:#93c9d8; }
 .setting-row-pending { color:#74808a; }
 .setting-status { padding:4rpx 10rpx; border:1rpx solid #d9cbb0; border-radius:999rpx; color:#74808a; font-size:20rpx; }
+.identity-summary { display:flex; align-items:center; justify-content:space-between; gap:20rpx; margin-top:28rpx; padding:22rpx 24rpx; border:3rpx solid var(--ink); border-radius:18rpx; background:var(--mint); box-shadow:5rpx 5rpx 0 var(--ink); }
+.identity-summary:active { transform:translate(3rpx,3rpx); box-shadow:2rpx 2rpx 0 var(--ink); }
+.identity-summary-copy { display:flex; min-width:0; flex-direction:column; }
+.identity-kicker { color:var(--ink); font-size:18rpx; font-weight:900; letter-spacing:2rpx; }
+.identity-label { margin-top:6rpx; color:var(--ink); font-size:29rpx; font-weight:900; }
+.identity-hint { margin-top:6rpx; color:#3f584c; font-size:22rpx; line-height:1.45; }
+.identity-arrow { flex:0 0 auto; color:var(--ink); font-size:34rpx; font-weight:900; }
+.identity-checking { background:var(--mustard-soft); }
+.identity-unavailable { border-color:var(--tomato); background:#fff0eb; }
+.identity-unavailable .identity-hint { color:#9f3f3b; }

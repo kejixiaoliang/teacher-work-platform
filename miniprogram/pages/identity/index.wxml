@@ -1,1 +1,17 @@
-<view class="page"><view class="eyebrow">ACCOUNT / IDENTITY</view><view class="title">微信身份与授权</view><view class="card"><view wx:if="{{loading}}" class="state">正在检查微信身份…</view><view wx:elif="{{status}}" class="status"><text class="status-title">✓ 已完成微信身份认证</text><text class="body">当前业务请求会按微信身份隔离。不会显示 OPENID，也不会在页面保存或分享身份标识。</text><text class="meta">身份范围：{{status.identityScope}} · 检查时间：{{checkedAt}}</text></view><view wx:elif="{{error}}" class="error">{{error}}</view><button size="mini" bindtap="loadStatus">重新检查</button></view><view class="card hint-card"><text class="section-title">电脑端绑定</text><text class="body">电脑端绑定码、双向确认和解绑流程尚未开放；当前页面只提供安全的微信身份状态检查。</text></view></view>
+<view class="page">
+  <view class="topline"><view class="eyebrow">ACCOUNT / IDENTITY</view><view class="status-dot">微信原生</view></view>
+  <view class="title">微信身份与授权</view>
+  <view class="lead">小程序使用当前微信身份访问云端数据，不需要额外注册账号或输入密码。</view>
+  <view class="card identity-card">
+    <view wx:if="{{loading}}" class="state">正在检查微信身份…</view>
+    <view wx:elif="{{status}}" class="status">
+      <view class="status-mark">READY</view>
+      <text class="status-title">微信身份已就绪 · 已完成微信身份认证</text>
+      <text class="body">当前业务请求会按微信身份隔离。不会显示 OPENID，也不会在页面保存或分享身份标识。</text>
+      <text class="meta">身份范围：{{status.identityScope}} · 检查时间：{{checkedAt}}</text>
+    </view>
+    <view wx:elif="{{error}}" class="error">{{error}}</view>
+    <button class="tw-button-primary" bindtap="loadStatus">重新检查</button>
+  </view>
+  <view class="card hint-card"><text class="section-title">电脑端绑定</text><text class="body">电脑端绑定码、双向确认和解绑流程尚未开放；当前页面只提供安全的微信身份状态检查。</text></view>
+</view>

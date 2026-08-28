@@ -1,5 +1,5 @@
 /* 教师工作台小程序共享视觉令牌：对应桌面端“小亮实验室”暖纸与实色阴影体系 */
-page { --paper:#fff4dc; --ink:#201b17; --tomato:#d64541; --tomato-bright:#f35b3f; --mustard:#f2c84b; --mustard-soft:#fff1bf; --mint:#8bd6af; --sky:#93c9d8; --peach:#f3ad83; --muted:#685f55; --line:#d9cbb0; --entry-height:94rpx; }
+page { --paper:#fff4dc; --ink:#201b17; --tomato:#d64541; --tomato-bright:#f35b3f; --mustard:#f2c84b; --mustard-soft:#fff1bf; --mint:#8bd6af; --sky:#93c9d8; --peach:#f3ad83; --muted:#685f55; --line:#d9cbb0; --panel:#fff9ea; --entry-height:94rpx; }
 .tw-page { min-height:100vh; box-sizing:border-box; padding:44rpx 32rpx 96rpx; background:#fff4dc; color:#201b17; }
 .tw-topline { display:flex; align-items:center; justify-content:space-between; }
 .tw-eyebrow { color:#d64541; font-size:20rpx; font-weight:900; letter-spacing:3rpx; }
@@ -21,3 +21,30 @@ page { --paper:#fff4dc; --ink:#201b17; --tomato:#d64541; --tomato-bright:#f35b3f
 .tw-empty-title { color:#201b17; font-size:34rpx; font-weight:900; }
 .tw-empty-copy { margin:12rpx 0 24rpx; color:#685f55; font-size:25rpx; line-height:1.7; }
 .tw-divider { height:3rpx; margin:34rpx 0; background:#201b17; }
+
+/* 页面级一致性覆盖：各业务页保留自己的结构，只共享同一套节奏与触达尺寸。 */
+page { background:var(--paper); color:var(--ink); }
+page .page, page .tw-page { box-sizing:border-box; min-height:100vh; padding:40rpx 32rpx calc(96rpx + env(safe-area-inset-bottom)); background:var(--paper); color:var(--ink); }
+page .page .topline, page .tw-page .topline { min-height:34rpx; }
+page .page .eyebrow, page .tw-page .eyebrow { color:var(--tomato); font-size:20rpx; font-weight:900; letter-spacing:3rpx; }
+page .page .title, page .tw-page .title { margin:14rpx 0 12rpx; color:var(--ink); font-family:"Noto Serif SC","Songti SC",serif; font-size:52rpx; font-weight:900; letter-spacing:-1rpx; line-height:1.18; }
+page .page .hint, page .tw-page .hint, page .page .lead, page .tw-page .lead { max-width:640rpx; color:var(--muted); font-size:26rpx; line-height:1.65; }
+page .page .section-head, page .tw-page .section-head, page .page .group-head, page .tw-page .group-head { margin-top:34rpx; }
+page .page .section-title, page .tw-page .section-title { color:var(--ink); font-size:30rpx; font-weight:900; line-height:1.3; }
+page .page .section-kicker, page .tw-page .section-kicker { color:var(--tomato); font-size:19rpx; font-weight:900; letter-spacing:2rpx; }
+page .page .meta, page .tw-page .meta, page .page .summary, page .tw-page .summary { color:var(--muted); font-size:22rpx; line-height:1.6; }
+page .page .card, page .tw-page .card, page .page .paper-panel, page .tw-page .paper-panel { box-sizing:border-box; border:2rpx solid var(--line); border-radius:18rpx; background:var(--panel); box-shadow:5rpx 5rpx 0 var(--ink); }
+page .page .toolbar, page .tw-page .toolbar, page .page .editor, page .tw-page .editor { box-sizing:border-box; border-radius:16rpx; }
+page .page input, page .tw-page input, page .page textarea, page .tw-page textarea, page .page .input, page .tw-page .input, page .page .picker, page .tw-page .picker { box-sizing:border-box; min-height:76rpx; padding:0 18rpx; border:2rpx solid var(--line); border-radius:14rpx; background:#fffdf4; color:var(--ink); font-size:25rpx; line-height:76rpx; }
+page .page textarea, page .tw-page textarea { padding-top:16rpx; line-height:1.55; }
+page .page button, page .tw-page button { box-sizing:border-box; min-height:84rpx; margin:0; padding:0 24rpx; border-radius:16rpx; font-size:24rpx; line-height:80rpx; }
+page .page button::after, page .tw-page button::after { border:0; }
+page .page .actions, page .tw-page .actions { display:flex; flex-wrap:wrap; gap:16rpx; margin-top:20rpx; padding-bottom:8rpx; }
+page .page .actions button, page .tw-page .actions button { flex:1 1 220rpx; }
+page .page .state, page .tw-page .state, page .page .empty, page .tw-page .empty, page .page .error, page .tw-page .error { box-sizing:border-box; margin-top:20rpx; padding:28rpx 24rpx; border-radius:16rpx; font-size:24rpx; line-height:1.65; }
+page .page .state, page .tw-page .state { border:2rpx dashed var(--line); color:var(--muted); background:rgba(255,253,244,.7); }
+page .page .empty, page .tw-page .empty { border:2rpx dashed var(--line); color:var(--muted); background:#fff9ea; }
+page .page .error, page .tw-page .error { border:2rpx solid rgba(184,84,80,.35); color:#9f3f3b; background:#fff0eb; }
+page .page .setting-row, page .tw-page .setting-row, page .page .feature-tile, page .tw-page .feature-tile { min-height:88rpx; }
+page .page .setting-row text:first-child, page .tw-page .setting-row text:first-child { font-size:26rpx; }
+page .page .chevron, page .tw-page .chevron { color:var(--tomato); font-size:28rpx; }
