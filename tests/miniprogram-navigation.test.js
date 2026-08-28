@@ -275,6 +275,10 @@ test('document management exposes metadata-only mobile operations', () => {
   assert.match(page, /collection: 'documents'/);
   assert.match(page, /action: 'update'/);
   assert.match(template, /文件上传与预览仍由客户端负责/);
+  assert.match(page, /chooseMessageFile/);
+  assert.match(page, /openDocument/);
+  assert.match(page, /attachmentMode: 'local_only'/);
+  assert.match(template, /本次会话临时预览/);
   assert.match(template, /新增文档/);
   assert.match(`${workbench}\n${moduleRegistry}`, /pages\/documents\/index/);
 });
