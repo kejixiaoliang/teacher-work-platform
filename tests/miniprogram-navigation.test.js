@@ -86,6 +86,7 @@ test('attendance management exposes the existing four statuses and save flow', (
   assert.match(template, /保存当天考勤/);
   assert.match(template, /一键全部出勤/);
   assert.match(template, /月度统计/);
+  assert.match(template, /请假联动/);
   assert.match(template, /view === 'daily' && !rows\.length/);
 });
 
@@ -94,10 +95,14 @@ test('leave management exposes client leave types, statuses and actions', () => 
   const template = fs.readFileSync(path.join(root, 'miniprogram/pages/leaves/index.wxml'), 'utf8');
   assert.ok(app.pages.includes('pages/leaves/index'));
   assert.match(page, /callLeaveData/);
-  assert.match(page, /action: 'create'/);
-  assert.match(page, /action: 'update'/);
   assert.match(template, /登记请假/);
   assert.match(template, /销假/);
+  assert.match(template, /逾期未销假/);
+  assert.match(template, /导出请假台账 CSV/);
+  assert.match(template, /编辑/);
+  assert.match(page, /exportLeaveCsvFile/);
+  assert.match(page, /const action = editingUuid \? 'update' : 'create'/);
+  assert.doesNotMatch(template, /studentName\(/);
 });
 
 test('follow-up management exposes the existing task workflow', () => {

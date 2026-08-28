@@ -18,7 +18,10 @@
 | `scores` | `ownerId_1_datasetId_1_classUuid_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, deletedAt: 1` | 否 | 数据分析按班级分页读取成绩（待部署） |
 | `assessment_records` | `ownerId_1_datasetId_1_classUuid_1_status_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, status: 1, deletedAt: 1` | 否 | 数据分析按班级分页读取有效表现记录（待部署） |
 | `attendance` | `ownerId_1_datasetId_1_classUuid_1_date_1` | `ownerId: 1, datasetId: 1, classUuid: 1, date: 1` | 否 | 按班级和日期查询考勤 |
+| `attendance` | `ownerId_1_datasetId_1_classUuid_1_date_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, date: 1, deletedAt: 1` | 否 | 查询未删除的每日/月度考勤（待部署） |
+| `attendance` | `ownerId_1_datasetId_1_classUuid_1_studentUuid_1_leaveUuid_1_deletedAt_1` | `ownerId: 1, datasetId: 1, classUuid: 1, studentUuid: 1, leaveUuid: 1, deletedAt: 1` | 否 | 精确清理请假联动产生的考勤且保留手工记录（待部署） |
 | `leaves` | `ownerId_1_datasetId_1_classUuid_1_startDate_-1` | `ownerId: 1, datasetId: 1, classUuid: 1, startDate: -1` | 否 | 按班级和开始日期查询请假 |
+| `leaves` | `ownerId_1_datasetId_1_classUuid_1_deletedAt_1_startDate_-1` | `ownerId: 1, datasetId: 1, classUuid: 1, deletedAt: 1, startDate: -1` | 否 | 按班级查询未删除请假和导出台账（待部署） |
 | `follow_up_tasks` | `ownerId_1_datasetId_1_classUuid_1_status_1_dueDate_1` | `ownerId: 1, datasetId: 1, classUuid: 1, status: 1, dueDate: 1` | 否 | 按班级、状态和截止日期查询跟进事项 |
 | `license_codes` | `codeHash_1` | `codeHash: 1` | 否 | 兑换码哈希查询 |
 | `license_grants` | `ownerId_1_createdAt_-1` | `ownerId: 1, createdAt: -1` | 否 | 当前教师授权查询 |
@@ -35,4 +38,4 @@
 
 ## 核验记录
 
-2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核当时定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和对应业务索引。2026-08-28 新增的学生名单导入历史索引及数据分析分页索引仅完成代码契约，尚未部署到线上环境。
+2026-08-26 首次查询确认基础集合均只有默认索引；随后已成功创建并复核当时定义的业务索引。当前基础集合、`attendance` 和 `leaves` 均包含自动索引和原有业务索引。2026-08-28 新增的学生名单导入历史、数据分析分页、请假软删除查询及请假—考勤联动索引仅完成代码契约，尚未部署到线上环境。

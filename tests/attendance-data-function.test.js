@@ -24,6 +24,7 @@ test('attendance function scopes reads and writes to the authenticated teacher',
   assert.match(source, /ownerId: context\.OPENID/);
   assert.match(source, /collection\('attendance'\)/);
   assert.match(source, /studentUuid/);
+  assert.match(source, /deletedAt: null/);
   assert.match(source, /revision = \(existing\.data\[0\]\.revision \|\| 1\) \+ 1/);
   assert.doesNotMatch(source, /event\.ownerId/);
 });

@@ -48,11 +48,11 @@ async function main(event) {
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId: request.datasetId, classUuid: request.classUuid, date: request.date };
   if (request.action === 'query') {
-    const result = await db.collection('attendance').where(scope).limit(100).get();
+    const result = await db.collection('attendance').where({ ...scope, deletedAt: null }).limit(100).get();
     return { ok: true, action: 'query', date: request.date, rows: result.data };
   }
   if (request.action === 'monthlySummary') {
-    const result = await db.collection('attendance').where({ ownerId: context.OPENID, datasetId: request.datasetId, classUuid: request.classUuid, date: db.command.gte(`${request.month}-01`).and(db.command.lt(`${request.month === request.month.slice(0, 4) + '-12' ? Number(request.month.slice(0, 4)) + 1 : request.month.slice(0, 4)}-${request.month.endsWith('-12') ? '01' : String(Number(request.month.slice(5, 7)) + 1).padStart(2, '0')}-01`)) }).limit(5000).get();
+    const result = await db.collection('attendance').where({ ownerId: context.OPENID, datasetId: request.datasetId, classUuid: request.classUuid, deletedAt: null, date: db.command.gte(`${request.month}-01`).and(db.command.lt(`${request.month === request.month.slice(0, 4) + '-12' ? Number(request.month.slice(0, 4)) + 1 : request.month.slice(0, 4)}-${request.month.endsWith('-12') ? '01' : String(Number(request.month.slice(5, 7)) + 1).padStart(2, '0')}-01`)) }).limit(5000).get();
     const summaries = new Map();
     for (const row of result.data) {
       const summary = summaries.get(row.studentUuid) || { studentUuid: row.studentUuid, present: 0, late: 0, leave: 0, absent: 0, total: 0 };
@@ -69,7 +69,7 @@ async function main(event) {
   const now = new Date().toISOString();
   for (const row of rows) {
     const existing = await db.collection('attendance').where({ ...scope, studentUuid: row.studentUuid }).limit(1).get();
-    const data = { ...row, ...scope, updatedAt: now, source: 'miniprogram' };
+    const data = { ...row, ...scope, updatedAt: now, deletedAt: null, source: 'miniprogram' };
     if (existing.data.length) {
       const revision = (existing.data[0].revision || 1) + 1;
       await db.collection('attendance').doc(existing.data[0]._id).update({ data: { ...data, revision } });

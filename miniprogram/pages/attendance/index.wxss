@@ -11,6 +11,7 @@
 .student { min-width: 0; }
 .name { display: block; color: #1d2939; font-size: 30rpx; font-weight: 600; }
 .school-no { display: block; margin-top: 6rpx; color: #667085; font-size: 23rpx; }
+.leave-link { display: inline-block; margin-top: 8rpx; padding: 3rpx 9rpx; border: 1rpx solid #d64541; border-radius: 999rpx; color: #d64541; font-size: 20rpx; }
 .status { padding: 12rpx 18rpx; border-radius: 12rpx; background: #fef0c7; color: #93370d; }
 .remark { grid-column: 1 / -1; padding: 14rpx; border-bottom: 1rpx solid #eadfd5; color: #475467; }
 button { margin-top: 28rpx; }

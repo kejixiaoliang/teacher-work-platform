@@ -13,7 +13,7 @@
   <view wx:elif="{{view === 'daily' && !rows.length}}" class="state">当前班级暂无学生</view>
   <block wx:elif="{{view === 'daily'}}">
     <view wx:for="{{rows}}" wx:key="studentUuid" class="row">
-      <view class="student"><text class="name">{{item.name}}</text><text class="school-no">{{item.schoolNo}}</text></view>
+      <view class="student"><text class="name">{{item.name}}</text><text class="school-no">{{item.schoolNo}}</text><text wx:if="{{item.linkedLeave}}" class="leave-link">请假联动</text></view>
       <picker mode="selector" range="{{statuses}}" value="{{statuses.indexOf(item.status)}}" data-index="{{index}}" bindchange="onStatusChange"><view class="status">{{item.status}}</view></picker>
       <input class="remark" placeholder="备注" value="{{item.remark}}" data-index="{{index}}" bindinput="onRemarkInput" />
     </view>

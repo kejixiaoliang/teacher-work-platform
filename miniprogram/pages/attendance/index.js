@@ -28,9 +28,9 @@ Page({
     const attendance = await callAttendanceData({ action: 'query', datasetId: this.data.datasetId, classUuid, date });
     if (!attendance?.ok) { this.setData({ loading: false, error: attendance?.errors?.[0] || '读取考勤失败' }); return; }
     const saved = new Map((attendance.rows || []).map((row) => [row.studentUuid, row]));
-    const rows = students.records.filter((student) => student.classUuid === classUuid).map((student) => ({
-      studentUuid: student.uuid, name: student.name || '未命名学生', schoolNo: student.schoolNo || student.school_no || '', status: saved.get(student.uuid)?.status || '出勤', remark: saved.get(student.uuid)?.remark || '',
-    }));
+    const rows = students.records.filter((student) => student.classUuid === classUuid).map((student) => { const stored = saved.get(student.uuid); return {
+      studentUuid: student.uuid, name: student.name || '未命名学生', schoolNo: student.schoolNo || student.school_no || '', status: stored?.status || '出勤', remark: stored?.remark || '', linkedLeave: Boolean(stored?.leaveUuid) && stored?.status === '请假' && stored?.remark === '请假联动',
+    }; });
     this.setData({ loading: false, rows });
   },
 
