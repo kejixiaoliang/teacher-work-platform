@@ -1,0 +1,8 @@
+{
+  "name": "teacher-work-identity-status",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

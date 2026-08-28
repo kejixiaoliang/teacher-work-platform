@@ -12,11 +12,24 @@
 | --- | --- | --- | --- | --- | --- |
 | `import-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
 | `query-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `student-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `attendance-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `leave-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `follow-up-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `business-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `admin` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `redeem-code` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `backup-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `excel-exchange` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `class-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `student-profile` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `identity-status` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
+| `sync-data` | Event | Nodejs18.15 | `index.main` | Active / Available | 无 |
 
 部署配置：
 
 - 函数根目录：仓库根目录下的 `cloudfunctions/`
-- 函数代码目录：`cloudfunctions/import-data/`
+- 函数代码目录：按函数名对应 `cloudfunctions/<function-name>/`
 - 自动安装依赖：已启用
 - HTTP 网关：未配置
 - 定时触发器：未配置
@@ -49,6 +62,11 @@ wx.cloud.callFunction({
 - 查询到的触发器列表为空。
 
 真实导入写库仍需在微信开发者工具中用测试微信身份完成一次脱敏样本验证；在此之前不向生产业务数据集执行 `commit`。
+
+2026-08-28 已补齐 `backup-data`、`excel-exchange`、`class-data`、`student-profile`、
+`identity-status`、`sync-data`，并逐一确认状态为 `Active / Available`。管理端无微信
+身份的冒烟调用均按预期返回 `AUTH_REQUIRED`；未执行任何真实数据集写入。`identity-status`
+曾因缺少依赖声明出现运行时错误，补充 `wx-server-sdk` 后已重新部署并复验通过。
 
 ## 只读接口设计
 
