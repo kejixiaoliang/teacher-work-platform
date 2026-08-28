@@ -10,6 +10,7 @@
     "pages/follow-up/index",
     "pages/import/index",
     "pages/redeem/index",
+    "pages/identity/index",
     "pages/class-settings/index",
     "pages/guide/index",
     "pages/changelog/index",

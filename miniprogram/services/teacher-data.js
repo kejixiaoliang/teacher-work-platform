@@ -32,6 +32,11 @@ export async function callRedeemCode(input) {
   return result?.result || result;
 }
 
+export async function callIdentityStatus(input = {}) {
+  const result = await callCloudFunction('identity-status', input);
+  return result?.result || result;
+}
+
 export async function callClassData(input) {
   const result = await callCloudFunction('class-data', input);
   return result?.result || result;

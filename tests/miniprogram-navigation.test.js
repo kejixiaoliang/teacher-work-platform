@@ -148,6 +148,19 @@ test('settings exposes a real about, contact and privacy page', () => {
   assert.match(page, /wx\.setClipboardData/);
 });
 
+test('mobile identity status exposes authentication without leaking OPENID', () => {
+  const app = JSON.parse(fs.readFileSync(path.join(root, 'miniprogram/app.json'), 'utf8'));
+  const page = fs.readFileSync(path.join(root, 'miniprogram/pages/identity/index.js'), 'utf8');
+  const template = fs.readFileSync(path.join(root, 'miniprogram/pages/identity/index.wxml'), 'utf8');
+  const cloud = fs.readFileSync(path.join(root, 'cloudfunctions/identity-status/index.js'), 'utf8');
+  assert.ok(app.pages.includes('pages/identity/index'));
+  assert.match(page, /callIdentityStatus/);
+  assert.match(template, /已完成微信身份认证/);
+  assert.match(template, /不会显示 OPENID/);
+  assert.match(cloud, /authenticated: true/);
+  assert.doesNotMatch(cloud, /return \{[^}]*OPENID/);
+});
+
 test('settings exposes the server-authorized redeem code flow', () => {
   const settings = fs.readFileSync(path.join(root, 'miniprogram/pages/settings/index.js'), 'utf8');
   const redeem = fs.readFileSync(path.join(root, 'miniprogram/pages/redeem/index.js'), 'utf8');
