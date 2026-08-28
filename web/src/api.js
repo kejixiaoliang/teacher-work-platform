@@ -135,13 +135,26 @@ export const api = {
     restore: ids => request('POST', '/api/documents/restore', { ids }),
     purge: ids => request('POST', '/api/documents/purge', { ids }),
     fileToken: id => request('GET', `/api/documents/${id}/file-token`),
+    location: id => request('GET', `/api/documents/${id}/location`),
     readFile: async (id, { download = false } = {}) => {
       const { token } = await request('GET', `/api/documents/${id}/file-token`);
       const query = new URLSearchParams({ __token: token });
       if (download) query.set('dl', '1');
-      const r = await fetch(toApiUrl(`/api/documents/${id}/file?${query}`));
-      if (!r.ok) throw new Error(`文件读取失败（${r.status}）`);
-      return r.blob();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const { apiToken } = getRuntimeConfig();
+        const headers = apiToken ? { 'x-teacher-work-token': apiToken } : {};
+        const r = await fetch(toApiUrl(`/api/documents/${id}/file?${query}`), { headers, signal: ctrl.signal });
+        if (!r.ok) throw new Error(`文件读取失败（${r.status}）`);
+        return r.blob();
+      } catch (e) {
+        if (e?.name === 'AbortError') throw new Error('文件读取超时，请重试');
+        if (e?.message?.startsWith('文件读取失败')) throw e;
+        throw new Error('文件读取失败：' + e.message);
+      } finally {
+        clearTimeout(timer);
+      }
     },
   },
   duties: {

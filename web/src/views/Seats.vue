@@ -718,7 +718,7 @@ onBeforeRouteLeave(async () => {
 }
 .ws-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .stat-num { color: var(--tomato); font-size: 16px; font-weight: 900; }
-.ws-body { display: flex; min-height: 72vh; }
+.ws-body { display: flex; min-height: 72vh; min-width: 0; }
 
 /* 左侧面板 */
 .ws-panel {
@@ -744,8 +744,8 @@ onBeforeRouteLeave(async () => {
 
 /* 右侧画布 */
 .ws-canvas {
-  flex: 1; padding: 22px 16px 30px; overflow: auto;
-  display: flex; flex-direction: column; align-items: center;
+  flex: 1; min-width: 0; padding: 22px 16px 30px; overflow-y: auto; overflow-x: auto;
+  display: flex; flex-direction: column; align-items: stretch;
 }
 .canvas-alert { width: 100%; max-width: 900px; margin-bottom: 10px; }
 
@@ -758,7 +758,7 @@ onBeforeRouteLeave(async () => {
   border-radius: 999px; padding: 6px 0;
   box-shadow: var(--shadow-sm);
 }
-.seat-grid { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.seat-grid { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; width: max-content; min-width: 100%; box-sizing: border-box; }
 .row { display: flex; gap: 10px; }
 .seat-wrap { flex: 0 0 clamp(76px, 9.5vw, 104px); }
 .seat-wrap.aisle { margin-left: 30px; }

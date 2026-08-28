@@ -214,6 +214,15 @@ router.post('/purge', (req, res) => {
 });
 
 // 文件流（?dl=1 下载；否则预览：图片/PDF/文本 inline）
+router.get('/:id/location', (req, res) => {
+  const id = positiveInt(req.params.id);
+  if (!id) return badRequest(res, '无效的文件 ID');
+  const row = db.prepare('SELECT id, original_name, stored_name FROM documents WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!row) return res.status(404).json({ ok: false, code: 'DOCUMENT_NOT_FOUND', error: '文件不存在' });
+  const filePath = path.join(filesDir, row.stored_name);
+  res.json({ ok: true, data: { id: row.id, originalName: row.original_name, path: filePath, exists: fs.existsSync(filePath) } });
+});
+
 router.get('/:id/file-token', (req, res) => {
   const id = positiveInt(req.params.id);
   if (!id) return badRequest(res, '无效的文件 ID');
