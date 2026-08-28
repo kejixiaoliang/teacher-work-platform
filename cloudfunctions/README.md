@@ -12,9 +12,8 @@
 - `leave-data/`（请假查询、新增、编辑和软删除接口，已部署）
 - `follow-up-data/`（跟进事项查询、新增、编辑和软删除接口，已部署）
 - `redeem-code/`（兑换码兑换和教师授权查询，已部署）
-- `backup-data/`（按微信身份隔离的完整 JSON 备份导出，待部署）
-- `excel-exchange/`（学生名单/成绩 `.xlsx` 解析与生成，待部署）
-- `excel-exchange/`（学生名单/成绩 `.xlsx` 解析与生成，待部署）
+- `backup-data/`（按微信身份隔离的完整 JSON 备份导出，已部署）
+- `excel-exchange/`（学生名单/成绩 `.xlsx` 解析与生成，已部署）
 - `admin/`（管理员身份校验、兑换码生成/撤销和授权列表，已部署）
 - `redeem-code/`
 - `sync-data/`
