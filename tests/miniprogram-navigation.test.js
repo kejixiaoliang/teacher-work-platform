@@ -251,6 +251,10 @@ test('assessment management has a dedicated scoring and summary workflow', () =>
   assert.match(page, /voidRecord/);
   assert.match(page, /restoreRecord/);
   assert.match(template, /批量记分/);
+  for (const label of ['手动多选', '全班', '值日组', '班委组', '月度统计', '学期累计', '分类汇总', '导出 CSV', '导出 JSON']) assert.match(template, new RegExp(label));
+  assert.match(page, /assessmentStats/);
+  assert.match(page, /exportAssessment/);
+  assert.match(page, /allStudents/);
 });
 
 test('assessment rules page exposes category and item management', () => {

@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const COLLECTIONS = new Set(['seats', 'seat_layouts', 'duties', 'scores', 'exams', 'contacts', 'documents', 'assessment_records', 'assessment_categories', 'assessment_items', 'assessment_revisions']);
-const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'void', 'restore', 'layoutSave', 'layoutHistory']);
+const ACTIONS = new Set(['query', 'summary', 'create', 'update', 'delete', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'assessmentStats', 'void', 'restore', 'layoutSave', 'layoutHistory']);
 const TEXT_FIELDS = ['name', 'title', 'content', 'remark', 'method', 'topic', 'result', 'role', 'subject', 'date', 'fileName', 'storedName', 'categoryName', 'itemName', 'description', 'reason', 'action'];
 
 function normalize(event = {}) {
@@ -11,12 +11,13 @@ function normalize(event = {}) {
   if (!COLLECTIONS.has(collection)) return { ok: false, code: 'COLLECTION_NOT_ALLOWED', errors: ['业务集合不在白名单中'] };
   if (!ACTIONS.has(action)) return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['业务操作不支持'] };
   if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
-  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
+  if (!['query', 'summary', 'create', 'bulkSave', 'analysis', 'trend', 'autoGroup', 'groupDays', 'presetLeaders', 'presetSubjectLeaders', 'contactStats', 'history', 'batchAssessment', 'assessmentStats', 'layoutSave', 'layoutHistory'].includes(action) && !uuid) return { ok: false, code: 'UUID_REQUIRED', errors: ['业务记录 uuid 不能为空'] };
   if (action === 'create' && (!event.record || typeof event.record !== 'object' || Array.isArray(event.record))) return { ok: false, code: 'RECORD_INVALID', errors: ['业务记录无效'] };
   if (action === 'create' && collection === 'seats' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['座位保存必须指定班级'] };
   if (action === 'bulkSave' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['成绩保存必须指定班级'] };
   if (action === 'summary' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['数据分析必须指定班级'] };
-  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
+  if (action === 'assessmentStats' && !String(event.classUuid || '').trim()) return { ok: false, code: 'CLASS_REQUIRED', errors: ['表现统计必须指定班级'] };
+  return { ok: true, collection, action, datasetId, uuid, recordUuid: String(event.recordUuid || '').trim(), classUuid: String(event.classUuid || '').trim(), examUuid: String(event.examUuid || '').trim(), studentUuid: String(event.studentUuid || '').trim(), itemUuid: String(event.itemUuid || '').trim(), month: String(event.month || '').trim(), period: String(event.period || 'monthly').trim(), academicYear: String(event.academicYear || '').trim(), term: String(event.term || '').trim(), includeVoided: event.includeVoided === true, groupNo: Number(event.groupNo), groupDays: String(event.groupDays || '').trim(), groupCount: Number(event.groupCount), rows: Array.isArray(event.rows) ? event.rows : [], record: event.record || {}, layout: event.layout || null };
 }
 
 function numeric(value) {
@@ -143,6 +144,39 @@ function normalizeLayoutSnapshot(layout = {}) {
   };
 }
 
+function buildAssessmentStats({ students = [], records = [], period = 'monthly', month = '', academicYear = '', term = '' } = {}) {
+  const activeStudents = students.filter((student) => student.status !== '离校');
+  const activeStudentUuids = new Set(activeStudents.map((student) => student.uuid));
+  const names = new Map(activeStudents.map((student) => [student.uuid, student.name || '未命名学生']));
+  const scoped = records.filter((record) => {
+    if (record.status === 'voided' || record.deletedAt || !activeStudentUuids.has(record.studentUuid)) return false;
+    const date = String(record.date ?? record.behaviorDate ?? record.behavior_date ?? '');
+    if (period === 'monthly') return /^\d{4}-\d{2}$/.test(month) && date.startsWith(month);
+    const rowYear = String(record.academicYearSnapshot ?? record.academic_year_snapshot ?? '');
+    const rowTerm = String(record.termSnapshot ?? record.term_snapshot ?? '');
+    return rowYear === academicYear && rowTerm === term;
+  });
+  const byStudent = new Map(activeStudents.map((student) => [student.uuid, { studentUuid: student.uuid, name: student.name || '未命名学生', schoolNo: student.schoolNo ?? student.school_no ?? '', positive: 0, negative: 0, net: 0, recordCount: 0 }]));
+  const byCategory = new Map();
+  const details = [];
+  for (const record of scoped) {
+    const score = Number(record.score ?? record.scoreSnapshot ?? record.score_snapshot ?? 0);
+    const summary = byStudent.get(record.studentUuid);
+    if (!summary || !Number.isFinite(score)) continue;
+    summary.recordCount += 1; summary.net += score;
+    if (score > 0) summary.positive += score; else if (score < 0) summary.negative += score;
+    const categoryName = String(record.categoryName ?? record.category_name_snapshot ?? '未分类') || '未分类';
+    if (!byCategory.has(categoryName)) byCategory.set(categoryName, { categoryName, recordCount: 0, positive: 0, negative: 0, net: 0, students: new Set() });
+    const category = byCategory.get(categoryName); category.recordCount += 1; category.net += score; category.students.add(record.studentUuid);
+    if (score > 0) category.positive += score; else if (score < 0) category.negative += score;
+    details.push({ uuid: record.uuid, date: record.date ?? record.behaviorDate ?? '', studentUuid: record.studentUuid, studentName: names.get(record.studentUuid) || '未命名学生', categoryName, itemName: record.itemName ?? record.item_name_snapshot ?? '', score, status: record.status || 'active', remark: record.remark || '' });
+  }
+  const ranking = [...byStudent.values()].sort((a, b) => b.net - a.net || b.positive - a.positive || a.name.localeCompare(b.name, 'zh-CN')).map((row, index) => ({ ...row, rank: index + 1 }));
+  const categories = [...byCategory.values()].map(({ students: set, ...row }) => ({ ...row, studentCount: set.size })).sort((a, b) => b.net - a.net || a.categoryName.localeCompare(b.categoryName, 'zh-CN'));
+  details.sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.uuid).localeCompare(String(a.uuid)));
+  return { ranking, categories, records: details, filters: { period, month: period === 'monthly' ? month : '', academicYear: period === 'term' ? academicYear : '', term: period === 'term' ? term : '' }, totals: { positive: scoped.filter((row) => Number(row.score ?? row.scoreSnapshot ?? row.score_snapshot ?? 0) > 0).reduce((sum, row) => sum + Number(row.score ?? row.scoreSnapshot ?? row.score_snapshot), 0), negative: scoped.filter((row) => Number(row.score ?? row.scoreSnapshot ?? row.score_snapshot ?? 0) < 0).reduce((sum, row) => sum + Number(row.score ?? row.scoreSnapshot ?? row.score_snapshot), 0), net: scoped.reduce((sum, row) => sum + Number(row.score ?? row.scoreSnapshot ?? row.score_snapshot ?? 0), 0), recordCount: scoped.length } };
+}
+
 async function main(event) {
   const cloudModule = await import('wx-server-sdk');
   const cloud = cloudModule.default || cloudModule;
@@ -171,6 +205,17 @@ async function main(event) {
     if (request.collection !== 'assessment_revisions' || !request.recordUuid) return { ok: false, code: 'HISTORY_QUERY_INVALID', errors: ['修正历史查询参数无效'] };
     const result = await db.collection('assessment_revisions').where({ ...scope, recordUuid: request.recordUuid }).limit(100).get();
     return { ok: true, records: result.data };
+  }
+  if (request.action === 'assessmentStats') {
+    if (request.collection !== 'assessment_records' || !['monthly', 'term'].includes(request.period)) return { ok: false, code: 'ASSESSMENT_STATS_INVALID', errors: ['表现统计参数无效'] };
+    if (request.period === 'monthly' && !/^\d{4}-\d{2}$/.test(request.month)) return { ok: false, code: 'MONTH_INVALID', errors: ['月份应为 YYYY-MM'] };
+    const classResult = await db.collection('classes').where({ ...scope, uuid: request.classUuid, deletedAt: null }).limit(1).get();
+    if (!classResult.data.length) return { ok: false, code: 'CLASS_NOT_FOUND', errors: ['班级不存在或不属于当前数据集'] };
+    const cls = classResult.data[0]; const academicYear = request.academicYear || cls.academicYear || cls.academic_year || ''; const term = request.term || cls.term || '';
+    if (request.period === 'term' && (!academicYear || !term)) return { ok: false, code: 'TERM_INVALID', errors: ['学年和学期不能为空'] };
+    const [studentsResult, recordsResult] = await Promise.all([getAllRecords(db.collection('students').where({ ...scope, classUuid: request.classUuid, deletedAt: null }), { max: 1000 }), getAllRecords(db.collection('assessment_records').where({ ...scope, classUuid: request.classUuid, deletedAt: null }), { max: 5000 })]);
+    const stats = buildAssessmentStats({ students: studentsResult.data, records: recordsResult.data, period: request.period, month: request.month, academicYear, term });
+    return { ok: true, ...stats, truncated: studentsResult.truncated || recordsResult.truncated };
   }
   if (request.action === 'batchAssessment') {
     if (request.collection !== 'assessment_records' || !request.classUuid || !request.itemUuid || !request.rows.length) return { ok: false, code: 'ASSESSMENT_BATCH_INVALID', errors: ['批量记分参数无效'] };
@@ -201,7 +246,7 @@ async function main(event) {
       if (!Number.isFinite(score) || score < -100 || score > 100) { skipped.push({ studentUuid, name: names.get(studentUuid), reasonCode: 'SCORE_INVALID', reason: '规则分值无效' }); continue; }
       accepted.add(studentUuid);
       if (!allowDailyRepeat && (existing.has(key) || existing.has(`${studentUuid}:${item.name}`))) { skipped.push({ studentUuid, name: names.get(studentUuid), reasonCode: 'DAILY_DUPLICATE', reason: '该学生当天已经记录过此行为' }); continue; }
-      await db.collection('assessment_records').add({ data: { ...scope, classUuid: request.classUuid, studentUuid, itemUuid: request.itemUuid, date: rowDate, categoryName: categoryResult.data[0].name || '', itemName: item.name || String(input.itemName || '').trim(), score, allowDailyRepeat, remark: String(input.remark || '').trim().slice(0, 500), uuid: crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null, status: 'active', revision: 1, source: 'miniprogram' } }); count += 1;
+      await db.collection('assessment_records').add({ data: { ...scope, classUuid: request.classUuid, studentUuid, itemUuid: request.itemUuid, date: rowDate, academicYearSnapshot: classResult.data[0].academicYear || classResult.data[0].academic_year || '', termSnapshot: classResult.data[0].term || '', categoryName: categoryResult.data[0].name || '', itemName: item.name || String(input.itemName || '').trim(), score, allowDailyRepeat, remark: String(input.remark || '').trim().slice(0, 500), uuid: crypto.randomUUID(), createdAt: now, updatedAt: now, deletedAt: null, status: 'active', revision: 1, source: 'miniprogram' } }); count += 1;
     }
     return { ok: true, action: 'batchAssessment', count, total: request.rows.slice(0, 500).length, skipped };
   }
@@ -346,4 +391,4 @@ async function main(event) {
   return { ok: true, action: 'update', uuid: request.uuid, revision };
 }
 
-module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, main };
+module.exports = { COLLECTIONS, ACTIONS, normalize, sanitize, normalizeLayoutSnapshot, getAllRecords, buildAnalyticsSummary, buildAssessmentStats, main };

@@ -19,6 +19,8 @@ test('business data keeps existing client modules in a server-scoped whitelist',
   for (const collection of ['assessment_categories', 'assessment_items', 'assessment_revisions']) assert.equal(fn.normalize({ collection, action: 'query', datasetId: 'd1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'assessment_revisions', action: 'history', datasetId: 'd1', recordUuid: 'r1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'assessment_records', action: 'batchAssessment', datasetId: 'd1', classUuid: 'c1', rows: [{ studentUuid: 's1', itemName: '守纪', score: 1 }] }).ok, true);
+  assert.equal(fn.normalize({ collection: 'assessment_records', action: 'assessmentStats', datasetId: 'd1', classUuid: 'c1', period: 'monthly', month: '2026-08' }).ok, true);
+  assert.equal(fn.normalize({ collection: 'assessment_records', action: 'assessmentStats', datasetId: 'd1', period: 'monthly', month: '2026-08' }).code, 'CLASS_REQUIRED');
   assert.equal(fn.normalize({ collection: 'assessment_records', action: 'restore', datasetId: 'd1', uuid: 'r1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'seat_layouts', action: 'layoutHistory', datasetId: 'd1', classUuid: 'c1' }).ok, true);
   assert.equal(fn.normalize({ collection: 'seat_layouts', action: 'layoutSave', datasetId: 'd1', classUuid: 'c1', layout: { rows: 2, cols: 2, grid: [] } }).ok, true);
@@ -112,4 +114,23 @@ test('analytics pagination reads complete pages and reports a bounded truncation
   };
   assert.deepEqual(await fn.getAllRecords(query, { pageSize: 2, max: 10 }), { data: all, truncated: false });
   assert.deepEqual(await fn.getAllRecords(query, { pageSize: 2, max: 5 }), { data: all.slice(0, 5), truncated: true });
+});
+
+test('assessment stats match desktop monthly ranking and category summaries', () => {
+  const result = fn.buildAssessmentStats({
+    period: 'monthly', month: '2026-08',
+    students: [{ uuid: 's1', name: '甲', schoolNo: '1' }, { uuid: 's2', name: '乙', school_no: '2' }],
+    records: [
+      { uuid: 'r1', studentUuid: 's1', date: '2026-08-01', categoryName: '纪律', itemName: '表扬', score: 2, status: 'active' },
+      { uuid: 'r2', studentUuid: 's1', date: '2026-08-02', categoryName: '纪律', itemName: '迟到', score: -1, status: 'active' },
+      { uuid: 'r3', studentUuid: 's2', date: '2026-07-31', categoryName: '卫生', score: 9, status: 'active' },
+      { uuid: 'r4', studentUuid: 's2', date: '2026-08-03', categoryName: '卫生', score: 3, status: 'voided' },
+    ],
+  });
+  assert.deepEqual(result.ranking.map(({ name, positive, negative, net, recordCount, rank }) => ({ name, positive, negative, net, recordCount, rank })), [
+    { name: '甲', positive: 2, negative: -1, net: 1, recordCount: 2, rank: 1 },
+    { name: '乙', positive: 0, negative: 0, net: 0, recordCount: 0, rank: 2 },
+  ]);
+  assert.deepEqual(result.categories, [{ categoryName: '纪律', recordCount: 2, positive: 2, negative: -1, net: 1, studentCount: 1 }]);
+  assert.equal(result.records[0].studentName, '甲');
 });
