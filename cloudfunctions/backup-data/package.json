@@ -1,0 +1,9 @@
+{
+  "name": "teacher-work-backup-data",
+  "version": "0.8.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

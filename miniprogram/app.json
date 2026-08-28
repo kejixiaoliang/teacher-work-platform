@@ -9,6 +9,7 @@
     "pages/leaves/index",
     "pages/follow-up/index",
     "pages/import/index",
+    "pages/backup/index",
     "pages/redeem/index",
     "pages/identity/index",
     "pages/class-settings/index",
