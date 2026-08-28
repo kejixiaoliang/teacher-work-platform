@@ -81,9 +81,9 @@ async function main(event = {}) {
   cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
   const context = cloud.getWXContext();
   if (!context?.OPENID) return { ok: false, code: 'AUTH_REQUIRED', errors: ['未获取到微信用户身份'] };
-  if (event.action !== 'export') return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['当前仅支持完整备份导出'] };
-  const datasetId = typeof event.datasetId === 'string' ? event.datasetId.trim() : '';
-  if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
+  const request = normalizeRequest(event);
+  if (!request.ok) return request;
+  const { datasetId } = request;
 
   const db = cloud.database();
   const scope = { ownerId: context.OPENID, datasetId };
@@ -109,4 +109,11 @@ async function main(event = {}) {
   return { ok: true, action: 'export', datasetId, payload, counts: Object.fromEntries(COLLECTIONS.map((name) => [name, name === 'assessment' || name === 'settings' ? Object.values(content[name]).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0) : content[name].length])) };
 }
 
-module.exports = { COLLECTIONS, COLLECTION_MAP, ASSESSMENT_MAP, canonicalize, attachIntegrity, stableUuid, exportRow, getAll, main };
+function normalizeRequest(event = {}) {
+  if (event.action !== 'export') return { ok: false, code: 'ACTION_NOT_ALLOWED', errors: ['当前仅支持完整备份导出'] };
+  const datasetId = typeof event.datasetId === 'string' ? event.datasetId.trim() : '';
+  if (!datasetId) return { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] };
+  return { ok: true, action: 'export', datasetId };
+}
+
+module.exports = { COLLECTIONS, COLLECTION_MAP, ASSESSMENT_MAP, canonicalize, attachIntegrity, stableUuid, exportRow, getAll, normalizeRequest, main };

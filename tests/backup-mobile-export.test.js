@@ -40,3 +40,9 @@ test('mobile backup export is scoped, integrity protected and attachment explici
   assert.ok(app.pages.includes('pages/backup/index'));
   assert.match(settings, /openBackup/);
 });
+
+test('backup export rejects missing dataset and unsupported actions before any database read', () => {
+  assert.deepEqual(backup.normalizeRequest({ action: 'export' }), { ok: false, code: 'DATASET_REQUIRED', errors: ['datasetId 不能为空'] });
+  assert.equal(backup.normalizeRequest({ action: 'import', datasetId: 'dataset-1' }).code, 'ACTION_NOT_ALLOWED');
+  assert.deepEqual(backup.normalizeRequest({ action: 'export', datasetId: ' dataset-1 ' }), { ok: true, action: 'export', datasetId: 'dataset-1' });
+});
