@@ -3,14 +3,14 @@
     <div class="page-head">
       <div>
         <h2 class="page-head-title">值日管理</h2>
-        <p class="page-head-desc">把学生分成若干组，按周轮换值日，可打印值日表</p>
+        <p class="page-head-desc">把学生分成值日组，并为每组指定值日星期，可打印值日表</p>
       </div>
     </div>
     <el-tabs v-model="tab">
       <!-- ============ 值日分组 ============ -->
       <el-tab-pane label="值日分组" name="groups">
         <div class="toolbar">
-          <span class="text-muted">把学生分成 N 组，每周轮换一组；<b>每人只在一个组</b>，保证周期内每周人员不重复</span>
+          <span class="text-muted">把学生分成值日组并指定星期；<b>每人只在一个组</b>，默认按组号对应星期</span>
           <div class="spacer"></div>
           <el-button type="primary" :icon="MagicStick" @click="openAutoGroup">一键自动分组</el-button>
           <el-button :icon="Plus" @click="addGroup">新增组</el-button>
@@ -45,31 +45,36 @@
       <!-- ============ 值日表 ============ -->
       <el-tab-pane label="值日表" name="roster">
         <div class="toolbar">
-          <div class="roster-week">
+          <div v-if="!isWeekdayMode" class="roster-week">
             <span>当前是开学第</span>
             <el-input-number v-model="week" :min="1" :max="25" size="default" />
             <span>周</span>
           </div>
-          <el-tag v-if="groupCount" type="warning" size="large">
-            今日值日（{{ todayLabel }}）→ 第 {{ currentGroupNo }} 组
-          </el-tag>
+          <el-tag v-if="groupCount" type="warning" size="large">{{ todayDutyText }}</el-tag>
           <div class="spacer"></div>
           <el-button :icon="Printer" type="primary" @click="printRoster">打印值日表</el-button>
         </div>
         <el-alert v-if="!groupCount" type="info" :closable="false"
                   title="请先在「值日分组」页设置分组，才能生成值日表" />
         <template v-else>
-          <div v-if="currentGroup" class="current-group">
-            <b>今日值日名单（{{ todayLabel }}，第 {{ currentGroupNo }} 组）：</b>
-            <span v-for="m in currentGroup.members" :key="m.id" class="name-chip">{{ m.student_name }}</span>
+          <div v-if="currentGroups.length" class="current-group">
+            <b>今日值日名单（{{ todayLabel }}）：</b>
+            <template v-for="g in currentGroups" :key="g.no">
+              <span class="group-inline-label">第 {{ g.no }} 组</span>
+              <span v-for="m in g.members" :key="`${g.no}-${m.id}`" class="name-chip">{{ m.student_name }}</span>
+            </template>
+          </div>
+          <div v-else-if="isWeekdayMode" class="current-group">
+            <b>今天无值日（{{ todayLabel }}）</b>
           </div>
           <el-table :data="rosterRows" size="small" border style="margin-top:14px">
-            <el-table-column prop="week" label="周次" width="90" />
+            <el-table-column v-if="isWeekdayMode" prop="weekday" label="星期" width="100" />
+            <el-table-column v-else prop="week" label="周次" width="90" />
             <el-table-column prop="groupNo" label="值日组" width="90" />
             <el-table-column prop="members" label="值日学生" />
           </el-table>
-          <div class="text-muted" style="margin-top:8px">共 {{ groupCount }} 组轮换：一个完整周期 {{ groupCount }} 周内<b>每周人员不重复</b>，第 {{ groupCount + 1 }} 周起按周期循环</div>
-          <div class="text-muted" style="margin-top:4px">如需更长不重复周期，可增加组数或用「一键自动分组」重新分配</div>
+          <div v-if="isWeekdayMode" class="text-muted" style="margin-top:8px">当前按星期固定值日；未匹配星期显示“无值日”，可在分组页调整。</div>
+          <div v-else class="text-muted" style="margin-top:8px">旧版数据按开学周次轮换值日；可在分组页为各组设置固定星期。</div>
         </template>
       </el-tab-pane>
     </el-tabs>
@@ -96,7 +101,7 @@
     <!-- 自动分组弹窗 -->
     <el-dialog v-model="autoGroupVisible" title="一键自动分组" width="440px">
       <el-alert type="info" :closable="false" style="margin-bottom:12px"
-                title="按名单顺序把全班在读学生平均分成 N 组；每个学生只在一个组，组间不重复。将重置现有值日分组。" />
+                title="按名单顺序把全班在读学生平均分成 N 组；第 1～7 组默认对应周一至周日，超过 7 组暂未安排。将重置现有值日分组。" />
       <el-form label-width="80px">
         <el-form-item label="组数">
           <el-input-number v-model="autoGroupCount" :min="2" :max="10" />
@@ -109,10 +114,10 @@
       </template>
     </el-dialog>
 
-    <!-- 设置值日星期（C 组：周次×星期排班） -->
+    <!-- 设置值日星期 -->
     <el-dialog v-model="weekDaysVisible" :title="`设置第 ${weekDaysForm.group_no} 组值日星期`" width="440px">
       <el-alert type="info" :closable="false" style="margin-bottom:12px"
-                title="可选：指定该组固定在哪几天值日（如大扫除日）。不设置则按「每周一组」轮换。" />
+                title="指定该组固定在哪几天值日；清空后保存表示暂未安排，不会回退到按周轮换。" />
       <el-form label-width="80px">
         <el-form-item label="值日星期">
           <el-select v-model="weekDaysForm.days" multiple clearable placeholder="选填：选择固定值日星期" style="width:100%">
@@ -148,7 +153,7 @@ const memberVisible = ref(false);
 const memberForm = ref({ group_no: null, student_ids: [] });
 
 const autoGroupVisible = ref(false);
-const autoGroupCount = ref(4);
+const autoGroupCount = ref(5);
 const autoGroupLoading = ref(false);
 
 const dutyList = computed(() => duties.value.filter(d => d.role === '值日生'));
@@ -165,22 +170,47 @@ const groups = computed(() => {
 // 组星期展示：把 "1,3" 转成 "周一、周三"
 function weekDaysLabel(wd) {
   if (!wd) return '';
+  if (String(wd) === '0') return '未安排';
   return String(wd).split(',').map(n => WEEK_NAMES[Number(n) - 1]).filter(Boolean).join('、');
 }
 const groupCount = computed(() => groups.value.length);
-// 当前周对应组：按排序后的索引取（组号删除后可能不连续，不能用 (week-1)%count+1 直接当组号找）
+// 全空 week_days 是旧版按周轮换数据；出现星期或显式 0 即进入固定星期模式。
+const isWeekdayMode = computed(() => groups.value.some(group => String(group.weekDays || '') !== ''));
 const todayNo = computed(() => { const day = new Date().getDay(); return day === 0 ? 7 : day; });
 const todayLabel = computed(() => WEEK_NAMES[todayNo.value - 1] || '今天');
+function groupDays(group) {
+  return String(group.weekDays || '').split(',').map(Number).filter(n => n >= 1 && n <= 7);
+}
+const currentGroups = computed(() => {
+  if (!isWeekdayMode.value) return [];
+  return groups.value.filter(group => groupDays(group).includes(todayNo.value));
+});
 const currentGroupNo = computed(() => {
   if (!groupCount.value) return null;
-  const byDay = groups.value.find(group => String(group.weekDays || '').split(',').map(Number).includes(todayNo.value));
-  return byDay?.no ?? groups.value[((week.value - 1) % groupCount.value)]?.no;
+  if (isWeekdayMode.value) return currentGroups.value[0]?.no ?? null;
+  return groups.value[((week.value - 1) % groupCount.value)]?.no ?? null;
 });
 const currentGroup = computed(() => {
   return groups.value.find(group => group.no === currentGroupNo.value) || null;
 });
+const todayDutyText = computed(() => {
+  if (!isWeekdayMode.value) return `今日值日（${todayLabel.value}）→ 第 ${currentGroupNo.value} 组`;
+  if (!currentGroups.value.length) return `今日值日（${todayLabel.value}）→ 无值日`;
+  return `今日值日（${todayLabel.value}）→ ${currentGroups.value.map(g => `第 ${g.no} 组`).join('、')}`;
+});
 const rosterRows = computed(() => {
   if (!groupCount.value) return [];
+  if (isWeekdayMode.value) {
+    return WEEK_NAMES.map((weekday, index) => {
+      const day = index + 1;
+      const matched = groups.value.filter(group => groupDays(group).includes(day));
+      return {
+        weekday,
+        groupNo: matched.length ? matched.map(group => `第 ${group.no} 组`).join('、') : '—',
+        members: matched.flatMap(group => group.members.map(member => member.student_name)).join('、') || '—',
+      };
+    });
+  }
   // 完整周期：第 w 周 = 排序后第 w 组（一个周期内每周人员不重复；组号不连续时按索引对齐）
   return Array.from({ length: groupCount.value }, (_, i) => {
     const w = i + 1;
@@ -262,16 +292,18 @@ async function saveMembers() {
   }
 }
 
-/* ---------- 值日星期（C 组） ---------- */
+/* ---------- 值日星期 ---------- */
 const weekDaysVisible = ref(false);
 const weekDaysForm = ref({ group_no: null, days: [] });
 
 function openWeekDays(no) {
   const g = groups.value.find(x => x.no === no);
-  weekDaysForm.value = {
-    group_no: no,
-    days: g?.weekDays ? String(g.weekDays).split(',').filter(Boolean) : [],
-  };
+    weekDaysForm.value = {
+      group_no: no,
+      days: g?.weekDays && String(g.weekDays) !== '0'
+        ? String(g.weekDays).split(',').filter(day => /^[1-7]$/.test(day))
+        : [],
+    };
   weekDaysVisible.value = true;
 }
 async function saveWeekDays() {
@@ -280,7 +312,8 @@ async function saveWeekDays() {
     await api.duties.groupDays({
       class_id: store.currentClassId,
       group_no: weekDaysForm.value.group_no,
-      week_days: weekDaysForm.value.days.join(','),
+      // 空选择是固定星期模式下的“未安排”，不能退回旧版轮换语义。
+      week_days: weekDaysForm.value.days.join(',') || '0',
     });
     ElMessage.success('已保存值日星期');
     weekDaysVisible.value = false;
@@ -292,7 +325,7 @@ async function saveWeekDays() {
 
 /* ---------- 自动分组 ---------- */
 function openAutoGroup() {
-  autoGroupCount.value = Math.max(5, Math.ceil(students.value.length / 6));
+  autoGroupCount.value = 5;
   autoGroupVisible.value = true;
 }
 async function runAutoGroup() {
@@ -329,11 +362,15 @@ function esc(s) {
 function printRoster() {
   if (!groupCount.value) return;
   const cls = store.classes.find(c => c.id === store.currentClassId);
-  const lines = ['<h3>值日安排表</h3>', `<p>班级：${esc(cls?.name || '')}（开学第 ${week.value} 周）</p>`];
+  const lines = ['<h3>值日安排表</h3>', `<p>班级：${esc(cls?.name || '')}${isWeekdayMode.value ? '（按星期固定值日）' : `（开学第 ${week.value} 周）`}</p>`];
   lines.push('<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">');
-  lines.push('<tr><th>周次</th><th>值日组</th><th>值日学生</th></tr>');
+  lines.push(isWeekdayMode.value
+    ? '<tr><th>星期</th><th>值日组</th><th>值日学生</th></tr>'
+    : '<tr><th>周次</th><th>值日组</th><th>值日学生</th></tr>');
   for (const r of rosterRows.value) {
-    lines.push(`<tr><td>第 ${r.week} 周</td><td>第 ${r.groupNo} 组</td><td>${esc(r.members) || '—'}</td></tr>`);
+    lines.push(isWeekdayMode.value
+      ? `<tr><td>${esc(r.weekday)}</td><td>${esc(r.groupNo)}</td><td>${esc(r.members) || '—'}</td></tr>`
+      : `<tr><td>第 ${r.week} 周</td><td>第 ${r.groupNo} 组</td><td>${esc(r.members) || '—'}</td></tr>`);
   }
   lines.push('</table>');
   for (const g of groups.value) {
@@ -377,6 +414,9 @@ function printRoster() {
 .current-group {
   padding: 14px; background: var(--paper); border-radius: 16px; border: 3px solid var(--ink);
   box-shadow: var(--shadow-sm);
+}
+.group-inline-label {
+  display: inline-block; margin-left: 10px; color: var(--tomato); font-weight: 900;
 }
 .name-chip {
   display: inline-block; background: #fff; border: 3px solid var(--mint); color: var(--ink);
