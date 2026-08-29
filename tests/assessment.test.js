@@ -90,7 +90,7 @@ test('v4 creates assessment tables and seeds rules once', async () => {
     'assessment_record_revisions',
     'assessment_records',
   ]);
-  assert.equal(db.pragma('user_version', { simple: true }), 7);
+  assert.equal(db.pragma('user_version', { simple: true }), 8);
   assert.ok(db.prepare('SELECT COUNT(*) AS c FROM assessment_items').get().c >= 5);
   const itemCount = db.prepare('SELECT COUNT(*) AS c FROM assessment_items').get().c;
   db.close();
