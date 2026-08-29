@@ -24,5 +24,16 @@ test('build scripts keep installed and portable Cargo targets separate', () => {
   const scripts = JSON.parse(fs.readFileSync('package.json', 'utf8')).scripts;
   assert.match(scripts['tauri:build:installed'], /build-tauri\.mjs installed/);
   assert.match(scripts['tauri:build:portable'], /build-tauri\.mjs portable/);
-  assert.match(fs.readFileSync('scripts/build-tauri.mjs', 'utf8'), /CARGO_TARGET_DIR/);
+  assert.match(scripts['package:installed'], /tauri:build:installed/);
+  const buildScript = fs.readFileSync('scripts/build-tauri.mjs', 'utf8');
+  assert.match(buildScript, /CARGO_TARGET_DIR/);
+  assert.match(buildScript, /TAURI_UPDATER_PUBLIC_KEY/);
+  assert.match(buildScript, /TEACHER_WORK_UPDATE_ENDPOINT/);
+  assert.doesNotMatch(buildScript, /example\.com/);
+});
+
+test('installed updater configuration keeps production values outside the repository', () => {
+  const config = readJson('tauri.installed.conf.json');
+  assert.equal(config.plugins.updater.pubkey, '__SET_VIA_TAURI_UPDATER_PUBLIC_KEY__');
+  assert.deepEqual(config.plugins.updater.endpoints, ['__SET_VIA_TEACHER_WORK_UPDATE_ENDPOINT__']);
 });

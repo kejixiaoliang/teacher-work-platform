@@ -1,6 +1,8 @@
 import { configureRuntime, getRuntimeConfig, toApiUrl } from './runtimeConfig.js';
+import { createUpdater } from '../desktop/updater.js';
 
 export const desktopApi = {
+  updater: createUpdater(),
   isTauri() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__);
   },

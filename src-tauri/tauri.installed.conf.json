@@ -10,5 +10,14 @@
         "installMode": "currentUser"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "__SET_VIA_TAURI_UPDATER_PUBLIC_KEY__",
+      "endpoints": ["__SET_VIA_TEACHER_WORK_UPDATE_ENDPOINT__"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

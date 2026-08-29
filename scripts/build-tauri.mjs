@@ -1,4 +1,5 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -14,6 +15,19 @@ const config = path.join('src-tauri', 'tauri.' + profile + '.conf.json');
 const args = ['tauri', 'build', '--config', config];
 
 if (profile === 'installed') {
+  const publicKey = process.env.TAURI_UPDATER_PUBLIC_KEY?.trim();
+  const endpoint = process.env.TEACHER_WORK_UPDATE_ENDPOINT?.trim();
+  if (!publicKey || !endpoint) {
+    throw new Error(
+      '安装版构建需要 TAURI_UPDATER_PUBLIC_KEY 和 TEACHER_WORK_UPDATE_ENDPOINT；生产密钥与地址不写入仓库。',
+    );
+  }
+  const updaterConfig = path.join(targetDir, 'tauri.updater.conf.json');
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(updaterConfig, JSON.stringify({
+    plugins: { updater: { pubkey: publicKey, endpoints: [endpoint] } },
+  }, null, 2));
+  args.push('--config', updaterConfig);
   args.push('--features', 'installed', '--bundles', 'nsis');
 } else {
   args.push('--no-bundle');

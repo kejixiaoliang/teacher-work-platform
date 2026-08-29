@@ -220,6 +220,18 @@ fn shutdown_sidecar(child: &Mutex<Option<Child>>) {
 pub fn run() {
     let (child, bootstrap) = start_backend().unwrap_or_else(|error| panic!("{error}"));
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(not(feature = "installed"))]
+            let _ = app;
+            #[cfg(feature = "installed")]
+            {
+                app.handle()
+                    .plugin(tauri_plugin_process::init())?;
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
+            Ok(())
+        })
         .manage(DesktopState {
             bootstrap,
             child: Mutex::new(Some(child)),

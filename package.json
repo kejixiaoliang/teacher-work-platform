@@ -17,11 +17,14 @@
     "tauri:build": "npm run tauri:build:portable",
     "tauri:build:installed": "npm run version:check && node scripts/build-tauri.mjs installed",
     "tauri:build:portable": "npm run version:check && node scripts/build-tauri.mjs portable",
+    "package:installed": "npm run tauri:build:installed",
     "package:portable": "node scripts/package-portable.mjs",
     "qa:portable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/qa-portable.ps1"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "archiver": "^7.0.1",
     "better-sqlite3": "^12.2.0",
     "echarts": "^6.1.0",
