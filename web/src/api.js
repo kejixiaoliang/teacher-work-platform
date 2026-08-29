@@ -88,6 +88,11 @@ export const api = {
     create: d => request('POST', '/api/classes', d),
     update: (id, d) => request('PUT', `/api/classes/${id}`, d),
     remove: id => request('DELETE', `/api/classes/${id}`),
+    customization: id => request('GET', `/api/classes/${id}/customization`),
+    updateCustomization: (id, d) => request('PUT', `/api/classes/${id}/customization`, d),
+    subjectTemplates: id => request('GET', `/api/classes/${id}/subject-templates`),
+    saveSubjectTemplate: (id, d, templateId = null) => request('PUT', `/api/classes/${id}/subject-templates${templateId ? `/${templateId}` : ''}`, d),
+    removeSubjectTemplate: (id, templateId) => request('DELETE', `/api/classes/${id}/subject-templates/${templateId}`),
   },
   students: {
     list: q => request('GET', '/api/students' + toQuery(q)),

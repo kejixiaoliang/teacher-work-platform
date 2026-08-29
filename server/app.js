@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import classesRouter from './routes/classes.js';
+import classCustomizationRouter from './routes/class-customization.js';
 import studentsRouter from './routes/students.js';
 import seatsRouter from './routes/seats.js';
 import documentsRouter from './routes/documents.js';
@@ -71,6 +72,7 @@ export function createApp({ apiToken = '', accessController = null } = {}) {
     return res.status(401).json({ ok: false, error: '未授权的本地请求' });
   });
   app.get('/api/health', (req, res) => res.json({ ok: true }));
+  app.use('/api/classes', classCustomizationRouter);
   app.use('/api/classes', classesRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/seats', seatsRouter);
