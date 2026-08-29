@@ -37,3 +37,15 @@ test('installed updater configuration keeps production values outside the reposi
   assert.equal(config.plugins.updater.pubkey, '__SET_VIA_TAURI_UPDATER_PUBLIC_KEY__');
   assert.deepEqual(config.plugins.updater.endpoints, ['__SET_VIA_TEACHER_WORK_UPDATE_ENDPOINT__']);
 });
+
+test('installed build stages the bundled Node runtime and server resources', () => {
+  const buildScript = fs.readFileSync('scripts/build-tauri.mjs', 'utf8');
+  const runtimeScript = fs.readFileSync('scripts/prepare-tauri-runtime.mjs', 'utf8');
+  assert.match(buildScript, /runtimeDir/);
+  assert.match(buildScript, /resources/);
+  assert.match(buildScript, /runtimeDir, '\/'/);
+  assert.match(buildScript, /'resources\/'/);
+  assert.match(buildScript, /prepareTauriRuntime/);
+  assert.match(runtimeScript, /node\.exe/);
+  assert.match(runtimeScript, /['"]install['"]/);
+});

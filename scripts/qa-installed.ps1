@@ -19,8 +19,8 @@ $installer = Assert-NonEmptyFile $InstallerPath 'installer'
 $signature = Assert-NonEmptyFile $SignaturePath 'signature'
 $manifestFile = Assert-NonEmptyFile $ManifestPath 'update manifest'
 $checksumsFile = Assert-NonEmptyFile $ChecksumsPath 'SHA-256 manifest'
-$manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
-$checksums = Get-Content -LiteralPath $checksumsFile.FullName -Raw | ConvertFrom-Json
+$manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+$checksums = Get-Content -LiteralPath $checksumsFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
 $platform = $manifest.platforms.'windows-x86_64'
 if (-not $manifest.version -or -not $manifest.notes -or -not $platform) { throw 'latest.json is missing version, notes, or windows-x86_64' }
 if ($platform.url -notmatch '^https?://') { throw 'latest.json installer URL must be absolute HTTP' }

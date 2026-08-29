@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { prepareTauriRuntime } from './prepare-tauri-runtime.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profile = process.argv[2];
@@ -24,7 +25,13 @@ if (profile === 'installed') {
   }
   const updaterConfig = path.join(targetDir, 'tauri.updater.conf.json');
   fs.mkdirSync(targetDir, { recursive: true });
+  const runtimeDir = prepareTauriRuntime({ root, targetDir, packageVersion: '0.9.0' });
   fs.writeFileSync(updaterConfig, JSON.stringify({
+    bundle: {
+      resources: {
+        [path.join(runtimeDir, '/')]: 'resources/',
+      },
+    },
     plugins: { updater: { pubkey: publicKey, endpoints: [endpoint] } },
   }, null, 2));
   args.push('--config', updaterConfig);
