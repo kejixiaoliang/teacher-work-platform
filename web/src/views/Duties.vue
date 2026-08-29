@@ -51,7 +51,7 @@
             <span>周</span>
           </div>
           <el-tag v-if="groupCount" type="warning" size="large">
-            本周值日 → 第 {{ currentGroupNo }} 组
+            今日值日（{{ todayLabel }}）→ 第 {{ currentGroupNo }} 组
           </el-tag>
           <div class="spacer"></div>
           <el-button :icon="Printer" type="primary" @click="printRoster">打印值日表</el-button>
@@ -60,7 +60,7 @@
                   title="请先在「值日分组」页设置分组，才能生成值日表" />
         <template v-else>
           <div v-if="currentGroup" class="current-group">
-            <b>本周值日名单（第 {{ currentGroupNo }} 组，第 {{ week }} 周）：</b>
+            <b>今日值日名单（{{ todayLabel }}，第 {{ currentGroupNo }} 组）：</b>
             <span v-for="m in currentGroup.members" :key="m.id" class="name-chip">{{ m.student_name }}</span>
           </div>
           <el-table :data="rosterRows" size="small" border style="margin-top:14px">
@@ -169,10 +169,15 @@ function weekDaysLabel(wd) {
 }
 const groupCount = computed(() => groups.value.length);
 // 当前周对应组：按排序后的索引取（组号删除后可能不连续，不能用 (week-1)%count+1 直接当组号找）
-const currentGroupNo = computed(() => groupCount.value ? ((week.value - 1) % groupCount.value) + 1 : null);
+const todayNo = computed(() => { const day = new Date().getDay(); return day === 0 ? 7 : day; });
+const todayLabel = computed(() => WEEK_NAMES[todayNo.value - 1] || '今天');
+const currentGroupNo = computed(() => {
+  if (!groupCount.value) return null;
+  const byDay = groups.value.find(group => String(group.weekDays || '').split(',').map(Number).includes(todayNo.value));
+  return byDay?.no ?? groups.value[((week.value - 1) % groupCount.value)]?.no;
+});
 const currentGroup = computed(() => {
-  const idx = currentGroupNo.value;
-  return idx != null ? groups.value[idx - 1] : null;
+  return groups.value.find(group => group.no === currentGroupNo.value) || null;
 });
 const rosterRows = computed(() => {
   if (!groupCount.value) return [];
@@ -287,7 +292,7 @@ async function saveWeekDays() {
 
 /* ---------- 自动分组 ---------- */
 function openAutoGroup() {
-  autoGroupCount.value = Math.max(4, Math.ceil(students.value.length / 6));
+  autoGroupCount.value = Math.max(5, Math.ceil(students.value.length / 6));
   autoGroupVisible.value = true;
 }
 async function runAutoGroup() {

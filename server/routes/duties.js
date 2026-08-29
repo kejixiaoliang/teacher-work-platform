@@ -108,7 +108,8 @@ router.post('/batch', (req, res) => {
 router.post('/auto-group', (req, res) => {
   const { class_id, groupCount } = req.body || {};
   if (!class_id) return badRequest(res, '缺少班级');
-  const n = Math.max(1, Math.min(15, parseInt(groupCount) || 4));
+  const explicitCount = groupCount !== undefined && groupCount !== null && groupCount !== '';
+  const n = Math.max(1, Math.min(15, explicitCount ? parseInt(groupCount) || 5 : 5));
   const students = db.prepare(`
     SELECT id, name FROM students
     WHERE class_id = ? AND deleted_at IS NULL AND status = '在读'
@@ -119,12 +120,14 @@ router.post('/auto-group', (req, res) => {
 
   const del = db.prepare(`DELETE FROM duties WHERE class_id = ? AND role = '值日生'`);
   const ins = db.prepare(`
-    INSERT INTO duties (class_id, student_id, role, group_no) VALUES (?, ?, '值日生', ?)
+    INSERT INTO duties (class_id, student_id, role, group_no, week_days) VALUES (?, ?, '值日生', ?, ?)
   `);
   const tx = db.transaction(() => {
     del.run(Number(class_id));
     students.forEach((s, i) => {
-      ins.run(Number(class_id), s.id, (i % n) + 1);
+      const groupNo = (i % n) + 1;
+      const weekDays = !explicitCount && n === 5 ? String(groupNo) : '';
+      ins.run(Number(class_id), s.id, groupNo, weekDays);
     });
   });
   tx();
