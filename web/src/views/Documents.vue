@@ -57,8 +57,8 @@
           </div>
           <div class="file-ops" @click.stop>
             <template v-if="!trashed">
-              <el-button class="op-btn" size="small" @click="preview(f)">预览</el-button>
-              <el-button class="op-btn" size="small" @click="download(f)">下载</el-button>
+              <el-button class="op-btn" size="small" @click.stop="preview(f)">预览</el-button>
+              <el-button class="op-btn" size="small" :loading="downloadLoadingId === f.id" @click.stop="download(f)">下载</el-button>
               <el-button class="op-btn" size="small" @click="openRename(f)">编辑</el-button>
               <el-button class="op-btn op-del" size="small" @click="remove(f)">删除</el-button>
             </template>
@@ -99,19 +99,36 @@
         </div>
       </div>
       <template #footer>
-        <el-button @click="uploadVisible = false; uploadQueue = []">关闭</el-button>
+        <el-button :disabled="uploading" @click="closeUpload">关闭</el-button>
       </template>
     </el-dialog>
 
     <!-- 预览弹窗 -->
     <el-dialog v-model="previewVisible" :title="current?.original_name" width="80%" top="4vh" @closed="releasePreviewUrl">
       <div v-if="current" class="preview-body">
+        <el-alert v-if="previewLoading" title="正在读取文件…" type="info" :closable="false" show-icon />
+        <el-alert v-else-if="previewError" :title="previewError" type="error" :closable="false" show-icon>
+          <el-button size="small" @click="preview(current)">重试</el-button>
+        </el-alert>
         <img v-if="current.category === '图片'" :src="previewUrl"
-             style="max-width:100%; max-height:72vh" />
+             v-show="!previewLoading && !previewError" style="max-width:100%; max-height:72vh" />
         <iframe v-else-if="current.category === 'PDF'" :src="previewUrl"
-                style="width:100%; height:72vh; border:none" />
-        <pre v-else class="text-preview">{{ textContent }}</pre>
+                v-show="!previewLoading && !previewError" style="width:100%; height:72vh; border:none" />
+        <pre v-else-if="!previewLoading && !previewError" class="text-preview">{{ textContent }}</pre>
       </div>
+    </el-dialog>
+
+    <!-- 不支持格式提示 -->
+    <el-dialog v-model="unsupportedVisible" title="暂不支持在线预览" width="560px">
+      <div v-if="current" class="unsupported-body">
+        <p>「{{ current.original_name }}」格式暂不支持在线预览，请到文件所在路径打开。</p>
+        <el-input v-model="fileLocation" readonly placeholder="正在获取文件路径…" />
+        <el-alert v-if="locationError" :title="locationError" type="error" :closable="false" show-icon style="margin-top:10px" />
+      </div>
+      <template #footer>
+        <el-button @click="unsupportedVisible = false">关闭</el-button>
+        <el-button type="primary" :disabled="!fileLocation" @click="copyLocation">复制路径</el-button>
+      </template>
     </el-dialog>
 
     <!-- 重命名/标签 -->
@@ -159,17 +176,29 @@ const dragging = ref(false);
 const uploadVisible = ref(false);
 const uploadTagList = ref([]);
 const uploadQueue = ref([]);
+const uploading = ref(false);
 
 function openUpload() {
   uploadTagList.value = [];
   uploadQueue.value = [];
   uploadVisible.value = true;
 }
+function closeUpload() {
+  if (uploading.value) return ElMessage.info('文件仍在上传，请稍候');
+  uploadVisible.value = false;
+  uploadQueue.value = [];
+}
 const fileInput = ref(null);
 
 const previewVisible = ref(false);
 const current = ref(null);
 const textContent = ref('');
+const previewLoading = ref(false);
+const previewError = ref('');
+const downloadLoadingId = ref(null);
+const unsupportedVisible = ref(false);
+const fileLocation = ref('');
+const locationError = ref('');
 const renameVisible = ref(false);
 const renameForm = ref({ id: null, name: '', tagList: [] });
 
@@ -227,22 +256,27 @@ function toggleTrash() { trashed.value = !trashed.value; load(); }
 /* ---------- 上传 ---------- */
 async function doUpload(files) {
   if (!store.currentClassId) return ElMessage.warning('请先创建班级');
-  for (const file of files) {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('class_id', store.currentClassId);
-    if (uploadTagList.value.length) fd.append('tag', uploadTagList.value.join(','));
-    const item = { name: file.name, ok: null, error: '' };
-    uploadQueue.value.push(item);
-    try {
-      await api.documents.upload(fd);
-      item.ok = true;
-    } catch (e) {
-      item.ok = false;
-      item.error = e.message;
+  uploading.value = true;
+  try {
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('class_id', store.currentClassId);
+      if (uploadTagList.value.length) fd.append('tag', uploadTagList.value.join(','));
+      const item = { name: file.name, ok: null, error: '' };
+      uploadQueue.value.push(item);
+      try {
+        await api.documents.upload(fd);
+        item.ok = true;
+      } catch (e) {
+        item.ok = false;
+        item.error = e.message;
+      }
     }
+  } finally {
+    await load();
+    uploading.value = false;
   }
-  load();
 }
 function onFilesSelected(e) {
   doUpload([...e.target.files]);
@@ -251,29 +285,54 @@ function onFilesSelected(e) {
 
 /* ---------- 预览 / 下载 ---------- */
 async function preview(f) {
-  // 图片 / PDF / 文本支持内嵌预览；其余类型直接下载（避免弹出无内容的空预览窗）
+  // 图片 / PDF / 文本支持内嵌预览；其余类型显示本地路径
   if (!['图片', 'PDF', '文本'].includes(f.category)) {
-    download(f);
+    current.value = f;
+    fileLocation.value = '';
+    locationError.value = '';
+    unsupportedVisible.value = true;
+    try {
+      const result = await api.documents.location(f.id);
+      fileLocation.value = result.path || '';
+      if (!fileLocation.value) locationError.value = '未能获取文件路径，请查看应用数据目录。';
+    } catch (error) {
+      locationError.value = error.message;
+    }
     return;
   }
   current.value = f;
   previewVisible.value = true;
   textContent.value = '';
+  previewLoading.value = true;
+  previewError.value = '';
   releasePreviewUrl();
   try {
     const blob = await api.documents.readFile(f.id);
     if (f.category === '文本') textContent.value = await blob.text();
     else previewUrl.value = URL.createObjectURL(blob);
   } catch (error) {
-    textContent.value = '（读取失败）';
-    ElMessage.error(error.message);
+    previewError.value = error.message;
+  } finally {
+    previewLoading.value = false;
   }
 }
 async function download(f) {
+  downloadLoadingId.value = f.id;
   try {
     const blob = await api.documents.readFile(f.id, { download: true });
-    await saveFileContent(blob, f.original_name, { mimeType: f.mime_type || 'application/octet-stream' });
+    const result = await saveFileContent(blob, f.original_name, { mimeType: f.mime_type || 'application/octet-stream' });
+    if (result?.saved) ElMessage.success('文件已保存');
   } catch (error) { ElMessage.error(error.message); }
+  finally { downloadLoadingId.value = null; }
+}
+async function copyLocation() {
+  if (!fileLocation.value) return;
+  try {
+    await navigator.clipboard.writeText(fileLocation.value);
+    ElMessage.success('路径已复制');
+  } catch {
+    ElMessage.info('请手动复制文件路径');
+  }
 }
 function releasePreviewUrl() {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);

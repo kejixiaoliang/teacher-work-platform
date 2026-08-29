@@ -62,11 +62,11 @@ function booleanValue(cell) {
   return YES_VALUES.has(stringValue(cell).toLowerCase());
 }
 
-function rowHasValues(row, columnMap) {
-  return FIELD_ORDER.some(field => columnMap[field] && stringValue(row.getCell(columnMap[field])) !== '');
+function rowHasValues(row, columnMap, order = FIELD_ORDER) {
+  return order.some(field => columnMap[field] && stringValue(row.getCell(columnMap[field])) !== '');
 }
 
-function detectHeader(ws) {
+function detectHeader(ws, aliases = ALIAS_TO_FIELD, order = FIELD_ORDER) {
   let best = null;
   const maxRow = Math.min(ws.rowCount || 0, 10);
   for (let rowNumber = 1; rowNumber <= maxRow; rowNumber += 1) {
@@ -74,7 +74,7 @@ function detectHeader(ws) {
     const columnMap = {};
     let matched = 0;
     for (let column = 1; column <= Math.max(ws.columnCount || 0, 16); column += 1) {
-      const field = ALIAS_TO_FIELD.get(normalizeStudentHeader(stringValue(row.getCell(column))));
+      const field = aliases.get(normalizeStudentHeader(stringValue(row.getCell(column))));
       if (field && columnMap[field] == null) {
         columnMap[field] = column;
         matched += 1;
@@ -85,19 +85,25 @@ function detectHeader(ws) {
   if (best) return { ...best, warning: '' };
   return {
     rowNumber: 1,
-    columnMap: Object.fromEntries(FIELD_ORDER.map((field, index) => [field, index + 1])),
+    columnMap: Object.fromEntries(order.map((field, index) => [field, index + 1])),
     warning: '未识别到标准表头，已按模板 A-P 列读取；请使用“下载导入模板”生成的表头。',
   };
 }
 
-export function parseStudentWorksheet(ws) {
-  const header = detectHeader(ws);
+export function parseStudentWorksheet(ws, configuredFields = null) {
+  const aliases = new Map(ALIAS_TO_FIELD);
+  const configured = Array.isArray(configuredFields) ? configuredFields.filter(field => field?.enabled !== false) : [];
+  for (const field of configured) {
+    if (field.fieldKey && field.label) aliases.set(normalizeStudentHeader(field.label), field.fieldKey);
+  }
+  const order = configured.length ? configured.map(field => field.fieldKey) : FIELD_ORDER;
+  const header = detectHeader(ws, aliases, order);
   const rows = [];
   const fails = [];
   for (let rowNumber = header.rowNumber + 1; rowNumber <= (ws.rowCount || 0); rowNumber += 1) {
     const row = ws.getRow(rowNumber);
-    if (!rowHasValues(row, header.columnMap)) continue;
-    const cell = field => row.getCell(header.columnMap[field]);
+    if (!rowHasValues(row, header.columnMap, order)) continue;
+    const cell = field => header.columnMap[field] ? row.getCell(header.columnMap[field]) : null;
     const record = {
       _row: rowNumber,
       school_no: stringValue(cell('school_no')),
@@ -117,6 +123,8 @@ export function parseStudentWorksheet(ws) {
       seat_note: stringValue(cell('seat_note')),
       remark: stringValue(cell('remark')),
     };
+    record.customFields = Object.fromEntries(order.filter(field => !FIELD_ORDER.includes(field) && header.columnMap[field] != null)
+      .map(field => [field, stringValue(cell(field))]));
     if (!record.name) fails.push({ row: rowNumber, reason: '姓名为空，请填写姓名列' });
     else rows.push(record);
   }

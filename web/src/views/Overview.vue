@@ -451,11 +451,11 @@ async function updatePick(e) {
   if (!file) return;
   let payload;
   try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('更新文件不是有效 JSON'); }
-  const isV1Exchange = payload?.format === 'teacher-work-backup' && payload?.formatVersion === 1;
+  const isExchange = payload?.format === 'teacher-work-backup' && [1, 2].includes(payload?.formatVersion);
   const isLegacyBackup = payload?.app === 'teacher-work' && Array.isArray(payload?.tables);
-  if (!isV1Exchange && !isLegacyBackup) return ElMessage.error('不是支持的 JSON 文件（需要 v1 或旧版 tables 格式）');
-  const classes = isV1Exchange ? (payload.content?.classes?.length || 0) : (payload.tables.find(t => t.table === 'classes')?.rows?.length || 0);
-  const students = isV1Exchange ? (payload.content?.students?.length || 0) : (payload.tables.find(t => t.table === 'students')?.rows?.length || 0);
+  if (!isExchange && !isLegacyBackup) return ElMessage.error('不是支持的 JSON 文件（需要 v1/v2 或旧版 tables 格式）');
+  const classes = isExchange ? (payload.content?.classes?.length || 0) : (payload.tables.find(t => t.table === 'classes')?.rows?.length || 0);
+  const students = isExchange ? (payload.content?.students?.length || 0) : (payload.tables.find(t => t.table === 'students')?.rows?.length || 0);
   const ok = await ElMessageBox.confirm(`将追加导入 ${classes} 个班级、${students} 名学生，不清空现有工作台。是否继续？`, '更新导入预览', { type: 'warning', confirmButtonText: '继续导入', cancelButtonText: '取消' }).catch(() => false);
   if (!ok) return;
   updateLoading.value = true;
@@ -477,10 +477,10 @@ async function restorePick(e) {
   const isZip = file.name.toLowerCase().endsWith('.zip');
   if (!isZip) {
     try { payload = JSON.parse(await file.text()); } catch { return ElMessage.error('备份文件不是有效的 JSON 或 ZIP'); }
-    const isV1Exchange = payload?.format === 'teacher-work-backup' && payload?.formatVersion === 1;
+    const isExchange = payload?.format === 'teacher-work-backup' && [1, 2].includes(payload?.formatVersion);
     const isLegacyBackup = payload?.app === 'teacher-work' && Array.isArray(payload?.tables);
-    if (!isV1Exchange && !isLegacyBackup) {
-      return ElMessage.error('不是支持的教师工作台 JSON 备份（需要 v1 或旧版格式）');
+    if (!isExchange && !isLegacyBackup) {
+      return ElMessage.error('不是支持的教师工作台 JSON 备份（需要 v1/v2 或旧版格式）');
     }
   }
   const clsCount = isZip ? 'ZIP' : payload.format === 'teacher-work-backup'

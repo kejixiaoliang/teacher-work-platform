@@ -165,7 +165,7 @@ import { exportExcel } from '../utils/exportExcel.js';
 const examsSeq = useSeqLoad();
 const studentsSeq = useSeqLoad();
 
-const COMMON_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '政治', '历史', '地理'];
+const COMMON_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '政治', '历史', '地理', '道德与法治', '信息技术', '体育', '音乐', '美术', '科学', '劳动', '心理健康'];
 
 const exams = ref([]);
 const currentExam = ref(null);
@@ -186,21 +186,12 @@ const examDialogVisible = ref(false);
 const examForm = ref({ id: null, name: '', date: '', subjects: [] });
 const demoLoading = ref(false);
 const selectedSubjectTemplate = ref('');
-const SUBJECT_TEMPLATE_KEY = 'teacher-work-score-subject-templates-v1';
+const subjectTemplates = ref([]);
 
-function readSubjectTemplates() {
-  try {
-    const value = JSON.parse(localStorage.getItem(SUBJECT_TEMPLATE_KEY) || '[]');
-    return Array.isArray(value) ? value.filter(item => item?.name && Array.isArray(item.subjects) && item.subjects.length) : [];
-  } catch {
-    return [];
-  }
-}
-
-const subjectTemplates = ref(readSubjectTemplates());
-
-function persistSubjectTemplates() {
-  localStorage.setItem(SUBJECT_TEMPLATE_KEY, JSON.stringify(subjectTemplates.value));
+async function loadSubjectTemplates() {
+  if (!store.currentClassId) { subjectTemplates.value = []; return; }
+  try { subjectTemplates.value = await api.classes.subjectTemplates(store.currentClassId); }
+  catch (error) { ElMessage.error('科目模板加载失败：' + error.message); }
 }
 
 function applySubjectTemplate(name) {
@@ -218,12 +209,12 @@ async function saveSubjectTemplate() {
   }).catch(() => ({ value: '' }));
   const name = String(value || '').trim();
   if (!name) return;
-  const index = subjectTemplates.value.findIndex(item => item.name === name);
-  const next = { name, subjects };
+  const existing = subjectTemplates.value.find(item => item.name === name);
+  const next = await api.classes.saveSubjectTemplate(store.currentClassId, { name, subjects }, existing?.id || null);
+  const index = subjectTemplates.value.findIndex(item => item.id === next.id);
   if (index >= 0) subjectTemplates.value.splice(index, 1, next);
   else subjectTemplates.value.push(next);
   selectedSubjectTemplate.value = name;
-  persistSubjectTemplates();
   ElMessage.success(`科目模板「${name}」已保存`);
 }
 
@@ -396,6 +387,7 @@ watch(() => store.currentClassId, async (newId, oldId) => {
   scoreDirty.value = false;
   loadExams();
   loadStudents();
+  loadSubjectTemplates();
 }, { immediate: true });
 
 // 离开页面（路由切换）前拦截未保存成绩

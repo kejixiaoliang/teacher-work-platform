@@ -17,7 +17,7 @@ const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-export const DATABASE_VERSION = 7;
+export const DATABASE_VERSION = 8;
 const openingVersion = db.pragma('user_version', { simple: true });
 if (!isFreshDb && openingVersion < DATABASE_VERSION) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -429,6 +429,55 @@ function migrate() {
     `);
     db.pragma('user_version = 7');
     console.log('[migrate] 数据交换稳定 UUID 表迁移完成 → user_version 7');
+  }
+  if (db.pragma('user_version', { simple: true }) < 8) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS student_field_definitions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        field_key TEXT NOT NULL,
+        label TEXT NOT NULL,
+        data_type TEXT NOT NULL DEFAULT 'text',
+        field_kind TEXT NOT NULL DEFAULT 'preset_extension',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        archived INTEGER NOT NULL DEFAULT 0,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        UNIQUE(class_id, field_key)
+      );
+      CREATE TABLE IF NOT EXISTS student_field_values (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        field_id INTEGER NOT NULL REFERENCES student_field_definitions(id) ON DELETE CASCADE,
+        value_text TEXT NOT NULL DEFAULT '',
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        UNIQUE(student_id, field_id)
+      );
+      CREATE TABLE IF NOT EXISTS class_display_labels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        label_key TEXT NOT NULL,
+        label_value TEXT NOT NULL,
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        UNIQUE(class_id, label_key)
+      );
+      CREATE TABLE IF NOT EXISTS subject_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        subjects_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        UNIQUE(class_id, name)
+      );
+      CREATE INDEX IF NOT EXISTS idx_student_field_definitions_class ON student_field_definitions(class_id, archived, sort_order);
+      CREATE INDEX IF NOT EXISTS idx_student_field_values_field ON student_field_values(field_id);
+      CREATE INDEX IF NOT EXISTS idx_class_display_labels_class ON class_display_labels(class_id);
+      CREATE INDEX IF NOT EXISTS idx_subject_templates_class ON subject_templates(class_id);
+    `);
+    db.pragma('user_version = 8');
+    console.log('[migrate] 自定义字段与班级配置表迁移完成 → user_version 8');
   }
 }
 migrate();

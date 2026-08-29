@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import db from '../db.js';
 import { getDataPaths } from '../config/paths.js';
 import { createBackupArchive, extractBackupArchive, sha256File } from '../utils/backup-archive.js';
-import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, attachIntegrity, emptyContent, newExportId, stableUuid, verifyIntegrity } from '../utils/backup-format.js';
+import { EXCHANGE_FORMAT, EXCHANGE_FORMAT_VERSION, SUPPORTED_EXCHANGE_FORMAT_VERSIONS, attachIntegrity, emptyContent, newExportId, stableUuid, verifyIntegrity } from '../utils/backup-format.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { dataDir, filesDir } = getDataPaths();
@@ -24,6 +24,10 @@ const router = Router();
 const TABLES = [
   'classes',
   'students',
+  'student_field_definitions',
+  'student_field_values',
+  'class_display_labels',
+  'subject_templates',
   'follow_up_tasks',
   'student_metrics_history',
   'assessment_categories',
@@ -49,6 +53,8 @@ const EXCHANGE_MAP = Object.freeze({
   seats: 'seats', seat_layouts: 'seatLayouts', documents: 'documents', duties: 'duties',
   exams: 'exams', exam_scores: 'scores', attendance: 'attendance', leaves: 'leaves',
   contacts: 'contacts', follow_up_tasks: 'followUpTasks', student_records: 'studentRecords',
+  student_field_definitions: 'studentFieldDefinitions', student_field_values: 'studentFieldValues',
+  class_display_labels: 'classDisplayLabels', subject_templates: 'subjectTemplates',
 });
 
 function ensureRecordUuid(tableName, recordId) {
@@ -79,7 +85,9 @@ function exchangePayload({ includeAttachments = false } = {}) {
     format: EXCHANGE_FORMAT,
     formatVersion: EXCHANGE_FORMAT_VERSION,
     appVersion: process.env.npm_package_version || '0.7.0',
-    databaseVersion: 7,
+    databaseVersion: 8,
+    minReaderVersion: '0.8.0',
+    capabilities: ['custom-student-fields', 'class-display-labels', 'subject-templates'],
     exportId: newExportId(),
     exportedAt: new Date().toISOString(),
     source: { platform: 'desktop', product: 'teacher-work', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' },
@@ -96,7 +104,7 @@ function stripExchangeMeta(row) {
 }
 
 function normalizeExchangePayload(payload) {
-  if (!payload || payload.format !== EXCHANGE_FORMAT || payload.formatVersion !== EXCHANGE_FORMAT_VERSION) return payload;
+  if (!payload || payload.format !== EXCHANGE_FORMAT || !SUPPORTED_EXCHANGE_FORMAT_VERSIONS.includes(payload.formatVersion)) return payload;
   if (!verifyIntegrity(payload)) throw new Error('JSON 备份完整性校验失败');
   const groups = exchangeTableRows(payload);
   return {
@@ -135,10 +143,14 @@ function exchangeTableRows(payload) {
     seats: c.seats || [], seatLayouts: c.seatLayouts || [], documents: c.documents || [],
     duties: c.duties || [], exams: c.exams || [], scores: c.scores || [], attendance: c.attendance || [],
     leaves: c.leaves || [], contacts: c.contacts || [], studentRecords: c.studentRecords || [], followUpTasks: c.followUpTasks || [],
+    studentFieldDefinitions: c.studentFieldDefinitions || [], studentFieldValues: c.studentFieldValues || [],
+    classDisplayLabels: c.classDisplayLabels || [], subjectTemplates: c.subjectTemplates || [],
     assessment: c.assessment || {},
   };
   return [
-    ['classes', content.classes], ['students', content.students], ['student_metrics_history', content.studentHistory],
+    ['classes', content.classes], ['students', content.students], ['student_field_definitions', content.studentFieldDefinitions],
+    ['student_field_values', content.studentFieldValues], ['class_display_labels', content.classDisplayLabels],
+    ['subject_templates', content.subjectTemplates], ['student_metrics_history', content.studentHistory],
     ['seats', content.seats], ['seat_layouts', content.seatLayouts], ['documents', content.documents],
     ['duties', content.duties], ['exams', content.exams], ['exam_scores', content.scores],
     ['attendance', content.attendance], ['student_records', content.studentRecords], ['contacts', content.contacts],
@@ -280,6 +292,9 @@ router.get('/export-json', (req, res) => {
 
 const UPDATE_FK = Object.freeze({
   students: { class_id: 'classes' }, follow_up_tasks: { class_id: 'classes', student_id: 'students' },
+  student_field_definitions: { class_id: 'classes' },
+  student_field_values: { student_id: 'students', field_id: 'student_field_definitions' },
+  class_display_labels: { class_id: 'classes' }, subject_templates: { class_id: 'classes' },
   student_metrics_history: { student_id: 'students' }, seats: { class_id: 'classes', student_id: 'students' },
   seat_layouts: { class_id: 'classes' }, documents: { class_id: 'classes' }, duties: { class_id: 'classes', student_id: 'students' },
   exams: { class_id: 'classes' }, exam_scores: { exam_id: 'exams', student_id: 'students' },
@@ -340,7 +355,7 @@ router.post('/update', (req, res) => {
     const incoming = req.body;
     let payload;
     let groups;
-    if (incoming?.format === EXCHANGE_FORMAT && incoming?.formatVersion === EXCHANGE_FORMAT_VERSION) {
+    if (incoming?.format === EXCHANGE_FORMAT && SUPPORTED_EXCHANGE_FORMAT_VERSIONS.includes(incoming?.formatVersion)) {
       if (!verifyIntegrity(incoming)) return invalidBackup(res, 'JSON 备份完整性校验失败');
       payload = incoming;
       groups = new Map(exchangeTableRows(incoming).map(([table, rows]) => [table, rows]));
@@ -478,6 +493,13 @@ router.get('/export-class/:id', async (req, res) => {
       tables: [
         { table: 'classes', rows: [cls] },
         { table: 'students', rows: db.prepare(`SELECT * FROM students WHERE class_id = ?`).all(classId) },
+        { table: 'student_field_definitions', rows: db.prepare(`SELECT * FROM student_field_definitions WHERE class_id = ?`).all(classId) },
+        { table: 'student_field_values', rows: db.prepare(`
+          SELECT v.* FROM student_field_values v
+          WHERE v.student_id IN (SELECT id FROM students WHERE class_id = ?)
+        `).all(classId) },
+        { table: 'class_display_labels', rows: db.prepare(`SELECT * FROM class_display_labels WHERE class_id = ?`).all(classId) },
+        { table: 'subject_templates', rows: db.prepare(`SELECT * FROM subject_templates WHERE class_id = ?`).all(classId) },
         { table: 'follow_up_tasks', rows: db.prepare(`SELECT * FROM follow_up_tasks WHERE class_id = ?`).all(classId) },
         { table: 'seats', rows: db.prepare(`SELECT * FROM seats WHERE class_id = ?`).all(classId) },
         { table: 'seat_layouts', rows: db.prepare(`SELECT * FROM seat_layouts WHERE class_id = ?`).all(classId) },

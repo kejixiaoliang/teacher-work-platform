@@ -1,0 +1,31 @@
+# CloudBase 数据权限规划
+
+当前环境为 NoSQL 文档数据库。第一阶段已将 5 个集合配置为 `PRIVATE`，避免在数据字段和云函数边界未完全验证前开放学生数据。
+
+## 原则
+
+- 小程序用户只能访问当前微信身份所属的教师数据；
+- `ownerId` 必须由云函数从 `cloud.getWXContext().OPENID` 推导；
+- 客户端提交的 `ownerId` 只能作为输入信息，不能作为授权依据；
+- 兑换码、教师绑定、批量导入、跨集合写入通过云函数完成；
+- 尚未确认的集合保持默认安全状态。
+
+## 集合边界
+
+当前实际权限：`teacher_profiles`、`datasets`、`import_batches`、`classes`、`students`、`attendance`、`leaves`、`follow_up_tasks`、`license_codes`、`license_grants`、`admin_audit_logs` 均为 `PRIVATE`。
+
+| 集合 | 客户端直接读取 | 客户端直接写入 | 推荐写入边界 |
+| --- | --- | --- | --- |
+| `teacher_profiles` | 后续按当前身份读取 | 否 | 云函数 |
+| `datasets` | 后续按当前身份读取 | 否 | 云函数 |
+| `import_batches` | 只读本人批次 | 否 | 云函数 |
+| `classes` | 待权限规则确认 | 待确认 | 云函数优先 |
+| `students` | 待权限规则确认 | 待确认 | 云函数优先 |
+| `attendance` | 否 | 否 | `attendance-data` 云函数 |
+| `leaves` | 否 | 否 | `leave-data` 云函数 |
+| `follow_up_tasks` | 否 | 否 | `follow-up-data` 云函数 |
+| `license_codes` | 否 | 否 | `admin` / `redeem-code` 云函数 |
+| `license_grants` | 否 | 否 | `admin` / `redeem-code` 云函数 |
+| `admin_audit_logs` | 否 | 否 | `admin` 云函数 |
+
+具体安全规则和索引将在第一批数据契约冻结后单独提交和验证。

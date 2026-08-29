@@ -88,6 +88,11 @@ export const api = {
     create: d => request('POST', '/api/classes', d),
     update: (id, d) => request('PUT', `/api/classes/${id}`, d),
     remove: id => request('DELETE', `/api/classes/${id}`),
+    customization: id => request('GET', `/api/classes/${id}/customization`),
+    updateCustomization: (id, d) => request('PUT', `/api/classes/${id}/customization`, d),
+    subjectTemplates: id => request('GET', `/api/classes/${id}/subject-templates`),
+    saveSubjectTemplate: (id, d, templateId = null) => request('PUT', `/api/classes/${id}/subject-templates${templateId ? `/${templateId}` : ''}`, d),
+    removeSubjectTemplate: (id, templateId) => request('DELETE', `/api/classes/${id}/subject-templates/${templateId}`),
   },
   students: {
     list: q => request('GET', '/api/students' + toQuery(q)),
@@ -100,6 +105,11 @@ export const api = {
     archive: d => request('POST', '/api/students/archive', d),
     metrics: id => request('GET', `/api/students/${id}/metrics`),
     classMetrics: classId => request('GET', `/api/students/class-metrics?class_id=${classId}`),
+  },
+  studentFields: {
+    list: classId => request('GET', `/api/student-fields?class_id=${classId}`),
+    update: (classId, fieldKey, d) => request('PUT', `/api/student-fields/${encodeURIComponent(fieldKey)}?class_id=${classId}`, d),
+    order: (classId, fieldKeys) => request('PUT', `/api/student-fields/order?class_id=${classId}`, { fieldKeys }),
   },
   seats: {
     get: classId => request('GET', `/api/seats?class_id=${classId}`),
@@ -135,13 +145,26 @@ export const api = {
     restore: ids => request('POST', '/api/documents/restore', { ids }),
     purge: ids => request('POST', '/api/documents/purge', { ids }),
     fileToken: id => request('GET', `/api/documents/${id}/file-token`),
+    location: id => request('GET', `/api/documents/${id}/location`),
     readFile: async (id, { download = false } = {}) => {
       const { token } = await request('GET', `/api/documents/${id}/file-token`);
       const query = new URLSearchParams({ __token: token });
       if (download) query.set('dl', '1');
-      const r = await fetch(toApiUrl(`/api/documents/${id}/file?${query}`));
-      if (!r.ok) throw new Error(`文件读取失败（${r.status}）`);
-      return r.blob();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      try {
+        const { apiToken } = getRuntimeConfig();
+        const headers = apiToken ? { 'x-teacher-work-token': apiToken } : {};
+        const r = await fetch(toApiUrl(`/api/documents/${id}/file?${query}`), { headers, signal: ctrl.signal });
+        if (!r.ok) throw new Error(`文件读取失败（${r.status}）`);
+        return r.blob();
+      } catch (e) {
+        if (e?.name === 'AbortError') throw new Error('文件读取超时，请重试');
+        if (e?.message?.startsWith('文件读取失败')) throw e;
+        throw new Error('文件读取失败：' + e.message);
+      } finally {
+        clearTimeout(timer);
+      }
     },
   },
   duties: {

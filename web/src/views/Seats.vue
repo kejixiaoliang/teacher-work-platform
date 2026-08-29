@@ -372,9 +372,15 @@ function fmtV(v) { return v == null ? '' : Number(v).toFixed(1); }
 /** 走道判定：0=无走道，1=中间走道，2=双走道（1/3 与 2/3 处） */
 function isAisle(c) {
   const m = currentClass.value?.aisle_mode ?? 1;
+  const total = cols.value;
   if (m === 0) return false;
-  if (m === 2) return c === Math.ceil(cols.value / 3) || c === Math.ceil(cols.value * 2 / 3);
-  return c === Math.ceil(cols.value / 2);
+  // .aisle adds the visual gap before the matched column. Therefore the
+  // boundary must be one column after the left block, not on its last seat.
+  if (m === 1) return c === Math.floor(total / 2) + 1;
+  // Split the seats into three blocks as evenly as possible for two aisles.
+  const left = Math.ceil(total / 3);
+  const middle = Math.floor((total - left) / 2);
+  return c === left + 1 || c === left + middle + 1;
 }
 
 /** 当前网格内的入座/空座统计 */
@@ -718,7 +724,7 @@ onBeforeRouteLeave(async () => {
 }
 .ws-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .stat-num { color: var(--tomato); font-size: 16px; font-weight: 900; }
-.ws-body { display: flex; min-height: 72vh; }
+.ws-body { display: flex; min-height: 72vh; min-width: 0; }
 
 /* 左侧面板 */
 .ws-panel {
@@ -744,8 +750,8 @@ onBeforeRouteLeave(async () => {
 
 /* 右侧画布 */
 .ws-canvas {
-  flex: 1; padding: 22px 16px 30px; overflow: auto;
-  display: flex; flex-direction: column; align-items: center;
+  flex: 1; min-width: 0; padding: 22px 16px 30px; overflow-y: auto; overflow-x: auto;
+  display: flex; flex-direction: column; align-items: stretch;
 }
 .canvas-alert { width: 100%; max-width: 900px; margin-bottom: 10px; }
 
@@ -758,7 +764,7 @@ onBeforeRouteLeave(async () => {
   border-radius: 999px; padding: 6px 0;
   box-shadow: var(--shadow-sm);
 }
-.seat-grid { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.seat-grid { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; width: max-content; min-width: 100%; box-sizing: border-box; }
 .row { display: flex; gap: 10px; }
 .seat-wrap { flex: 0 0 clamp(76px, 9.5vw, 104px); }
 .seat-wrap.aisle { margin-left: 30px; }

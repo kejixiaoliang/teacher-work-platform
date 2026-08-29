@@ -38,6 +38,14 @@ test('document file access uses a short-lived single-use token bound to one docu
       method: 'POST', headers: { 'x-teacher-work-token': apiToken }, body: form,
     });
     const documentId = (await uploaded.json()).data.id;
+    const locationResponse = await fetch(`${running.baseUrl}/api/documents/${documentId}/location`, {
+      headers: { 'x-teacher-work-token': apiToken },
+    });
+    assert.equal(locationResponse.status, 200);
+    const location = await locationResponse.json();
+    assert.equal(location.data.originalName, 'private.txt');
+    assert.equal(location.data.exists, true);
+    assert.equal(location.data.path.startsWith(path.join(dataDir, 'files')), true);
     const tokenResponse = await fetch(`${running.baseUrl}/api/documents/${documentId}/file-token`, {
       headers: { 'x-teacher-work-token': apiToken },
     });

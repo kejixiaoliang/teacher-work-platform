@@ -43,7 +43,7 @@ test('exports and restores database plus document files as a zip', async () => {
     fs.writeFileSync(zipPath, Buffer.from(await archiveResponse.arrayBuffer()));
     const extracted = await extractBackupArchive(zipPath, path.join(dataDir, 'extracted'));
     assert.equal(extracted.payload.format, 'teacher-work-backup');
-    assert.equal(extracted.payload.formatVersion, 1);
+    assert.equal(extracted.payload.formatVersion, 2);
     assert.equal(extracted.payload.attachments.included, true);
     assert.equal(extracted.files.length, 1);
 
@@ -53,7 +53,13 @@ test('exports and restores database plus document files as a zip', async () => {
     assert.equal(jsonResponse.status, 200);
     const exchange = await jsonResponse.json();
     assert.equal(exchange.format, 'teacher-work-backup');
-    assert.equal(exchange.formatVersion, 1);
+    assert.equal(exchange.formatVersion, 2);
+    assert.equal(exchange.databaseVersion, 8);
+    assert.equal(exchange.minReaderVersion, '0.8.0');
+    assert.ok(exchange.content.studentFieldDefinitions);
+    assert.ok(exchange.content.studentFieldValues);
+    assert.ok(exchange.content.classDisplayLabels);
+    assert.ok(exchange.content.subjectTemplates);
     assert.equal(exchange.attachments.included, false);
     assert.equal(exchange.content.classes.length, 1);
     assert.equal(exchange.content.students[0].uuid.length, 36);
