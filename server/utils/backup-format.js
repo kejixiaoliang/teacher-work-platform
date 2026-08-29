@@ -1,12 +1,14 @@
 import crypto from 'node:crypto';
 
 export const EXCHANGE_FORMAT = 'teacher-work-backup';
-export const EXCHANGE_FORMAT_VERSION = 1;
+export const EXCHANGE_FORMAT_VERSION = 2;
+export const SUPPORTED_EXCHANGE_FORMAT_VERSIONS = Object.freeze([1, 2]);
 
 export const EXCHANGE_COLLECTIONS = Object.freeze([
   'classes', 'students', 'studentHistory', 'seats', 'seatLayouts', 'documents',
   'duties', 'exams', 'scores', 'attendance', 'studentRecords', 'leaves', 'contacts',
   'assessment', 'followUpTasks', 'settings',
+  'studentFieldDefinitions', 'studentFieldValues', 'classDisplayLabels', 'subjectTemplates',
 ]);
 
 export function canonicalize(value) {

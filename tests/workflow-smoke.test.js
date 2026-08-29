@@ -221,7 +221,7 @@ test('核心教学工作流通过统一 API 完成持久化与备份', async () 
     fs.writeFileSync(zipPath, Buffer.from(await backupResponse.arrayBuffer()));
     const backup = (await extractBackupArchive(zipPath, path.join(dataDir, 'workflow-export'))).payload;
     assert.equal(backup.format, 'teacher-work-backup');
-    assert.equal(backup.formatVersion, 1);
+    assert.equal(backup.formatVersion, 2);
     assert.ok(backup.content.classes.length >= 1);
     assert.ok(backup.content.students.length >= 2);
     await expectBackupRejected({ app: 'teacher-work', version: 1, tables: [] });
