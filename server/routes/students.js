@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { badRequest, positiveInt } from '../validation.js';
+import { STUDENT_FIELD_BY_KEY } from '../config/student-field-catalog.js';
 
 const router = Router();
 
@@ -19,6 +20,12 @@ function pickStudent(row) {
   const o = { ...row };
   o.is_boarding = !!o.is_boarding;
   o.is_myopia = !!o.is_myopia;
+  o.customFields = Object.fromEntries(db.prepare(`
+    SELECT d.field_key AS key, v.value_text AS value
+    FROM student_field_definitions d LEFT JOIN student_field_values v
+      ON v.field_id = d.id AND v.student_id = ?
+    WHERE d.class_id = ? AND d.field_kind <> 'core' AND d.archived = 0
+  `).all(row.id, row.class_id).map(item => [item.key, item.value || '']));
   return o;
 }
 
@@ -42,6 +49,24 @@ function resolveMetricTerm(studentId, classId) {
   const archivedYear = String(archived?.term || '').match(/\b\d{4}-\d{4}\b/)?.[0] || '';
   const academicYear = String(cls?.academic_year || '').trim() || archivedYear;
   return [academicYear, cls?.term].filter(Boolean).join(' ') || academicYear || '日常测量';
+}
+
+function customFieldValues(classId, input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return [];
+  const allowed = db.prepare(`SELECT id, field_key FROM student_field_definitions WHERE class_id=? AND field_kind <> 'core' AND archived=0`).all(classId);
+  const byKey = new Map(allowed.map(row => [row.field_key, row.id]));
+  return Object.entries(input)
+    .filter(([key]) => byKey.has(key) && STUDENT_FIELD_BY_KEY[key])
+    .map(([key, value]) => ({ fieldId: byKey.get(key), value: value == null ? '' : String(value).slice(0, 500) }));
+}
+
+function saveCustomFieldValues(studentId, classId, input) {
+  const values = customFieldValues(classId, input);
+  if (!values.length) return;
+  const upsert = db.prepare(`INSERT INTO student_field_values (student_id, field_id, value_text, updated_at)
+    VALUES (?, ?, ?, datetime('now','localtime'))
+    ON CONFLICT(student_id, field_id) DO UPDATE SET value_text=excluded.value_text, updated_at=excluded.updated_at`);
+  values.forEach(item => upsert.run(studentId, item.fieldId, item.value));
 }
 
 // 列表（默认当前班+在读+未删除；trashed=1 查回收站）
@@ -86,17 +111,17 @@ router.post('/', (req, res) => {
   }
   const keys = [...FIELDS];
   const placeholders = keys.map(k => '@' + k).join(', ');
-  const info = db.prepare(`INSERT INTO students (${keys.join(', ')}, class_id) VALUES (${placeholders}, @class_id)`).run({
-    ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] ?? null }), {}),
-    class_id: Number(b.class_id),
-    school_no: b.school_no ? String(b.school_no).trim() : null,
-    name: String(b.name).trim(),
-    gender: b.gender || '男',
-    status: b.status || '在读',
-    is_boarding: b.is_boarding ? 1 : 0,
-    is_myopia: b.is_myopia ? 1 : 0,
+  const tx = db.transaction(() => {
+    const info = db.prepare(`INSERT INTO students (${keys.join(', ')}, class_id) VALUES (${placeholders}, @class_id)`).run({
+      ...FIELDS.reduce((o, k) => ({ ...o, [k]: b[k] ?? null }), {}),
+      class_id: Number(b.class_id), school_no: b.school_no ? String(b.school_no).trim() : null,
+      name: String(b.name).trim(), gender: b.gender || '男', status: b.status || '在读',
+      is_boarding: b.is_boarding ? 1 : 0, is_myopia: b.is_myopia ? 1 : 0,
+    });
+    saveCustomFieldValues(Number(info.lastInsertRowid), Number(b.class_id), b.customFields);
+    return Number(info.lastInsertRowid);
   });
-  res.json({ ok: true, data: { id: info.lastInsertRowid } });
+  res.json({ ok: true, data: { id: tx() } });
 });
 
 // 更新
@@ -141,6 +166,7 @@ router.put('/:id', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(id, term, values.height_cm, values.vision_left, values.vision_right, values.grade_level, values.is_myopia ? 1 : 0, source);
     }
+    saveCustomFieldValues(id, row.class_id, b.customFields);
   });
   tx();
   res.json({ ok: true, data: { healthSnapshotCreated: healthChanged } });
@@ -243,6 +269,7 @@ router.post('/import', (req, res) => {
           seat_note: s.seat_note || null,
           remark: s.remark || null,
         });
+        saveCustomFieldValues(Number(info.lastInsertRowid), Number(class_id), s.customFields);
         okRows.push({ id: info.lastInsertRowid, name: String(s.name).trim() });
       } catch (e) {
         failRows.push({ row: s._row, name: s.name, reason: e.message });

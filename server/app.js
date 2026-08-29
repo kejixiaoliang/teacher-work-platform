@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import classesRouter from './routes/classes.js';
 import classCustomizationRouter from './routes/class-customization.js';
 import studentsRouter from './routes/students.js';
+import studentFieldsRouter from './routes/student-fields.js';
 import seatsRouter from './routes/seats.js';
 import documentsRouter from './routes/documents.js';
 import dutiesRouter from './routes/duties.js';
@@ -75,6 +76,7 @@ export function createApp({ apiToken = '', accessController = null } = {}) {
   app.use('/api/classes', classCustomizationRouter);
   app.use('/api/classes', classesRouter);
   app.use('/api/students', studentsRouter);
+  app.use('/api/student-fields', studentFieldsRouter);
   app.use('/api/seats', seatsRouter);
   app.use('/api/documents', documentsRouter);
   app.use('/api/duties', dutiesRouter);

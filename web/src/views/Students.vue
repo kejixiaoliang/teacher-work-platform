@@ -13,7 +13,8 @@
         <el-tooltip :disabled="classGuard.canImport" :content="classGuard.entryMessage" placement="bottom">
           <span><el-button :icon="Upload" :disabled="!classGuard.canImport" @click="openStudentImport">导入 Excel</el-button></span>
         </el-tooltip>
-        <el-button :icon="Files" @click="exportExcel">导出 Excel</el-button>
+      <el-button :icon="Files" @click="exportExcel">导出 Excel</el-button>
+      <el-button @click="fieldConfigVisible = true">字段显示</el-button>
       </div>
     </div>
 
@@ -58,47 +59,50 @@
               @row-click="(row, column) => column.type !== 'selection' && openDetail(row)" style="cursor:pointer">
       <template #empty><el-empty description="暂无学生，点右上角「新增学生」或导入 Excel" :image-size="60" /></template>
       <el-table-column type="selection" width="40" />
-      <el-table-column prop="school_no" label="学号" min-width="96" show-overflow-tooltip />
-      <el-table-column prop="name" label="姓名" min-width="84" show-overflow-tooltip>
+      <el-table-column v-if="fieldEnabled('school_no')" prop="school_no" :label="fieldLabel('school_no')" min-width="96" show-overflow-tooltip />
+      <el-table-column v-if="fieldEnabled('name')" prop="name" :label="fieldLabel('name')" min-width="84" show-overflow-tooltip>
         <template #default="{ row }"><b>{{ row.name }}</b></template>
       </el-table-column>
-      <el-table-column prop="gender" label="性别" width="60" />
-      <el-table-column prop="height_cm" label="身高(cm)" width="85" />
-      <el-table-column label="视力" min-width="102">
+      <el-table-column v-if="fieldEnabled('gender')" prop="gender" :label="fieldLabel('gender')" width="60" />
+      <el-table-column v-if="fieldEnabled('height_cm')" prop="height_cm" :label="fieldLabel('height_cm')" width="85" />
+      <el-table-column v-if="fieldEnabled('vision_left') || fieldEnabled('vision_right')" label="视力" min-width="102">
         <template #default="{ row }">
           <span :class="{ 'vision-bad': row.vision_left != null && row.vision_left < 4.8 }">{{ fmtVision(row.vision_left) }}</span>
           /
           <span :class="{ 'vision-bad': row.vision_right != null && row.vision_right < 4.8 }">{{ fmtVision(row.vision_right) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="近视" width="60">
+      <el-table-column v-if="fieldEnabled('is_myopia')" :label="fieldLabel('is_myopia')" width="60">
         <template #default="{ row }"><el-tag v-if="row.is_myopia" size="small" type="warning">是</el-tag></template>
       </el-table-column>
-      <el-table-column prop="grade_level" label="成绩" min-width="74">
+      <el-table-column v-if="fieldEnabled('grade_level')" prop="grade_level" :label="fieldLabel('grade_level')" min-width="74">
         <template #default="{ row }">
           <el-tag v-if="row.grade_level" size="small" :type="gradeType(row.grade_level)">{{ row.grade_level }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="住宿" width="70">
+      <el-table-column v-if="fieldEnabled('is_boarding')" :label="fieldLabel('is_boarding')" width="70">
         <template #default="{ row }"><el-tag v-if="row.is_boarding" size="small" round>住宿</el-tag></template>
       </el-table-column>
-      <el-table-column prop="parent_phone" label="家长电话" min-width="132" show-overflow-tooltip>
+      <el-table-column v-if="fieldEnabled('parent_phone')" prop="parent_phone" :label="fieldLabel('parent_phone')" min-width="132" show-overflow-tooltip>
         <template #default="{ row }">{{ row.parent_phone || row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="interest_duty" label="职务/特长" min-width="144" show-overflow-tooltip>
+      <el-table-column v-if="fieldEnabled('interest_duty')" prop="interest_duty" :label="fieldLabel('interest_duty')" min-width="144" show-overflow-tooltip>
         <template #default="{ row }">{{ row.interest_duty || '—' }}</template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" min-width="70">
+      <el-table-column v-if="fieldEnabled('status')" prop="status" :label="fieldLabel('status')" min-width="70">
         <template #default="{ row }">
           <el-tag v-if="row.status !== '在读'" size="small" type="info">{{ row.status }}</el-tag>
           <span v-else class="text-muted">在读</span>
         </template>
       </el-table-column>
-      <el-table-column prop="follow_up_status" label="跟进" min-width="78">
+      <el-table-column v-if="fieldEnabled('follow_up_status')" prop="follow_up_status" label="跟进" min-width="78">
         <template #default="{ row }">
           <el-tag v-if="row.follow_up_status && row.follow_up_status !== '正常'" size="small" type="warning">{{ row.follow_up_status }}</el-tag>
           <span v-else class="text-muted">正常</span>
         </template>
+      </el-table-column>
+      <el-table-column v-for="field in visibleExtensionFields" :key="field.fieldKey" :label="field.label" min-width="120" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.customFields?.[field.fieldKey] || '—' }}</template>
       </el-table-column>
       <el-table-column label="操作" width="142">
         <template #default="{ row }">
@@ -163,6 +167,9 @@
           </el-tab-pane>
           <el-tab-pane label="其他">
             <el-form-item label="兴趣特长/职务"><el-input v-model="form.interest_duty" placeholder="班长、课代表、绘画特长…" /></el-form-item>
+            <el-form-item v-for="field in visibleExtensionFields" :key="field.fieldKey" :label="field.label">
+              <el-input v-model="form.customFields[field.fieldKey]" />
+            </el-form-item>
             <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="3" /></el-form-item>
           </el-tab-pane>
         </el-tabs>
@@ -443,6 +450,17 @@
         <el-button type="primary" :loading="importing" @click="doImport">确认导入</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="fieldConfigVisible" title="学生字段显示" width="560px">
+      <el-alert type="info" :closable="false" style="margin-bottom:12px"
+        title="这里只调整显示名称、显示/隐藏和顺序，不会删除数据库中的学生资料。" />
+      <div v-for="field in studentFields" :key="field.fieldKey" class="field-config-row">
+        <el-switch v-model="field.enabled" @change="saveFieldConfig(field)" />
+        <el-input v-model="field.label" style="width:220px" @change="saveFieldConfig(field)" />
+        <span class="text-muted">{{ field.fieldKey }}</span>
+      </div>
+      <template #footer><el-button @click="fieldConfigVisible = false">关闭</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
@@ -457,6 +475,7 @@ import { useSeqLoad } from '../composables/useSeqLoad.js';
 import { studentClassGuard } from '../domain/studentClassGuard.js';
 import { parseStudentWorksheet } from '../domain/studentImport.js';
 import { saveFileContent } from '../utils/saveFile.js';
+import { STUDENT_FIELD_CATALOG } from '../domain/studentFieldCatalog.js';
 
 // 每个数据域独立计数器，避免并发 load 相互作废
 const listSeq = useSeqLoad();
@@ -483,6 +502,19 @@ const TEMPLATE_COLS = [
   { key: 'seat_note', title: '特殊座位需求', width: 16 },
   { key: 'remark', title: '备注', width: 14 },
 ];
+function getExcelCols() {
+  const byKey = new Map(TEMPLATE_COLS.map(col => [col.key, col]));
+  return studentFields.value.filter(field => field.enabled || field.fieldKey === 'name')
+    .map(field => byKey.get(field.fieldKey) || { key: field.fieldKey, title: field.label, width: 18 })
+    .filter(Boolean);
+}
+function valueForExcel(student, key) {
+  if (student[key] !== undefined) {
+    if (key === 'is_boarding' || key === 'is_myopia') return student[key] ? '是' : '否';
+    return student[key] ?? '';
+  }
+  return student.customFields?.[key] ?? '';
+}
 
 const list = ref([]);
 const selected = ref([]);
@@ -490,6 +522,20 @@ const trashed = ref(false);
 const fileInput = ref(null);
 const query = reactive({ keyword: '', gender: '', status: '', myopia: '', boarding: '', follow_up_status: '' });
 const classGuard = computed(() => studentClassGuard(store.currentClassId));
+const studentFields = ref(STUDENT_FIELD_CATALOG.map((field, index) => ({ fieldKey: field.key, label: field.label, enabled: true, sortOrder: index })));
+const fieldConfigVisible = ref(false);
+const visibleExtensionFields = computed(() => studentFields.value.filter(field => field.enabled && ['id_card', 'address', 'guardian_relation'].includes(field.fieldKey)));
+function fieldEnabled(key) { return studentFields.value.find(field => field.fieldKey === key)?.enabled !== false; }
+function fieldLabel(key) { return studentFields.value.find(field => field.fieldKey === key)?.label || key; }
+async function loadStudentFields() {
+  if (!store.currentClassId) return;
+  try { studentFields.value = await api.studentFields.list(store.currentClassId); }
+  catch (error) { ElMessage.error('学生字段配置加载失败：' + error.message); }
+}
+async function saveFieldConfig(field) {
+  try { await api.studentFields.update(store.currentClassId, field.fieldKey, { label: field.label, enabled: field.enabled }); }
+  catch (error) { ElMessage.error('字段配置保存失败：' + error.message); }
+}
 
 /* 前端分页：大列表不一次性渲染全部行 */
 const PAGE_SIZE = 50;
@@ -536,7 +582,7 @@ function emptyForm() {
   return {
     id: null, school_no: '', name: '', gender: '男', birth_date: '', phone: '', parent_phone: '',
     is_boarding: false, interest_duty: '', health_note: '', height_cm: null, vision_left: null,
-    vision_right: null, is_myopia: false, grade_level: '', seat_note: '', status: '在读', follow_up_status: '正常', follow_up_note: '', follow_up_updated_at: null, remark: '',
+    vision_right: null, is_myopia: false, grade_level: '', seat_note: '', status: '在读', follow_up_status: '正常', follow_up_note: '', follow_up_updated_at: null, remark: '', customFields: {},
   };
 }
 
@@ -565,13 +611,14 @@ watch(() => store.currentClassId, () => {
   followUpDialogVisible.value = false;
 });
 
-watch(() => store.currentClassId, load);
+watch(() => store.currentClassId, () => { loadStudentFields(); load(); });
 // 顶栏全局搜索跳转：读取 ?kw= 填入搜索框
 watch(() => route.query.kw, kw => {
   if (kw) { query.keyword = kw; load(); }
 });
 onMounted(() => {
   if (route.query.kw) query.keyword = String(route.query.kw);
+  loadStudentFields();
   load();
 });
 
@@ -718,7 +765,7 @@ async function removeContact(c) {
 function toggleTrash() { trashed.value = !trashed.value; selected.value = []; load(); }
 
 function openEdit(row) {
-  form.value = row ? { ...row } : emptyForm();
+  form.value = row ? { ...row, customFields: { ...(row.customFields || {}) } } : emptyForm();
   editVisible.value = true;
 }
 
@@ -816,11 +863,17 @@ async function downloadTemplate() {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('学生名单');
-  ws.addRow(TEMPLATE_COLS.map(c => c.title));
+  const meta = wb.addWorksheet('__teacher_work_meta');
+  meta.state = 'veryHidden';
+  meta.addRow(['format', 'student-template-v2']);
+  meta.addRow(['fieldKeys', getExcelCols().map(c => c.key).join(',')]);
+  const cols = getExcelCols();
+  ws.addRow(cols.map(c => c.title));
   ws.getRow(1).font = { bold: true };
   ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E8F5' } };
-  ws.addRow(['20251001', '示例学生', '男', '2012-01-01', '', '', '是', '', '', '150', '4.8', '4.9', '否', '良', '', '']);
-  TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
+  const sample = { school_no: '20251001', name: '示例学生', gender: '男', birth_date: '2012-01-01', is_boarding: true, height_cm: '150', vision_left: '4.8', vision_right: '4.9', is_myopia: false, grade_level: '良' };
+  ws.addRow(cols.map(c => valueForExcel(sample, c.key)));
+  cols.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
   const buf = await wb.xlsx.writeBuffer();
   await saveFileContent(buf, '学生导入模板.xlsx', { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
@@ -834,7 +887,7 @@ async function onFileChange(e) {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(await file.arrayBuffer());
     const ws = wb.worksheets[0];
-    const result = parseStudentWorksheet(ws);
+    const result = parseStudentWorksheet(ws, studentFields.value);
     parsed.value = result.rows;
     parsedFail.value = result.fails;
     parsedWarning.value = result.warning;
@@ -867,22 +920,24 @@ async function exportExcel() {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('学生名单');
-  ws.addRow(TEMPLATE_COLS.map(c => c.title));
+  const meta = wb.addWorksheet('__teacher_work_meta');
+  meta.state = 'veryHidden';
+  meta.addRow(['format', 'student-export-v2']);
+  meta.addRow(['fieldKeys', getExcelCols().map(c => c.key).join(',')]);
+  const cols = getExcelCols();
+  ws.addRow(cols.map(c => c.title));
   ws.getRow(1).font = { bold: true };
   for (const s of list.value) {
-    ws.addRow([
-      s.school_no, s.name, s.gender, s.birth_date, s.phone, s.parent_phone,
-      s.is_boarding ? '是' : '否', s.interest_duty, s.health_note, s.height_cm,
-      s.vision_left, s.vision_right, s.is_myopia ? '是' : '否', s.grade_level, s.seat_note, s.remark,
-    ]);
+    ws.addRow(cols.map(c => valueForExcel(s, c.key)));
   }
-  TEMPLATE_COLS.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
+  cols.forEach((c, i) => (ws.getColumn(i + 1).width = c.width));
   const buf = await wb.xlsx.writeBuffer();
   await saveFileContent(buf, `学生名单-${new Date().toISOString().slice(0, 10)}.xlsx`, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 </script>
 
 <style scoped>
+.field-config-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid #eee4d5; }
 .vision-bad { color: var(--el-color-danger); font-weight: 600; }
 :deep(.el-table__row) { cursor: pointer; }
 

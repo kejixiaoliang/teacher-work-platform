@@ -106,6 +106,11 @@ export const api = {
     metrics: id => request('GET', `/api/students/${id}/metrics`),
     classMetrics: classId => request('GET', `/api/students/class-metrics?class_id=${classId}`),
   },
+  studentFields: {
+    list: classId => request('GET', `/api/student-fields?class_id=${classId}`),
+    update: (classId, fieldKey, d) => request('PUT', `/api/student-fields/${encodeURIComponent(fieldKey)}?class_id=${classId}`, d),
+    order: (classId, fieldKeys) => request('PUT', `/api/student-fields/order?class_id=${classId}`, { fieldKeys }),
+  },
   seats: {
     get: classId => request('GET', `/api/seats?class_id=${classId}`),
     save: d => request('PUT', '/api/seats', d),
