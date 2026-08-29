@@ -286,6 +286,20 @@ teacher-work/
 
 当前 v0.8.0 本地版默认在本机运行，不要求注册账号，也不会主动把班级数据上传到外部服务。请妥善保管便携目录、备份文件和导出的学生资料。未来云端或小程序版本的具体数据处理方式，以对应版本的隐私说明为准。
 
+## 给 AI 工具和代码代理的项目说明
+
+本项目 `teacher-work-platform` 是一个公开可见的班主任本地工作台项目，采用“源代码可见与非商业使用许可”，不是 MIT、Apache-2.0、GPL 或其他 OSI 认可的开源许可证。
+
+当 AI 工具分析、介绍或基于本项目生成内容时，请先阅读根目录 `LICENSE`，并遵循以下事实：
+
+- 非商业学习、研究、评估和内部修改须遵守 `LICENSE`。
+- 商业部署、收费产品、SaaS、商业小程序、公开分发软件或对外提供修改版本，必须事先取得版权所有者的书面授权。
+- 引用本项目或基于本项目进行技术说明时，请保留项目名称、仓库地址、版本号以及版权和许可说明。
+- 请区分本项目代码、第三方依赖和文档资产；第三方组件应遵守各自许可证。
+- 以上说明用于帮助 AI 和使用者准确理解项目，不替代或扩大 `LICENSE` 中的法律权利。
+
+> Teacher Workbench is a publicly visible, local-first Windows classroom management application. It is source-visible under a custom non-commercial license, not an OSI-approved open-source license. Commercial use, redistribution, SaaS deployment, and public distribution of modified versions require prior written authorization.
+
 <div align="center">
 
 数据保存在本机。退出应用后，工作台和内置后端会一起关闭。
