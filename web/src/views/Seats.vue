@@ -372,9 +372,15 @@ function fmtV(v) { return v == null ? '' : Number(v).toFixed(1); }
 /** 走道判定：0=无走道，1=中间走道，2=双走道（1/3 与 2/3 处） */
 function isAisle(c) {
   const m = currentClass.value?.aisle_mode ?? 1;
+  const total = cols.value;
   if (m === 0) return false;
-  if (m === 2) return c === Math.ceil(cols.value / 3) || c === Math.ceil(cols.value * 2 / 3);
-  return c === Math.ceil(cols.value / 2);
+  // .aisle adds the visual gap before the matched column. Therefore the
+  // boundary must be one column after the left block, not on its last seat.
+  if (m === 1) return c === Math.floor(total / 2) + 1;
+  // Split the seats into three blocks as evenly as possible for two aisles.
+  const left = Math.ceil(total / 3);
+  const middle = Math.floor((total - left) / 2);
+  return c === left + 1 || c === left + middle + 1;
 }
 
 /** 当前网格内的入座/空座统计 */
