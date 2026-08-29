@@ -1,7 +1,7 @@
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::Mutex,
@@ -120,6 +120,17 @@ fn windows_local_app_data() -> Result<PathBuf, String> {
         .ok_or_else(|| "缺少 LOCALAPPDATA 环境变量".into())
 }
 
+fn append_runtime_log(data_dir: &Path, message: &str) {
+    let log_dir = data_dir.join("logs");
+    if std::fs::create_dir_all(&log_dir).is_err() {
+        return;
+    }
+    let path = log_dir.join("desktop-runtime.log");
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{message}");
+    }
+}
+
 fn random_token() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);
@@ -135,6 +146,10 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         None
     };
     let data_dir = resolve_data_dir(profile, &root, local_app_data.as_deref())?;
+    append_runtime_log(
+        &data_dir,
+        &format!("start profile={} root={}", profile.as_str(), root.display()),
+    );
     std::fs::create_dir_all(&data_dir).map_err(|e| format!("无法创建数据目录: {e}"))?;
     let probe = data_dir.join(".write-test");
     std::fs::write(&probe, b"ok").map_err(|e| format!("数据目录不可写: {e}"))?;
@@ -195,9 +210,11 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         }
     }
     let port = ready.ok_or_else(|| {
+        append_runtime_log(&data_dir, "backend timeout");
         let _ = child.kill();
         "本地服务启动超时".to_string()
     })?;
+    append_runtime_log(&data_dir, &format!("backend ready port={port}"));
     let bootstrap = DesktopBootstrap {
         api_base_url: format!("http://127.0.0.1:{port}"),
         api_token: token,
@@ -219,17 +236,28 @@ fn shutdown_sidecar(child: &Mutex<Option<Child>>) {
 
 pub fn run() {
     let (child, bootstrap) = start_backend().unwrap_or_else(|error| panic!("{error}"));
+    let runtime_log_dir = PathBuf::from(&bootstrap.data_dir);
+    append_runtime_log(&runtime_log_dir, "tauri build begin");
+    let setup_log_dir = runtime_log_dir.clone();
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(move |app| {
+            append_runtime_log(&setup_log_dir, "tauri setup begin");
             #[cfg(not(feature = "installed"))]
             let _ = app;
             #[cfg(feature = "installed")]
             {
-                app.handle()
-                    .plugin(tauri_plugin_process::init())?;
-                app.handle()
-                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                if let Err(error) = app.handle().plugin(tauri_plugin_process::init()) {
+                    append_runtime_log(&setup_log_dir, &format!("process plugin failed: {error}"));
+                    return Err(error.into());
+                }
+                append_runtime_log(&setup_log_dir, "process plugin complete");
+                if let Err(error) = app.handle().plugin(tauri_plugin_updater::Builder::new().build()) {
+                    append_runtime_log(&setup_log_dir, &format!("updater plugin failed: {error}"));
+                    return Err(error.into());
+                }
+                append_runtime_log(&setup_log_dir, "updater plugin complete");
             }
+            append_runtime_log(&setup_log_dir, "tauri setup complete");
             Ok(())
         })
         .manage(DesktopState {
@@ -244,13 +272,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file])
         .build(tauri::generate_context!())
         .expect("failed to build application")
-        .run(|app, event| {
+        .run(move |app, event| {
             match event {
                 tauri::RunEvent::WindowEvent {
                     label,
                     event: WindowEvent::CloseRequested { .. },
                     ..
                 } => {
+                    append_runtime_log(&runtime_log_dir, &format!("window close requested label={label}"));
                     if let Some(window) = app.get_webview_window(&label) {
                         let _ = window.destroy();
                     }
@@ -260,14 +289,17 @@ pub fn run() {
                     event: WindowEvent::Destroyed,
                     ..
                 } => {
+                    append_runtime_log(&runtime_log_dir, "window destroyed");
                     app.exit(0);
                 }
                 tauri::RunEvent::Exit => {
+                    append_runtime_log(&runtime_log_dir, "exit");
                     if let Some(state) = app.try_state::<DesktopState>() {
                         shutdown_sidecar(&state.child);
                     }
                 }
                 tauri::RunEvent::ExitRequested { .. } => {
+                    append_runtime_log(&runtime_log_dir, "exit requested");
                     if let Some(state) = app.try_state::<DesktopState>() {
                         shutdown_sidecar(&state.child);
                     }

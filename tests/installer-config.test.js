@@ -49,3 +49,9 @@ test('installed build stages the bundled Node runtime and server resources', () 
   assert.match(runtimeScript, /node\.exe/);
   assert.match(runtimeScript, /['"]install['"]/);
 });
+
+test('installed build requires a secure updater endpoint', () => {
+  const buildScript = fs.readFileSync('scripts/build-tauri.mjs', 'utf8');
+  assert.match(buildScript, /new URL\(endpoint\)/);
+  assert.match(buildScript, /https:/);
+});

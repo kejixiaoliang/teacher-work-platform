@@ -23,6 +23,15 @@ if (profile === 'installed') {
       '安装版构建需要 TAURI_UPDATER_PUBLIC_KEY 和 TEACHER_WORK_UPDATE_ENDPOINT；生产密钥与地址不写入仓库。',
     );
   }
+  let endpointUrl;
+  try {
+    endpointUrl = new URL(endpoint);
+  } catch {
+    throw new Error('安装版更新地址必须是有效的 HTTPS URL。');
+  }
+  if (endpointUrl.protocol !== 'https:') {
+    throw new Error('安装版更新地址必须使用 HTTPS，不能使用 HTTP。');
+  }
   const updaterConfig = path.join(targetDir, 'tauri.updater.conf.json');
   fs.mkdirSync(targetDir, { recursive: true });
   const runtimeDir = prepareTauriRuntime({ root, targetDir, packageVersion: '0.9.0' });
