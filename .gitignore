@@ -3,6 +3,10 @@ web/dist/
 data/
 *.log
 .worktrees/
+
+# 本地安装的 CloudBase Agent 技能，不随项目提交
+/.agents/skills/cloudbase/
+/skills-lock.json
 release/
 src-tauri/target/
 .reasonix/
