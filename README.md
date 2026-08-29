@@ -6,8 +6,8 @@
 
 学生 · 座位 · 成绩 · 考勤 · 文档 · 家校沟通 · 数据备份
 
-[![Version](https://img.shields.io/badge/version-0.7.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64-2563eb)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0)
+[![Version](https://img.shields.io/badge/version-0.8.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-2563eb)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)](https://tauri.app/)
 [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vue.js&logoColor=white)](https://vuejs.org/)
 
@@ -41,9 +41,9 @@
 
 ## 下载与运行
 
-当前稳定版本：**v0.7.0**
+当前稳定版本：**v0.8.0**
 
-- [下载教师工作台 v0.7.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0)
+- [下载教师工作台 v0.8.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0)
 - [查看全部 GitHub Releases](https://github.com/kejixiaoliang/teacher-work-platform/releases)
 
 普通用户只需要下载 Release 页面中的 Windows x64 绿色便携 ZIP，不需要安装 Node.js、Rust，也不需要运行安装器。
@@ -130,13 +130,13 @@
 | 模块 | 主要能力 |
 | --- | --- |
 | 班级设置 | 多班级、学年学期、教室布局、隐私模式和教师访问控制 |
-| 学生管理 | 学生档案、搜索筛选、Excel 导入导出、健康记录和回收站 |
-| 座位管理 | 拖拽移动、座位交换、锁定、自动排座、轮换、历史恢复和打印 |
-| 成绩管理 | 考试与科目、批量录入、Excel 导入、统计排名、趋势和历史数据 |
+| 学生管理 | 学生档案、搜索筛选、Excel 导入导出、健康记录和回收站；预设字段可隐藏或改名，数据仍保留 |
+| 座位管理 | 拖拽移动、座位交换、锁定、自动排座、轮换、历史恢复和打印；窄屏可横向查看完整网格，走道按左右列均分 |
+| 成绩管理 | 考试与科目、批量录入、Excel 导入、统计排名、趋势和历史数据；科目模板可保存复用 |
 | 考勤与请假 | 每日考勤、月度统计、请假台账、销假和 Excel 导出 |
 | 表现量化 | 自定义行为规则、批量记分、月度/学期统计、修正历史和多格式导出 |
-| 值日管理 | 分组、轮换、自动分组、精准记分和值日表打印 |
-| 文档管理 | 上传、分类、标签、预览、重命名、下载和回收站 |
+| 值日管理 | 分组、轮换、自动分组、按星期预设和值日表打印；5 组默认周一至周五，6 组增加周六 |
+| 文档管理 | 上传、分类、标签、预览、重命名、下载和回收站；不支持内嵌预览的格式会提示本地路径 |
 | 班委与课代表 | 班委、课代表选择、编辑和预设 |
 | 家校沟通 | 家访、电话、微信等沟通记录与筛选统计 |
 | 数据分析 | 班级结构、健康、成绩和表现数据图表 |
@@ -215,7 +215,7 @@ npm test
 npm run build
 npm run tauri:build
 npm run package:portable
-npm run qa:portable -- -ZipPath 'release\教师工作台-v0.7.0-windows-x64-portable.zip'
+npm run qa:portable -- -ZipPath 'release\教师工作台-v0.8.0-windows-x64-portable.zip'
 ```
 
 发布前至少检查：中文路径、包含空格的路径、空数据目录首次启动、退出后数据持久化、移动整个应用目录、WebView2 依赖、Excel 保存、文件选择器、文档拖入和正常关闭后无残留 Node.js 进程。
@@ -242,13 +242,14 @@ teacher-work/
 - 应用需要 Microsoft Edge WebView2 Runtime，目标电脑应提前确认环境。
 - 数据默认保存在应用目录旁，应用必须放在当前用户有写入权限的位置。
 - EXE、`resources/` 和数据目录属于同一个便携应用，不支持只复制 EXE 使用。
-- 当前 v0.7.0 本地版默认不主动上传数据；未来云端或小程序版本需以对应版本的隐私说明为准。
+- 当前 v0.8.0 本地版默认不主动上传数据；未来云端或小程序版本需以对应版本的隐私说明为准。
 
 ## 版本记录
 
 | 版本 | 状态 | 主要内容 |
 | --- | --- | --- |
-| [v0.7.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0) | 最新 | 数据备份、恢复、更新导入、旧 JSON 兼容、统一导出、自定义保存路径、成绩持久化和 Excel 导入修复 |
+| [v0.8.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0) | 最新 | 座位窄屏显示与走道均分修复、值日按星期默认分组、学生预设字段显示自定义、科目模板持久化、文档预览反馈与便携包构建门禁 |
+| [v0.7.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0) | 历史 | 数据备份、恢复、更新导入、旧 JSON 兼容、统一导出、自定义保存路径、成绩持久化和 Excel 导入修复 |
 | [v0.6.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.6.0) | 历史 | 班级公开模式、教师工作台模式、教师密码保护、访问控制和自动锁定 |
 | [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | 历史 | 班主任日常工作台、结构化跟进事项和首页工作流聚合 |
 | [v0.4.2](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.4.2) | 历史 | 完整备份恢复、附件迁移、文件授权和 Blob 预览下载 |
@@ -259,13 +260,16 @@ teacher-work/
 
 ## 详细文档
 
-- [产品需求文档](docs/PRD.md)
-- [项目开发全记录](docs/项目开发全记录.md)
-- [教师工作台 v0.7.0 数据备份、导入、恢复、导出规划](docs/教师工作台-v0.7.0-数据备份导入恢复导出规划.md)
-- [教师工作台 v0.7.0 详细实施规划](docs/教师工作台-v0.7.0-详细实施规划.md)
-- [教师工作台 JSON 备份交换格式 v1 规范](docs/教师工作台-JSON备份交换格式-v1规范.md)
-- [Tauri v2 Windows 免安装便携版开发与交付手册](docs/tauri-portable-windows-handbook.md)
-- [绿色便携版发布、升级与数据库迁移注意事项](docs/绿色便携版发布、升级与数据库迁移注意事项.md)
+- [产品需求文档](docs/current/PRD.md)
+- [项目开发全记录](docs/current/项目开发全记录.md)
+- [教师工作台 v0.7.0 数据备份、导入、恢复、导出规划](docs/current/教师工作台-v0.7.0-数据备份导入恢复导出规划.md)
+- [教师工作台 v0.7.0 详细实施规划](docs/current/教师工作台-v0.7.0-详细实施规划.md)
+- [教师工作台 JSON 备份交换格式 v1 规范](docs/reusable-assets/docs/教师工作台-JSON备份交换格式-v1规范.md)
+- [Tauri v2 Windows 免安装便携版开发与交付手册](docs/current/tauri-portable-windows-handbook.md)
+- [绿色便携版发布、升级与数据库迁移注意事项](docs/current/绿色便携版发布、升级与数据库迁移注意事项.md)
+- [v0.8.0 用户反馈问题分类与修复范围](docs/current/2026-08-29-v0.8.0-用户反馈问题分类与修复范围.md)
+- [v0.8.0 座位与值日修复设计](docs/superpowers/specs/2026-08-29-v0.8.0-座位值日修复设计.md)
+- [v0.8.0 实施完成记录](docs/superpowers/plans/2026-08-29-v0.8.0实施完成记录.md)
 
 ## 授权协议
 
@@ -280,7 +284,7 @@ teacher-work/
 
 ## 数据与隐私
 
-当前 v0.7.0 本地版默认在本机运行，不要求注册账号，也不会主动把班级数据上传到外部服务。请妥善保管便携目录、备份文件和导出的学生资料。未来云端或小程序版本的具体数据处理方式，以对应版本的隐私说明为准。
+当前 v0.8.0 本地版默认在本机运行，不要求注册账号，也不会主动把班级数据上传到外部服务。请妥善保管便携目录、备份文件和导出的学生资料。未来云端或小程序版本的具体数据处理方式，以对应版本的隐私说明为准。
 
 <div align="center">
 
