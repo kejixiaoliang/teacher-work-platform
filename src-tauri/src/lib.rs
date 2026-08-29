@@ -18,8 +18,26 @@ struct DesktopBootstrap {
     api_base_url: String,
     api_token: String,
     data_dir: String,
+    runtime_profile: String,
     app_version: String,
     database_version: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RuntimeProfile {
+    Dev,
+    Portable,
+    Installed,
+}
+
+impl RuntimeProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Dev => "dev",
+            Self::Portable => "portable",
+            Self::Installed => "installed",
+        }
+    }
 }
 
 struct DesktopState {
@@ -59,7 +77,17 @@ fn save_file(request: SaveFileRequest) -> Result<Option<String>, String> {
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
-fn portable_root() -> Result<PathBuf, String> {
+fn runtime_profile() -> RuntimeProfile {
+    if cfg!(debug_assertions) {
+        RuntimeProfile::Dev
+    } else if cfg!(feature = "installed") {
+        RuntimeProfile::Installed
+    } else {
+        RuntimeProfile::Portable
+    }
+}
+
+fn runtime_root() -> Result<PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -73,6 +101,25 @@ fn portable_root() -> Result<PathBuf, String> {
         .ok_or_else(|| "无法定位便携目录".into())
 }
 
+fn resolve_data_dir(
+    profile: RuntimeProfile,
+    executable_root: &Path,
+    local_app_data: Option<&Path>,
+) -> Result<PathBuf, String> {
+    match profile {
+        RuntimeProfile::Dev | RuntimeProfile::Portable => Ok(executable_root.join("data")),
+        RuntimeProfile::Installed => local_app_data
+            .map(|root| root.join("TeacherWork").join("data"))
+            .ok_or_else(|| "无法定位 Windows 本地应用数据目录".into()),
+    }
+}
+
+fn windows_local_app_data() -> Result<PathBuf, String> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or_else(|| "缺少 LOCALAPPDATA 环境变量".into())
+}
+
 fn random_token() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);
@@ -80,8 +127,14 @@ fn random_token() -> String {
 }
 
 fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
-    let root = portable_root()?;
-    let data_dir = root.join("data");
+    let profile = runtime_profile();
+    let root = runtime_root()?;
+    let local_app_data = if profile == RuntimeProfile::Installed {
+        Some(windows_local_app_data()?)
+    } else {
+        None
+    };
+    let data_dir = resolve_data_dir(profile, &root, local_app_data.as_deref())?;
     std::fs::create_dir_all(&data_dir).map_err(|e| format!("无法创建数据目录: {e}"))?;
     let probe = data_dir.join(".write-test");
     std::fs::write(&probe, b"ok").map_err(|e| format!("数据目录不可写: {e}"))?;
@@ -149,6 +202,7 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         api_base_url: format!("http://127.0.0.1:{port}"),
         api_token: token,
         data_dir: data_dir.to_string_lossy().into_owned(),
+        runtime_profile: profile.as_str().into(),
         app_version: env!("CARGO_PKG_VERSION").into(),
             database_version: 8,
     };
@@ -213,6 +267,38 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn profile_data_directories_are_isolated() {
+        let executable_root = PathBuf::from(r"D:\老师 资料\教师工作台");
+        let local_app_data = PathBuf::from(r"C:\Users\老师\AppData\Local");
+
+        assert_eq!(
+            resolve_data_dir(RuntimeProfile::Dev, &executable_root, None).unwrap(),
+            executable_root.join("data")
+        );
+        assert_eq!(
+            resolve_data_dir(RuntimeProfile::Portable, &executable_root, None).unwrap(),
+            executable_root.join("data")
+        );
+        assert_eq!(
+            resolve_data_dir(
+                RuntimeProfile::Installed,
+                &executable_root,
+                Some(&local_app_data)
+            )
+            .unwrap(),
+            local_app_data.join("TeacherWork").join("data")
+        );
+    }
+
+    #[test]
+    fn installed_profile_requires_local_app_data() {
+        let root = PathBuf::from(r"C:\Program Files\TeacherWork");
+        let error = resolve_data_dir(RuntimeProfile::Installed, &root, None).unwrap_err();
+        assert!(error.contains("LOCALAPPDATA") || error.contains("应用数据"));
+    }
+
     #[test]
     fn release_paths_are_sibling_directories() {
         let root = PathBuf::from(r"D:\老师 资料\教师工作台");
