@@ -9,6 +9,41 @@
       <span class="change-dot">持续迭代中</span>
     </header>
 
+    <section class="update-panel">
+      <div class="update-panel-head">
+        <div>
+          <span class="change-stamp update-stamp">UPDATE CHANNEL</span>
+          <h3>当前版本与更新</h3>
+          <p>安装版可以安全检查并安装新版本；便携版继续使用手动替换方式。</p>
+        </div>
+        <div class="runtime-facts">
+          <span>版本 <b>{{ appVersion }}</b></span>
+          <span>数据库 <b>v{{ databaseVersion }}</b></span>
+          <span>{{ runtimeLabel }}</span>
+        </div>
+      </div>
+      <div class="update-actions">
+        <el-button v-if="canUpdate" type="primary" :loading="updateState === 'checking'" @click="checkForUpdate">
+          {{ updateState === 'checking' ? '检查中…' : '检查更新' }}
+        </el-button>
+        <el-tag v-else type="info">便携版：手动升级</el-tag>
+        <span v-if="updateState === 'up-to-date'" class="update-hint">当前已是最新版本</span>
+        <span v-else-if="updateState === 'checking'" class="update-hint">正在连接更新源…</span>
+        <span v-else-if="updateState === 'error'" class="update-error">{{ updateMessage }}</span>
+      </div>
+      <div v-if="updateState === 'available' && pendingUpdate" class="available-update">
+        <div>
+          <b>发现 v{{ pendingUpdate.version }}</b>
+          <p v-if="pendingUpdate.notes">{{ pendingUpdate.notes }}</p>
+        </div>
+        <el-button type="success" :loading="updateState === 'installing'" @click="installPendingUpdate">退出并安装更新</el-button>
+      </div>
+      <div v-if="updateState === 'installing'" class="update-progress">
+        <el-progress :percentage="downloadPercentage" :status="downloadFinished ? 'success' : undefined" />
+        <span>{{ downloadMessage }}</span>
+      </div>
+    </section>
+
     <div class="release-timeline">
       <article v-for="release in releases" :key="release.version" class="release-item">
         <div class="release-marker"><span></span></div>
@@ -37,6 +72,83 @@
 </template>
 
 <script setup>
+import { computed, ref } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { api } from '../api.js';
+import { desktopApi } from '../platform/desktopApi.js';
+import { getRuntimeConfig } from '../platform/runtimeConfig.js';
+import { store } from '../store.js';
+
+const runtime = ref(getRuntimeConfig());
+const appVersion = computed(() => runtime.value.appVersion || '0.9.0');
+const databaseVersion = computed(() => runtime.value.databaseVersion || 8);
+const canUpdate = computed(() => runtime.value.runtimeProfile === 'installed');
+const runtimeLabel = computed(() => canUpdate.value ? '安装版 · stable' : '便携版 · stable');
+const updateState = ref('idle');
+const pendingUpdate = ref(null);
+const updateMessage = ref('');
+const downloadBytes = ref(0);
+const contentLength = ref(0);
+const downloadFinished = ref(false);
+const downloadPercentage = computed(() => contentLength.value
+  ? Math.min(100, Math.round(downloadBytes.value / contentLength.value * 100)) : 0);
+const downloadMessage = computed(() => downloadFinished.value
+  ? '下载完成，正在准备重启…' : `正在下载更新包（${downloadPercentage.value}%）`);
+
+async function checkForUpdate() {
+  updateState.value = 'checking';
+  updateMessage.value = '';
+  pendingUpdate.value = null;
+  const result = await desktopApi.updater.checkForUpdate();
+  if (result.status === 'available') {
+    pendingUpdate.value = result;
+    updateState.value = 'available';
+  } else if (result.status === 'up-to-date') {
+    updateState.value = 'up-to-date';
+  } else {
+    updateState.value = 'error';
+    updateMessage.value = result.message || '暂时无法检查更新，请稍后重试。';
+  }
+}
+
+async function installPendingUpdate() {
+  if (!pendingUpdate.value || store.seatsDirty) {
+    if (store.seatsDirty) ElMessage.warning('座位页有未保存修改，请先保存或放弃修改后再更新。');
+    return;
+  }
+  const targetVersion = pendingUpdate.value.version;
+  const confirmed = await ElMessageBox.confirm(
+    `安装 v${targetVersion} 前会创建包含附件的本地恢复点，应用随后会退出并重启。确定继续吗？`,
+    '准备安装更新', { type: 'warning', confirmButtonText: '备份并更新', cancelButtonText: '稍后再说' },
+  ).catch(() => false);
+  if (!confirmed) return;
+
+  updateState.value = 'installing';
+  downloadBytes.value = 0;
+  contentLength.value = 0;
+  downloadFinished.value = false;
+  try {
+    const label = `pre-update-v${appVersion.value}-to-v${targetVersion}`;
+    await api.backup.snapshot(label);
+    const result = await desktopApi.updater.installUpdate(pendingUpdate.value, {
+      onProgress(event) {
+        if (event.status === 'started') contentLength.value = event.contentLength || 0;
+        if (event.status === 'progress') {
+          downloadBytes.value = event.downloaded;
+          contentLength.value ||= event.contentLength || 0;
+        }
+        if (event.status === 'finished') downloadFinished.value = true;
+      },
+      onRestart() { downloadFinished.value = true; },
+    });
+    if (result.status === 'error') throw new Error(result.message);
+  } catch (error) {
+    updateState.value = 'error';
+    updateMessage.value = error.message || '更新安装失败，请稍后重试。';
+    ElMessage.error(updateMessage.value);
+  }
+}
+
 const releases = [
   {
     version: '0.9.0', date: '2026-08-29', title: 'Windows 安装版与自动更新基础建设',
@@ -107,6 +219,21 @@ const releases = [
 </script>
 
 <style scoped>
+.update-panel { margin:20px 0 26px; padding:18px; background:#fffdf5; border:2px solid var(--ink); border-radius:16px; box-shadow:4px 4px 0 var(--ink); }
+.update-panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.update-panel h3 { margin:10px 0 4px; font-size:18px; }
+.update-panel p { margin:0; color:var(--muted); font-size:13px; line-height:1.6; }
+.update-stamp { display:inline-block; transform:rotate(-2deg); }
+.runtime-facts { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.runtime-facts span { padding:6px 10px; color:var(--ink); background:var(--mint); border:2px solid var(--ink); border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; }
+.update-actions { display:flex; align-items:center; gap:12px; margin-top:16px; }
+.update-hint { color:var(--muted); font-size:12px; }
+.update-error { color:var(--tomato-deep); font-size:12px; }
+.available-update { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:14px; padding:12px; background:#e9f7ed; border:1px dashed #5d9b6d; border-radius:10px; }
+.available-update b { color:#317345; }
+.available-update p { margin-top:4px; }
+.update-progress { margin-top:14px; }
+.update-progress > span { display:block; margin-top:6px; color:var(--muted); font-size:12px; }
 .change-hero { display:flex; align-items:center; gap:14px; padding:4px 2px 22px; border-bottom:2px solid #ead9b9; }
 .change-stamp { padding:7px 9px; background:var(--tomato); color:#fff; border:2px solid var(--ink); border-radius:8px; font:900 10px/1 monospace; letter-spacing:1px; transform:rotate(-4deg); }
 .change-hero .page-head-title { margin:0; }
@@ -131,5 +258,5 @@ const releases = [
 .maker-card span { color:var(--tomato); font-size:12px; font-weight:800; }
 .maker-card h3 { margin:3px 0 6px; font-size:17px; }
 .maker-card p { margin:0; color:#5e5245; line-height:1.65; font-size:13px; }
-@media (max-width:620px) { .change-hero { flex-wrap:wrap; } .change-dot { margin-left:0; } .release-head { align-items:flex-start; flex-direction:column; gap:6px; } }
+@media (max-width:620px) { .change-hero { flex-wrap:wrap; } .change-dot { margin-left:0; } .release-head { align-items:flex-start; flex-direction:column; gap:6px; } .update-panel-head, .available-update { flex-direction:column; } .runtime-facts { justify-content:flex-start; } }
 </style>

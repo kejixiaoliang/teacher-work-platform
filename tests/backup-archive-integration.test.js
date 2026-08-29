@@ -47,6 +47,20 @@ test('exports and restores database plus document files as a zip', async () => {
     assert.equal(extracted.payload.attachments.included, true);
     assert.equal(extracted.files.length, 1);
 
+    const snapshotResponse = await fetch(`${running.baseUrl}/api/backup/snapshot`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-teacher-work-token': token },
+      body: JSON.stringify({ label: 'pre-update-v0.9.0-to-v0.9.1' }),
+    });
+    assert.equal(snapshotResponse.status, 200);
+    const snapshot = await snapshotResponse.json();
+    assert.match(snapshot.data.filename, /^pre-update-v0\.9\.0-to-v0\.9\.1-.*\.zip$/);
+    const snapshotPath = path.join(dataDir, 'backups', snapshot.data.filename);
+    assert.equal(fs.existsSync(snapshotPath), true);
+    const snapshotExtracted = await extractBackupArchive(snapshotPath, path.join(dataDir, 'snapshot-extracted'));
+    assert.equal(snapshotExtracted.payload.attachments.included, true);
+    assert.equal(snapshotExtracted.files.length, 1);
+
     const jsonResponse = await fetch(`${running.baseUrl}/api/backup/export-json`, {
       headers: { 'x-teacher-work-token': token },
     });
