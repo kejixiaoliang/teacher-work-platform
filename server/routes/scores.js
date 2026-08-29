@@ -47,10 +47,20 @@ router.put('/exams/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM exams WHERE id = ?').get(id);
   if (!row) return res.status(404).json({ ok: false, code: 'EXAM_NOT_FOUND', error: '考试不存在' });
   const b = req.body || {};
+  let nextSubjects = safeJson(row.subjects, []);
+  if (b.subjects !== undefined) {
+    if (!Array.isArray(b.subjects)) return badRequest(res, '科目列表格式不正确');
+    nextSubjects = [...new Set(b.subjects.map(subject => String(subject).trim()).filter(Boolean))];
+    const removed = new Set(safeJson(row.subjects, []).filter(subject => !nextSubjects.includes(subject)));
+    if (removed.size) {
+      const scored = db.prepare(`SELECT subject, COUNT(*) AS count FROM exam_scores WHERE exam_id=? AND subject IN (${[...removed].map(() => '?').join(',')}) AND score IS NOT NULL GROUP BY subject`).all(id, ...removed);
+      if (scored.length) return res.status(409).json({ ok: false, code: 'SUBJECT_HAS_SCORES', error: `已有成绩的科目不能删除：${scored.map(item => item.subject).join('、')}` });
+    }
+  }
   db.prepare(`UPDATE exams SET name=?, date=?, subjects=?, remark=? WHERE id=?`).run(
     b.name ? String(b.name).trim() : row.name,
     b.date !== undefined ? b.date : row.date,
-    b.subjects !== undefined ? JSON.stringify(b.subjects) : row.subjects,
+    JSON.stringify(nextSubjects),
     b.remark !== undefined ? b.remark : row.remark,
     id
   );
