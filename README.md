@@ -55,6 +55,18 @@
 3. 保持 EXE、`resources`、`data`、`backup` 和 `logs` 的相对位置不变。
 4. 双击“教师工作台.exe”。不要在压缩包内直接运行，也不要单独移动 EXE。
 
+### 安装版发布资产
+
+安装版构建需要通过环境变量提供 Tauri updater 公钥和更新源地址，生产密钥不写入仓库：
+
+```powershell
+$env:TAURI_UPDATER_PUBLIC_KEY = '<release-public-key>'
+$env:TEACHER_WORK_UPDATE_ENDPOINT = 'https://updates.example.com/teacher-work/stable/latest.json'
+npm run package:installed
+```
+
+构建完成后，使用 `scripts/generate-update-manifest.mjs` 生成 `latest.json` 和 SHA-256 清单；生成器的 `--endpoint-root` 参数应填写 `latest.json` 所在目录。再运行 `scripts/qa-installed.ps1` 校验安装包、`.sig`、更新清单和签名资产。仓库内的 `tests/fixtures/update-source/` 仅用于本地模拟更新状态，不是生产地址。
+
 便携目录大致如下：
 
 ```text

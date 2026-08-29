@@ -17,7 +17,7 @@
     "tauri:build": "npm run tauri:build:portable",
     "tauri:build:installed": "npm run version:check && node scripts/build-tauri.mjs installed",
     "tauri:build:portable": "npm run version:check && node scripts/build-tauri.mjs portable",
-    "package:installed": "npm run tauri:build:installed",
+    "package:installed": "npm run tauri:build:installed && node scripts/package-installed.mjs --report-only",
     "package:portable": "node scripts/package-portable.mjs",
     "qa:portable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/qa-portable.ps1"
   },
