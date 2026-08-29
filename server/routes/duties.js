@@ -105,6 +105,7 @@ router.post('/batch', (req, res) => {
 });
 
 // 一键自动分组：把全班在读学生按名单顺序均分为 N 个值日组（每人一组，组间不重复）
+// 组号 1-7 默认对应周一至周日，超过 7 组用 0 表示固定模式下未安排。
 router.post('/auto-group', (req, res) => {
   const { class_id, groupCount } = req.body || {};
   if (!class_id) return badRequest(res, '缺少班级');
@@ -126,7 +127,7 @@ router.post('/auto-group', (req, res) => {
     del.run(Number(class_id));
     students.forEach((s, i) => {
       const groupNo = (i % n) + 1;
-      const weekDays = !explicitCount && n === 5 ? String(groupNo) : '';
+      const weekDays = groupNo <= 7 ? String(groupNo) : '0';
       ins.run(Number(class_id), s.id, groupNo, weekDays);
     });
   });
@@ -138,6 +139,7 @@ router.post('/auto-group', (req, res) => {
       groups: Array.from({ length: n }, (_, gi) => ({
         no: gi + 1,
         members: students.filter((_, i) => i % n === gi).map(s => s.name),
+        weekDays: gi + 1 <= 7 ? String(gi + 1) : '0',
       })) },
   });
 });
@@ -147,12 +149,14 @@ router.post('/auto-group', (req, res) => {
 router.put('/group-days', (req, res) => {
   const { class_id, group_no, week_days } = req.body || {};
   if (!class_id || group_no == null) return badRequest(res, '缺少班级或组号');
-  if (week_days != null && !/^[1-7](,[1-7])*$/.test(String(week_days))) {
+  const days = String(week_days ?? '').trim();
+  const validDays = days === '' || days === '0' || (/^[1-7](,[1-7])*$/.test(days) && !days.split(',').includes('0'));
+  if (!validDays) {
     return badRequest(res, '星期格式应为 1-7 逗号分隔（1=周一 … 7=周日）');
   }
   const info = db.prepare(`
     UPDATE duties SET week_days = ? WHERE class_id = ? AND role = '值日生' AND group_no = ?
-  `).run(week_days || '', Number(class_id), Number(group_no));
+  `).run(days, Number(class_id), Number(group_no));
   if (info.changes === 0) {
     return res.status(404).json({ ok: false, code: 'DUTY_GROUP_NOT_FOUND', error: `第 ${group_no} 组不存在或没有成员` });
   }
