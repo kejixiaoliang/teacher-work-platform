@@ -14,6 +14,7 @@
 - [绿色便携版发布、升级与数据库迁移注意事项](current/绿色便携版发布、升级与数据库迁移注意事项.md)
 - [Tauri v2 Windows 便携版开发与交付手册](current/tauri-portable-windows-handbook.md)
 - [Windows 安装版发行与自动更新设计说明](current/2026-08-29-v0.7.0-Windows安装版发行与自动更新-设计说明.md)
+- [v0.9.0 便携版关闭生命周期问题与修复记录](current/2026-08-29-v0.9.0-便携版关闭生命周期问题与修复记录.md)
 
 ## 历史归档
 

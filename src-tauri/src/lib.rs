@@ -42,7 +42,7 @@ impl RuntimeProfile {
 
 struct DesktopState {
     bootstrap: DesktopBootstrap,
-    child: Mutex<Child>,
+    child: Mutex<Option<Child>>,
 }
 
 #[derive(Deserialize)]
@@ -209,22 +209,24 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
     Ok((child, bootstrap))
 }
 
+fn shutdown_sidecar(child: &Mutex<Option<Child>>) {
+    let child = child.lock().ok().and_then(|mut child| child.take());
+    if let Some(mut child) = child {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
+
 pub fn run() {
     let (child, bootstrap) = start_backend().unwrap_or_else(|error| panic!("{error}"));
     tauri::Builder::default()
         .manage(DesktopState {
             bootstrap,
-            child: Mutex::new(child),
+            child: Mutex::new(Some(child)),
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
-                if let Some(state) = window.app_handle().try_state::<DesktopState>() {
-                    if let Ok(mut child) = state.child.lock() {
-                        let _ = child.kill();
-                    }
-                }
                 window.app_handle().exit(0);
-                std::process::exit(0);
             }
         })
         .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file])
@@ -233,33 +235,32 @@ pub fn run() {
         .run(|app, event| {
             match event {
                 tauri::RunEvent::WindowEvent {
+                    label,
                     event: WindowEvent::CloseRequested { .. },
                     ..
                 } => {
-                    if let Some(state) = app.try_state::<DesktopState>() {
-                        if let Ok(mut child) = state.child.lock() {
-                            let _ = child.kill();
-                        }
+                    if let Some(window) = app.get_webview_window(&label) {
+                        let _ = window.destroy();
                     }
                     app.exit(0);
-                    std::process::exit(0);
                 }
-                    tauri::RunEvent::Exit => {
-                        if let Some(state) = app.try_state::<DesktopState>() {
-                            if let Ok(mut child) = state.child.lock() {
-                                let _ = child.kill();
-                            }
-                        }
+                tauri::RunEvent::WindowEvent {
+                    event: WindowEvent::Destroyed,
+                    ..
+                } => {
+                    app.exit(0);
+                }
+                tauri::RunEvent::Exit => {
+                    if let Some(state) = app.try_state::<DesktopState>() {
+                        shutdown_sidecar(&state.child);
                     }
-                    tauri::RunEvent::ExitRequested { .. } => {
-                        if let Some(state) = app.try_state::<DesktopState>() {
-                            if let Ok(mut child) = state.child.lock() {
-                                let _ = child.kill();
-                            }
-                        }
-                        std::process::exit(0);
+                }
+                tauri::RunEvent::ExitRequested { .. } => {
+                    if let Some(state) = app.try_state::<DesktopState>() {
+                        shutdown_sidecar(&state.child);
                     }
-                    _ => {}
+                }
+                _ => {}
             }
         });
 }
@@ -267,6 +268,26 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shutdown_sidecar_terminates_and_consumes_child() {
+        let child = if cfg!(windows) {
+            Command::new("cmd")
+                .args(["/C", "ping 127.0.0.1 -n 30 >NUL"])
+                .spawn()
+                .unwrap()
+        } else {
+            Command::new("sh")
+                .args(["-c", "sleep 30"])
+                .spawn()
+                .unwrap()
+        };
+        let child = Mutex::new(Some(child));
+
+        shutdown_sidecar(&child);
+
+        assert!(child.lock().unwrap().is_none());
+    }
 
     #[test]
     fn profile_data_directories_are_isolated() {
