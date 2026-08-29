@@ -11,7 +11,7 @@ const releaseName = `${product}-v${pkg.version}-windows-x64-portable`;
 const releaseRoot = path.join(root, 'release');
 const staging = path.join(releaseRoot, releaseName);
 const productDir = path.join(staging, product);
-const cargoTarget = process.env.CARGO_TARGET_DIR || path.join(root, 'src-tauri', 'target');
+const cargoTarget = process.env.CARGO_TARGET_DIR || path.join(root, 'src-tauri', 'target', 'portable');
 const sourceExe = path.join(cargoTarget, 'release', 'teacher-work.exe');
 
 if (!fs.existsSync(sourceExe)) throw new Error(`Release EXE 不存在: ${sourceExe}`);
