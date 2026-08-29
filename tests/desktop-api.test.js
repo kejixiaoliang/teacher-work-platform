@@ -13,5 +13,5 @@ test('desktop runtime does not place the long-lived API token into file URLs', (
 
 test('desktop bootstrap reports the current database version', () => {
   const source = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
-  assert.match(source, /database_version:\s*7/);
+  assert.match(source, /database_version:\s*8/);
 });
