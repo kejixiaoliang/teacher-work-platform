@@ -286,6 +286,8 @@ teacher-work/
 - [v0.8.0 座位与值日修复设计](docs/superpowers/specs/2026-08-29-v0.8.0-座位值日修复设计.md)
 - [v0.8.0 实施完成记录](docs/superpowers/plans/2026-08-29-v0.8.0实施完成记录.md)
 - [v0.9.0 Windows 安装版与自动更新实施计划](docs/superpowers/plans/2026-08-29-v0.9.0-Windows安装版与自动更新实施计划.md)
+- [v0.9.0 安装版闪退问题排查与修复总结](docs/current/2026-08-30-v0.9.0安装版闪退问题排查与修复总结.md)
+- [v0.9.0 自动更新部署方案对比与操作流程](docs/current/2026-08-30-v0.9.0自动更新部署方案对比与操作流程.md)
 
 ## 授权协议
 
