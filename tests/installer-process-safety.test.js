@@ -26,6 +26,16 @@ test('installer cleanup only targets the bundled runtime belonging to this insta
   assert.doesNotMatch(hook, /taskkill\.exe.*node\.exe/);
 });
 
+test('escapes PowerShell variables from NSIS expansion', () => {
+  const hook = read('src-tauri/windows/hooks.nsh');
+
+  assert.match(hook, /\$\$root/);
+  assert.match(hook, /\$\$node/);
+  assert.match(hook, /\$\$_\.Name/);
+  assert.match(hook, /\$\$_\.ExecutablePath/);
+  assert.match(hook, /\$\$_\.ProcessId/);
+});
+
 test('desktop runtime has a single-instance and managed-sidecar contract', () => {
   const rust = read('src-tauri/src/lib.rs');
   const guard = read('src-tauri/src/process_guard.rs');
