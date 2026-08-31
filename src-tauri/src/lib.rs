@@ -9,6 +9,8 @@ use std::{
 };
 use tauri::{Manager, State, WindowEvent};
 
+mod process_guard;
+
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
