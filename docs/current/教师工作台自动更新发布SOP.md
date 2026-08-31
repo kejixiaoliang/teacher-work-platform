@@ -61,7 +61,7 @@ teacher-work-updates/stable/latest.json
 src-tauri\target\installed\release\bundle\nsis\
 ```
 
-便携版构建资产使用项目既有的 `release\` 输出目录。最终对外发放前，可以把需要手工发送的安装包复制到专门的交付目录，但不能把私钥或内部配置复制进去。
+便携版构建资产使用项目既有的 `release\` 输出目录。以后每个完成的版本都必须生成便携版 ZIP，即使本次主要发布安装版和自动更新，也不能省略便携版构建与记录。最终对外发放前，可以把需要手工发送的安装包复制到专门的交付目录，但不能把私钥或内部配置复制进去。
 
 ## 4. 发布前要确认的边界
 
@@ -171,12 +171,15 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib
 git diff --check
 ```
 
-如果项目提供便携版和安装版构建门禁，还要执行。
+每个版本都要同时生成两种交付产物，并分别记录构建结果。便携版不接入 Tauri 自动安装，继续使用手动替换方式；安装版才接入 updater。
 
 ```powershell
 npm run tauri:build:portable
+npm run package:portable
 npm run tauri:build:installed
 ```
+
+检查便携版 ZIP 位于 `release\`，文件名和版本号正确，压缩包可解压，包含便携版 EXE 及其运行所需资源。便携版是否上传 CloudBase 要在发布范围中明确记录：如果要让用户在线下载，就随稳定版本资产一并上传；如果只向指定用户手工发放，则保留本地或专用交付目录，不要误写入自动更新清单。
 
 ### 7.4 原生对象规则
 
@@ -205,6 +208,23 @@ npm run tauri:build:installed
 ```
 
 构建完成后检查版本、`.exe`、`.exe.sig`、运行时资源、`installer.nsi` 中的 `hooks.nsh`、HTTPS endpoint，以及 Git diff 中没有私钥内容。
+
+## 8.1 构建便携版
+
+便携版不需要 updater 私钥，也不会通过 `latest.json` 自动安装。构建完成后执行：
+
+```powershell
+npm run tauri:build:portable
+npm run package:portable
+```
+
+至少检查以下项目：
+
+- `release\教师工作台-vX.Y.Z-windows-x64-portable.zip` 存在且大小大于 0；
+- ZIP 能够正常解压，便携版 EXE 可以启动；
+- EXE 同级的 `data`、`backups` 和 `logs` 规则没有被破坏；
+- 便携版没有被错误地写入安装版的 `latest.json` 或当作自动更新包；
+- 如果对外上传，单独计算 ZIP 的 SHA-256，并记录下载地址和哈希。
 
 ## 9. 生成清单和哈希
 
@@ -285,15 +305,17 @@ node scripts/generate-update-manifest.mjs `
 
 稳定发布必须得到用户明确确认。确认后执行以下顺序。
 
-1. 使用生产 Tauri updater 公钥和私钥重新构建，不复用测试构建目录里的资产。
-2. 生成稳定版本目录 `teacher-work-updates/stable/vX.Y.Z/`。
-3. 上传安装包、`.sig` 和 `checksums.json`。
-4. 查询云端对象是否存在、大小是否正确。
-5. 从公网重新下载安装包和 `.sig`，计算 SHA-256 并与本地清单比较。
-6. 生成正式 `latest.json`，URL 指向不可变的 `stable/vX.Y.Z/` 目录。
-7. 最后上传 `teacher-work-updates/stable/latest.json`。
-8. 重新下载正式 `latest.json`，核对版本、notes、HTTPS URL 和签名字段。
-9. 记录发布时间、版本目录、更新地址、哈希、测试结果和回滚位置。
+1. 使用生产 Tauri updater 公钥和私钥重新构建安装版，不复用测试构建目录里的资产。
+2. 同时生成并核对本版本便携版 ZIP。
+3. 生成稳定版本目录 `teacher-work-updates/stable/vX.Y.Z/`。
+4. 如果发布范围包含在线便携版，上传便携 ZIP；否则记录为本地/专用渠道交付。
+5. 上传安装包、`.sig` 和 `checksums.json`。
+6. 查询云端对象是否存在、大小是否正确。
+7. 从公网重新下载安装包和 `.sig`；若上传便携版，也重新下载 ZIP，计算 SHA-256 并与本地清单比较。
+8. 生成正式 `latest.json`，URL 指向不可变的 `stable/vX.Y.Z/` 目录。便携版下载地址不写入 updater 清单，除非项目另有专门的便携版清单。
+9. 最后上传 `teacher-work-updates/stable/latest.json`。
+10. 重新下载正式 `latest.json`，核对版本、notes、HTTPS URL 和签名字段。
+11. 记录发布时间、版本目录、更新地址、哈希、测试结果和回滚位置。
 
 `latest.json` 是用户能否发现更新的开关，必须最后上传。资产未完成公网复核前，不能上传它。
 
