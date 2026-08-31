@@ -7,6 +7,7 @@ import { resolveSigningPrivateKey } from './tauri-signing.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profile = process.argv[2];
+const packageVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 
 if (!['installed', 'portable'].includes(profile)) {
   throw new Error('用法：node scripts/build-tauri.mjs <installed|portable>');
@@ -41,7 +42,7 @@ if (profile === 'installed') {
   }
   const updaterConfig = path.join(targetDir, 'tauri.updater.conf.json');
   fs.mkdirSync(targetDir, { recursive: true });
-  const runtimeDir = prepareTauriRuntime({ root, targetDir, packageVersion: '0.9.0' });
+  const runtimeDir = prepareTauriRuntime({ root, targetDir, packageVersion });
   fs.writeFileSync(updaterConfig, JSON.stringify({
     bundle: {
       resources: {
