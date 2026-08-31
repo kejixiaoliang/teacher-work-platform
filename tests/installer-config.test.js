@@ -11,6 +11,7 @@ test('installed Tauri profile builds a signed current-user NSIS package', () => 
   assert.deepEqual(config.bundle.targets, ['nsis']);
   assert.equal(config.bundle.createUpdaterArtifacts, true);
   assert.equal(config.bundle.windows.nsis.installMode, 'currentUser');
+  assert.equal(config.bundle.windows.nsis.installerHooks, './windows/hooks.nsh');
 });
 
 test('portable Tauri profile keeps bundling disabled', () => {
