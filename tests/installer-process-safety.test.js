@@ -21,6 +21,8 @@ test('installer cleanup only targets the bundled runtime belonging to this insta
 
   assert.match(hook, /ExecutablePath/);
   assert.match(hook, /resources[\\/]+runtime[\\/]+node\.exe/);
+  assert.match(hook, /Wait-Process/);
+  assert.match(hook, /NSIS_HOOK_PREUNINSTALL/);
   assert.doesNotMatch(hook, /taskkill\.exe.*node\.exe/);
 });
 
@@ -28,10 +30,13 @@ test('desktop runtime has a single-instance and managed-sidecar contract', () =>
   const rust = read('src-tauri/src/lib.rs');
   const guard = read('src-tauri/src/process_guard.rs');
   const cargo = read('src-tauri/Cargo.toml');
+  const buildScript = read('scripts/build-tauri.mjs');
 
   assert.match(cargo, /windows-sys/);
   assert.match(guard, /CreateMutexW/);
   assert.match(guard, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
   assert.match(guard, /cleanup.*sidecar|sidecar.*cleanup/is);
   assert.match(rust, /InstanceGuard::acquire/);
+  assert.match(buildScript, /installerHooks/);
+  assert.match(buildScript, /windows.*hooks\.nsh/s);
 });

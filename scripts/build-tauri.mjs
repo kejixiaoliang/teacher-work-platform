@@ -45,6 +45,11 @@ if (profile === 'installed') {
   const runtimeDir = prepareTauriRuntime({ root, targetDir, packageVersion });
   fs.writeFileSync(updaterConfig, JSON.stringify({
     bundle: {
+      windows: {
+        nsis: {
+          installerHooks: path.join(root, 'src-tauri', 'windows', 'hooks.nsh'),
+        },
+      },
       resources: {
         [path.join(runtimeDir, '/')]: 'resources/',
       },
