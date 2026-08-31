@@ -38,7 +38,7 @@ test('installed updater reports no update without manufacturing an update object
 
 test('installed updater normalizes update metadata and download progress', async () => {
   const progress = [];
-  let relaunched = false;
+  let relaunchCalls = 0;
   const nativeUpdate = {
     version: '0.9.1',
     date: '2026-09-01T00:00:00Z',
@@ -53,7 +53,7 @@ test('installed updater normalizes update metadata and download progress', async
     isTauri: () => true,
     getRuntime: () => ({ runtimeProfile: 'installed' }),
     check: async () => nativeUpdate,
-    relaunch: async () => { relaunched = true; },
+    relaunch: async () => { relaunchCalls += 1; },
   });
 
   const result = await updater.checkForUpdate();
@@ -68,7 +68,7 @@ test('installed updater normalizes update metadata and download progress', async
     { status: 'progress', downloaded: 25, contentLength: 100 },
     { status: 'finished' },
   ]);
-  assert.equal(relaunched, true);
+  assert.equal(relaunchCalls, 0);
 });
 
 test('updater converts native failures to safe user-facing errors without stack traces', async () => {

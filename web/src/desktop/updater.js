@@ -37,16 +37,10 @@ async function nativeCheck(options) {
   return check(options);
 }
 
-async function nativeRelaunch() {
-  const { relaunch } = await import('@tauri-apps/plugin-process');
-  return relaunch();
-}
-
 export function createUpdater({
   isTauri = isTauriEnvironment,
   getRuntime = getRuntimeConfig,
   check = nativeCheck,
-  relaunch = nativeRelaunch,
 } = {}) {
   return {
     async checkForUpdate(options) {
@@ -88,7 +82,6 @@ export function createUpdater({
           onProgress?.(normalized);
         });
         onRestart?.();
-        await relaunch();
         return { status: 'installed' };
       } catch {
         return safeError('install-failed', '更新安装失败，请稍后重试。');
