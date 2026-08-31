@@ -21,6 +21,8 @@ test('update installation requires an explicit confirmation and a pre-update bac
   assert.match(changelog, /desktopApi\.shutdownBackend/);
   assert.match(changelog, /pre-update/);
   assert.match(changelog, /onProgress/);
+  assert.ok(changelog.indexOf('api.backup.snapshot') < changelog.indexOf('desktopApi.shutdownBackend'));
+  assert.doesNotMatch(changelog, /忽略/);
 });
 
 test('release page keeps the native updater result out of Vue deep reactivity', () => {
