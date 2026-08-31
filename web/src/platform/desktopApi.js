@@ -24,5 +24,10 @@ export const desktopApi = {
       },
     });
   },
+  async shutdownBackend() {
+    if (!this.isTauri()) return null;
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke('shutdown_backend');
+  },
   toApiUrl,
 };

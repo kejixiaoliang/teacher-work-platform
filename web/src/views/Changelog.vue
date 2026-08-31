@@ -130,6 +130,7 @@ async function installPendingUpdate() {
   try {
     const label = `pre-update-v${appVersion.value}-to-v${targetVersion}`;
     await api.backup.snapshot(label);
+    await desktopApi.shutdownBackend();
     const result = await desktopApi.updater.installUpdate(pendingUpdate.value, {
       onProgress(event) {
         if (event.status === 'started') contentLength.value = event.contentLength || 0;

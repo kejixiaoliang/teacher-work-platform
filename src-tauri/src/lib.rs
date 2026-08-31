@@ -77,6 +77,12 @@ fn save_file(request: SaveFileRequest) -> Result<Option<String>, String> {
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
+#[tauri::command]
+fn shutdown_backend(state: State<'_, DesktopState>) -> Result<(), String> {
+    shutdown_sidecar(&state.child);
+    Ok(())
+}
+
 fn runtime_profile() -> RuntimeProfile {
     if cfg!(debug_assertions) {
         RuntimeProfile::Dev
@@ -269,7 +275,7 @@ pub fn run() {
                 window.app_handle().exit(0);
             }
         })
-        .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file])
+        .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file, shutdown_backend])
         .build(tauri::generate_context!())
         .expect("failed to build application")
         .run(move |app, event| {

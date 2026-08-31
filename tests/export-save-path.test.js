@@ -10,7 +10,7 @@ test('desktop save-file command is exposed through the Tauri bridge', () => {
   assert.match(desktopApi, /saveFile/);
   assert.match(desktopApi, /invoke\('save_file'/);
   assert.match(rust, /#\[tauri::command\]\s*fn save_file/);
-  assert.match(rust, /desktop_bootstrap, save_file/);
+assert.match(rust, /desktop_bootstrap, save_file, shutdown_backend/);
 });
 
 test('all generated downloads use the shared save-file utility', () => {

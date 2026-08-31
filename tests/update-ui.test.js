@@ -18,6 +18,7 @@ test('update installation requires an explicit confirmation and a pre-update bac
   assert.match(changelog, /store\.seatsDirty/);
   assert.match(changelog, /ElMessageBox\.confirm/);
   assert.match(changelog, /api\.backup\.snapshot/);
+  assert.match(changelog, /desktopApi\.shutdownBackend/);
   assert.match(changelog, /pre-update/);
   assert.match(changelog, /onProgress/);
 });
