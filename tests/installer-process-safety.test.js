@@ -26,10 +26,12 @@ test('installer cleanup only targets the bundled runtime belonging to this insta
 
 test('desktop runtime has a single-instance and managed-sidecar contract', () => {
   const rust = read('src-tauri/src/lib.rs');
+  const guard = read('src-tauri/src/process_guard.rs');
   const cargo = read('src-tauri/Cargo.toml');
 
   assert.match(cargo, /windows-sys/);
-  assert.match(rust, /CreateMutexW/);
-  assert.match(rust, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
-  assert.match(rust, /cleanup.*sidecar|sidecar.*cleanup/is);
+  assert.match(guard, /CreateMutexW/);
+  assert.match(guard, /JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE/);
+  assert.match(guard, /cleanup.*sidecar|sidecar.*cleanup/is);
+  assert.match(rust, /InstanceGuard::acquire/);
 });

@@ -3,13 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Command, Stdio},
     sync::Mutex,
     time::{Duration, Instant},
 };
 use tauri::{Manager, State, WindowEvent};
 
 mod process_guard;
+use process_guard::{cleanup_orphaned_sidecars, InstanceGuard, ManagedSidecar};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -44,7 +45,8 @@ impl RuntimeProfile {
 
 struct DesktopState {
     bootstrap: DesktopBootstrap,
-    child: Mutex<Option<Child>>,
+    child: Mutex<Option<ManagedSidecar>>,
+    _instance_guard: InstanceGuard,
 }
 
 #[derive(Deserialize)]
@@ -69,7 +71,11 @@ fn desktop_bootstrap(state: State<'_, DesktopState>) -> DesktopBootstrap {
 fn save_file(request: SaveFileRequest) -> Result<Option<String>, String> {
     let mut dialog = rfd::FileDialog::new().set_file_name(&request.filename);
     for filter in request.filters {
-        let extensions = filter.extensions.iter().map(String::as_str).collect::<Vec<_>>();
+        let extensions = filter
+            .extensions
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
         dialog = dialog.add_filter(&filter.name, &extensions);
     }
     let Some(path) = dialog.save_file() else {
@@ -134,7 +140,11 @@ fn append_runtime_log(data_dir: &Path, message: &str) {
         return;
     }
     let path = log_dir.join("desktop-runtime.log");
-    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
         let _ = writeln!(file, "{message}");
     }
 }
@@ -145,7 +155,7 @@ fn random_token() -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
+fn start_backend() -> Result<(ManagedSidecar, DesktopBootstrap), String> {
     let profile = runtime_profile();
     let root = runtime_root()?;
     let local_app_data = if profile == RuntimeProfile::Installed {
@@ -192,10 +202,9 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
     #[cfg(windows)]
     command.creation_flags(0x08000000);
 
-    let mut child = command
-        .spawn()
-        .map_err(|e| format!("无法启动本地服务: {e}"))?;
+    let mut child = ManagedSidecar::spawn(&mut command)?;
     let stdout = child
+        .child_mut()
         .stdout
         .take()
         .ok_or_else(|| "无法读取本地服务状态".to_string())?;
@@ -219,7 +228,7 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
     }
     let port = ready.ok_or_else(|| {
         append_runtime_log(&data_dir, "backend timeout");
-        let _ = child.kill();
+        child.shutdown();
         "本地服务启动超时".to_string()
     })?;
     append_runtime_log(&data_dir, &format!("backend ready port={port}"));
@@ -229,20 +238,31 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         data_dir: data_dir.to_string_lossy().into_owned(),
         runtime_profile: profile.as_str().into(),
         app_version: env!("CARGO_PKG_VERSION").into(),
-            database_version: 8,
+        database_version: 8,
     };
     Ok((child, bootstrap))
 }
 
-fn shutdown_sidecar(child: &Mutex<Option<Child>>) {
+fn shutdown_sidecar(child: &Mutex<Option<ManagedSidecar>>) {
     let child = child.lock().ok().and_then(|mut child| child.take());
     if let Some(mut child) = child {
-        let _ = child.kill();
-        let _ = child.wait();
+        child.shutdown();
     }
 }
 
 pub fn run() {
+    let profile = runtime_profile();
+    let root = runtime_root().unwrap_or_else(|error| panic!("{error}"));
+    let Some(instance_guard) =
+        InstanceGuard::acquire(profile.as_str(), &root).unwrap_or_else(|error| panic!("{error}"))
+    else {
+        return;
+    };
+    if profile == RuntimeProfile::Installed {
+        if let Err(error) = cleanup_orphaned_sidecars(&root) {
+            eprintln!("清理残留本地服务失败: {error}");
+        }
+    }
     let (child, bootstrap) = start_backend().unwrap_or_else(|error| panic!("{error}"));
     let runtime_log_dir = PathBuf::from(&bootstrap.data_dir);
     append_runtime_log(&runtime_log_dir, "tauri build begin");
@@ -259,7 +279,10 @@ pub fn run() {
                     return Err(error.into());
                 }
                 append_runtime_log(&setup_log_dir, "process plugin complete");
-                if let Err(error) = app.handle().plugin(tauri_plugin_updater::Builder::new().build()) {
+                if let Err(error) = app
+                    .handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())
+                {
                     append_runtime_log(&setup_log_dir, &format!("updater plugin failed: {error}"));
                     return Err(error.into());
                 }
@@ -271,49 +294,55 @@ pub fn run() {
         .manage(DesktopState {
             bootstrap,
             child: Mutex::new(Some(child)),
+            _instance_guard: instance_guard,
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
                 window.app_handle().exit(0);
             }
         })
-        .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file, shutdown_backend])
+        .invoke_handler(tauri::generate_handler![
+            desktop_bootstrap,
+            save_file,
+            shutdown_backend
+        ])
         .build(tauri::generate_context!())
         .expect("failed to build application")
-        .run(move |app, event| {
-            match event {
-                tauri::RunEvent::WindowEvent {
-                    label,
-                    event: WindowEvent::CloseRequested { .. },
-                    ..
-                } => {
-                    append_runtime_log(&runtime_log_dir, &format!("window close requested label={label}"));
-                    if let Some(window) = app.get_webview_window(&label) {
-                        let _ = window.destroy();
-                    }
-                    app.exit(0);
+        .run(move |app, event| match event {
+            tauri::RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::CloseRequested { .. },
+                ..
+            } => {
+                append_runtime_log(
+                    &runtime_log_dir,
+                    &format!("window close requested label={label}"),
+                );
+                if let Some(window) = app.get_webview_window(&label) {
+                    let _ = window.destroy();
                 }
-                tauri::RunEvent::WindowEvent {
-                    event: WindowEvent::Destroyed,
-                    ..
-                } => {
-                    append_runtime_log(&runtime_log_dir, "window destroyed");
-                    app.exit(0);
-                }
-                tauri::RunEvent::Exit => {
-                    append_runtime_log(&runtime_log_dir, "exit");
-                    if let Some(state) = app.try_state::<DesktopState>() {
-                        shutdown_sidecar(&state.child);
-                    }
-                }
-                tauri::RunEvent::ExitRequested { .. } => {
-                    append_runtime_log(&runtime_log_dir, "exit requested");
-                    if let Some(state) = app.try_state::<DesktopState>() {
-                        shutdown_sidecar(&state.child);
-                    }
-                }
-                _ => {}
+                app.exit(0);
             }
+            tauri::RunEvent::WindowEvent {
+                event: WindowEvent::Destroyed,
+                ..
+            } => {
+                append_runtime_log(&runtime_log_dir, "window destroyed");
+                app.exit(0);
+            }
+            tauri::RunEvent::Exit => {
+                append_runtime_log(&runtime_log_dir, "exit");
+                if let Some(state) = app.try_state::<DesktopState>() {
+                    shutdown_sidecar(&state.child);
+                }
+            }
+            tauri::RunEvent::ExitRequested { .. } => {
+                append_runtime_log(&runtime_log_dir, "exit requested");
+                if let Some(state) = app.try_state::<DesktopState>() {
+                    shutdown_sidecar(&state.child);
+                }
+            }
+            _ => {}
         });
 }
 
@@ -323,18 +352,16 @@ mod tests {
 
     #[test]
     fn shutdown_sidecar_terminates_and_consumes_child() {
-        let child = if cfg!(windows) {
-            Command::new("cmd")
-                .args(["/C", "ping 127.0.0.1 -n 30 >NUL"])
-                .spawn()
-                .unwrap()
+        let mut command = if cfg!(windows) {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "ping 127.0.0.1 -n 30 >NUL"]);
+            command
         } else {
-            Command::new("sh")
-                .args(["-c", "sleep 30"])
-                .spawn()
-                .unwrap()
+            let mut command = Command::new("sh");
+            command.args(["-c", "sleep 30"]);
+            command
         };
-        let child = Mutex::new(Some(child));
+        let child = Mutex::new(Some(ManagedSidecar::spawn(&mut command).unwrap()));
 
         shutdown_sidecar(&child);
 

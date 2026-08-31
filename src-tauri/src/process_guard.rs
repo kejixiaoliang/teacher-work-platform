@@ -9,7 +9,7 @@ pub fn is_exact_runtime_path(candidate: &Path, expected: &Path) -> bool {
 
 pub struct InstanceGuard {
     #[cfg(windows)]
-    handle: windows_sys::Win32::Foundation::HANDLE,
+    handle: usize,
 }
 
 impl InstanceGuard {
@@ -17,7 +17,7 @@ impl InstanceGuard {
         #[cfg(windows)]
         {
             if profile != "installed" {
-                return Ok(Some(Self { handle: std::ptr::null_mut() }));
+                return Ok(Some(Self { handle: 0 }));
             }
             let _ = executable_root;
             let name = wide("Local\\TeacherWork-Installed-v1");
@@ -37,7 +37,9 @@ impl InstanceGuard {
                 unsafe { windows_sys::Win32::Foundation::CloseHandle(handle) };
                 return Ok(None);
             }
-            return Ok(Some(Self { handle }));
+            return Ok(Some(Self {
+                handle: handle as usize,
+            }));
         }
 
         #[cfg(not(windows))]
@@ -51,8 +53,12 @@ impl InstanceGuard {
 #[cfg(windows)]
 impl Drop for InstanceGuard {
     fn drop(&mut self) {
-        if !self.handle.is_null() {
-            unsafe { windows_sys::Win32::Foundation::CloseHandle(self.handle) };
+        if self.handle != 0 {
+            unsafe {
+                windows_sys::Win32::Foundation::CloseHandle(
+                    self.handle as windows_sys::Win32::Foundation::HANDLE,
+                )
+            };
         }
     }
 }
@@ -73,7 +79,7 @@ pub fn cleanup_orphaned_sidecars(executable_root: &Path) -> Result<usize, String
 pub struct ManagedSidecar {
     child: Child,
     #[cfg(windows)]
-    job: JobHandle,
+    _job: JobHandle,
 }
 
 impl ManagedSidecar {
@@ -93,7 +99,7 @@ impl ManagedSidecar {
                     return Err(error);
                 }
             };
-            return Ok(Self { child, job });
+            return Ok(Self { child, _job: job });
         }
 
         #[cfg(not(windows))]
@@ -117,15 +123,18 @@ impl Drop for ManagedSidecar {
 }
 
 #[cfg(windows)]
-struct JobHandle(windows_sys::Win32::Foundation::HANDLE);
+struct JobHandle(usize);
 
 #[cfg(windows)]
 impl JobHandle {
     fn for_child(child: &Child) -> Result<Self, String> {
-        use std::{mem::{size_of, zeroed}, os::windows::io::AsRawHandle};
+        use std::{
+            mem::{size_of, zeroed},
+            os::windows::io::AsRawHandle,
+        };
         use windows_sys::Win32::System::JobObjects::{
-            AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
-            JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
             JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
         };
 
@@ -154,14 +163,18 @@ impl JobHandle {
             unsafe { windows_sys::Win32::Foundation::CloseHandle(job) };
             return Err("无法托管后台服务进程".into());
         }
-        Ok(Self(job))
+        Ok(Self(job as usize))
     }
 }
 
 #[cfg(windows)]
 impl Drop for JobHandle {
     fn drop(&mut self) {
-        unsafe { windows_sys::Win32::Foundation::CloseHandle(self.0) };
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(
+                self.0 as windows_sys::Win32::Foundation::HANDLE,
+            )
+        };
     }
 }
 
@@ -200,9 +213,9 @@ fn cleanup_windows_sidecars(executable_root: &Path) -> Result<usize, String> {
         if !process.is_null() {
             let mut buffer = [0u16; 1024];
             let mut length = buffer.len() as u32;
-            let queried = unsafe {
-                QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length)
-            } != 0;
+            let queried =
+                unsafe { QueryFullProcessImageNameW(process, 0, buffer.as_mut_ptr(), &mut length) }
+                    != 0;
             if queried {
                 let path = PathBuf::from(String::from_utf16_lossy(&buffer[..length as usize]));
                 if is_exact_runtime_path(&path, &expected) {
@@ -240,7 +253,8 @@ mod tests {
 
     #[test]
     fn matches_only_the_exact_bundled_runtime_path() {
-        let expected = Path::new(r"C:\Users\tester\AppData\Local\教师工作台\resources\runtime\node.exe");
+        let expected =
+            Path::new(r"C:\Users\tester\AppData\Local\教师工作台\resources\runtime\node.exe");
         assert!(is_exact_runtime_path(
             Path::new(r"c:\users\TESTER\AppData\Local\教师工作台\resources\runtime\NODE.EXE"),
             expected

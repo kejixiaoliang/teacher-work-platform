@@ -71,4 +71,7 @@ test('release matrix keeps installed data outside the executable target and port
   assert.match(source, /RuntimeProfile::Installed/);
   assert.match(source, /RuntimeProfile::Portable/);
   assert.match(source, /shutdown_sidecar/);
+  assert.match(source, /InstanceGuard::acquire/);
+  assert.match(source, /cleanup_orphaned_sidecars/);
+  assert.match(source, /ManagedSidecar::spawn/);
 });
