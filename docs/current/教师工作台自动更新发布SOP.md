@@ -319,6 +319,18 @@ node scripts/generate-update-manifest.mjs `
 
 `latest.json` 是用户能否发现更新的开关，必须最后上传。资产未完成公网复核前，不能上传它。
 
+### 13.1 GitHub Release（使用 GitHub 对外发放时）
+
+如果项目同时通过 GitHub Release 给用户下载，CloudBase 稳定发布完成后再创建或更新对应 Release：
+
+1. 将合并后的主分支和 `vX.Y.Z` 标签推送到 GitHub。
+2. 上传安装版 `.exe`、对应 `.exe.sig` 和便携版 `.zip`。
+3. Release 资产优先使用 ASCII 文件名，避免 Windows 终端或下载链路改写中文文件名。
+4. 核对三个资产的文件名、大小和 SHA-256；安装版 `.exe` 与 `.sig` 必须来自同一次生产签名构建。
+5. 在 Release 说明中写清安装版自动更新、便携版手动升级，以及是否采用 Windows Authenticode。
+
+GitHub Release 的下载资产和 CloudBase updater 资产可以同时存在，但二者职责不同：用户手工下载 Release 资产，安装版运行中的“检查更新”仍读取 CloudBase 的 `latest.json`。不能把便携 ZIP 或 GitHub 页面地址写进 Tauri updater 清单。
+
 ## 14. 回滚规则
 
 如果稳定版出现严重问题，先暂停继续修改 `stable/latest.json`，保留已经发布的版本资产，不原地覆盖。根据问题决定让 `latest.json` 暂时指向上一版本，或发布递增修复版本。保留用户数据目录和 `pre-update-*` 恢复点，数据库回滚使用匹配版本的程序和备份，不能只替换 EXE。
@@ -357,6 +369,7 @@ CloudBase 环境：teacher-work-d5ge50r1f621766b2
 版本资产目录：teacher-work-updates/stable/v0.9.0/
 安装包 SHA-256：cd2684761c92c5cfaa6018b3f39a92a85fd54fc2bdbef74de2d065ea8f13e774
 .sig SHA-256：691011b7960225af7f349133221ce6bbde722298751a6b352934f1b60dbcdb41
+GitHub Release：v0.9.0
 Authenticode：明确不采用
 ```
 
