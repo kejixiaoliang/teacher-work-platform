@@ -1,5 +1,51 @@
 param([Parameter(Mandatory=$true)][string]$ZipPath)
 $ErrorActionPreference = 'Stop'
+$windowApi = @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class TeacherWorkWindowApi {
+    private delegate bool EnumWindowsCallback(IntPtr handle, IntPtr state);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsCallback callback, IntPtr state);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    private static extern int GetClassName(IntPtr handle, StringBuilder className, int length);
+
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam);
+
+    public static IntPtr FindTauriWindow(uint processId) {
+        IntPtr result = IntPtr.Zero;
+        EnumWindows((handle, state) => {
+            uint ownerProcessId;
+            GetWindowThreadProcessId(handle, out ownerProcessId);
+            if (ownerProcessId != processId || !IsWindowVisible(handle)) return true;
+            var className = new StringBuilder(256);
+            GetClassName(handle, className, className.Capacity);
+            if (className.ToString() == "Tao Thread Event Target") {
+                result = handle;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return result;
+    }
+
+    public static bool RequestClose(IntPtr handle) {
+        return PostMessage(handle, 0x0010, IntPtr.Zero, IntPtr.Zero);
+    }
+}
+'@
+Add-Type -TypeDefinition $windowApi
 $chineseName = -join @([char]0x6559,[char]0x5E08,' ',[char]0x5DE5,[char]0x4F5C,[char]0x53F0,' QA')
 $qaRoot = Join-Path $env:TEMP $chineseName
 if (Test-Path -LiteralPath $qaRoot) { Remove-Item -LiteralPath $qaRoot -Recurse -Force }
@@ -13,12 +59,15 @@ $db = Join-Path $productRoot 'data\teacher.db'
 $deadline = (Get-Date).AddSeconds(30)
 while (-not (Test-Path -LiteralPath $db) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
 if (-not (Test-Path -LiteralPath $db)) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'Database was not created beside the EXE' }
-$process.Refresh()
 $windowDeadline = (Get-Date).AddSeconds(30)
-while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $windowDeadline) { Start-Sleep -Milliseconds 500; $process.Refresh() }
-if ($process.MainWindowHandle -eq 0) { throw 'Main window did not become ready' }
+$windowHandle = [IntPtr]::Zero
+while ($windowHandle -eq [IntPtr]::Zero -and (Get-Date) -lt $windowDeadline) {
+  Start-Sleep -Milliseconds 500
+  $windowHandle = [TeacherWorkWindowApi]::FindTauriWindow([uint32]$process.Id)
+}
+if ($windowHandle -eq [IntPtr]::Zero) { throw 'Tauri main window did not become ready' }
 Start-Sleep -Seconds 5
-if (-not $process.CloseMainWindow()) { throw 'Unable to request a normal window close' }
+if (-not [TeacherWorkWindowApi]::RequestClose($windowHandle)) { throw 'Unable to request a normal Tauri window close' }
 if (-not $process.WaitForExit(10000)) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue; throw 'Main app did not exit after closing its window' }
 Start-Sleep -Seconds 2
 $runtimeNode = Join-Path $productRoot 'resources\runtime\node.exe'

@@ -79,6 +79,7 @@ import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { desktopApi } from '../platform/desktopApi.js';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 import { exportExcel } from '../utils/exportExcel.js';
 
@@ -139,8 +140,10 @@ onBeforeRouteLeave(async () => {
 function beforeUnloadGuard(e) {
   if (dirty.value) { e.preventDefault(); e.returnValue = ''; }
 }
-window.addEventListener('beforeunload', beforeUnloadGuard);
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+if (!desktopApi.isTauri()) {
+  window.addEventListener('beforeunload', beforeUnloadGuard);
+  onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+}
 
 onMounted(() => { loadDaily(); loadStats(); });
 

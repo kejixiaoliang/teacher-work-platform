@@ -238,6 +238,12 @@ function archiveFiles(root, manifest) {
   return manifest.map(file => ({ storedName: file.storedName, sourcePath: path.join(root, file.storedName) }));
 }
 
+function snapshotLabel(value) {
+  if (typeof value !== 'string') return null;
+  const label = value.trim();
+  return label.startsWith('pre-update-') && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(label) ? label : null;
+}
+
 async function sendArchive(res, payload, files, filename) {
   const tempZip = path.join(backupDir, `export-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.zip`);
   try {
@@ -287,6 +293,24 @@ router.get('/export-json', (req, res) => {
   } catch (e) {
     console.error('[backup/export-json]', e.message);
     res.status(500).json({ ok: false, error: 'JSON 导出失败：' + e.message });
+  }
+});
+
+// 应用内部恢复点：不下载到用户选择的路径，直接存入当前数据目录的 backups。
+router.post('/snapshot', async (req, res) => {
+  const label = snapshotLabel(req.body?.label);
+  if (!label) return res.status(400).json({ ok: false, error: '恢复点名称无效' });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const output = path.join(backupDir, `${label}-${stamp}.zip`);
+  try {
+    const files = listFileManifest();
+    const payload = exchangePayload({ includeAttachments: true });
+    await createBackupArchive({ payload, files: archiveFiles(filesDir, files), output });
+    return res.json({ ok: true, data: { filename: path.basename(output), attachments: files.length } });
+  } catch (e) {
+    try { fs.rmSync(output, { force: true }); } catch { /* 清理失败不覆盖原始错误 */ }
+    console.error('[backup/snapshot]', e.message);
+    return res.status(500).json({ ok: false, error: '创建更新前恢复点失败：' + e.message });
   }
 });
 

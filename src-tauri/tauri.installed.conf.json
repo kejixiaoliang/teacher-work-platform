@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "version": "0.9.0",
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "__SET_VIA_TAURI_UPDATER_PUBLIC_KEY__",
+      "endpoints": ["__SET_VIA_TEACHER_WORK_UPDATE_ENDPOINT__"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

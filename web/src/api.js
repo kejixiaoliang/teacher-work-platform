@@ -247,10 +247,11 @@ export const api = {
     updateContact: (id, cid, d) => request('PUT', `/api/students/${id}/contacts/${cid}`, d),
     removeContact: (id, cid) => request('DELETE', `/api/students/${id}/contacts/${cid}`),
   },
-  backup: {
-    export: () => requestBlob('GET', '/api/backup/export'),
-    exportJson: () => requestBlob('GET', '/api/backup/export-json'),
-    import: payload => request('POST', '/api/backup/import', payload),
+      backup: {
+        export: () => requestBlob('GET', '/api/backup/export'),
+        exportJson: () => requestBlob('GET', '/api/backup/export-json'),
+        snapshot: label => request('POST', '/api/backup/snapshot', { label }),
+        import: payload => request('POST', '/api/backup/import', payload),
     importFile: file => requestMultipart('/api/backup/import', file),
     update: payload => request('POST', '/api/backup/update', payload),
     exportClass: id => requestBlob('GET', `/api/backup/export-class/${id}`),

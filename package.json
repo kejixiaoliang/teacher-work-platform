@@ -1,6 +1,6 @@
 {
   "name": "teacher-work",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "description": "班主任教师工作台：班级/学生/座位/文档/值日管理（单机 Web 应用）",
@@ -14,12 +14,17 @@
     "test": "node --test tests/*.test.js && npm run version:check",
     "version:check": "node scripts/version-contract.mjs",
     "tauri:dev": "tauri dev",
-    "tauri:build": "npm run version:check && tauri build --no-bundle",
+    "tauri:build": "npm run tauri:build:portable",
+    "tauri:build:installed": "npm run version:check && node scripts/build-tauri.mjs installed",
+    "tauri:build:portable": "npm run version:check && node scripts/build-tauri.mjs portable",
+    "package:installed": "npm run tauri:build:installed && node scripts/package-installed.mjs --report-only",
     "package:portable": "node scripts/package-portable.mjs",
     "qa:portable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/qa-portable.ps1"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "archiver": "^7.0.1",
     "better-sqlite3": "^12.2.0",
     "echarts": "^6.1.0",

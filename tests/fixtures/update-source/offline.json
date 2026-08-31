@@ -1,0 +1,10 @@
+{
+  "version": "0.9.1",
+  "notes": "fixture: offline",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "fixture-signature",
+      "url": "http://127.0.0.1:9/teacher-work_0.9.1_x64-setup.exe"
+    }
+  }
+}

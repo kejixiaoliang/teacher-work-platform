@@ -6,8 +6,8 @@
 
 学生 · 座位 · 成绩 · 考勤 · 文档 · 家校沟通 · 数据备份
 
-[![Version](https://img.shields.io/badge/version-0.8.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64-2563eb)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0)
+[![Version](https://img.shields.io/badge/version-0.9.0-f35b3f)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.9.0)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-2563eb)](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.9.0)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-24c8db?logo=tauri&logoColor=white)](https://tauri.app/)
 [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vue.js&logoColor=white)](https://vuejs.org/)
 
@@ -30,7 +30,7 @@
 
 推荐第一次使用时按下面顺序操作：
 
-1. 下载并完整解压 Windows x64 便携包。
+1. 普通用户下载并安装 Windows x64 安装版；不能安装时再下载完整便携包。
 2. 双击“教师工作台.exe”，在“班级设置”中创建班级。
 3. 进入“学生管理”，下载 Excel 模板，填写学生信息后导入。
 4. 在“班级设置”中设置教师密码，并确认教师模式、班级公开模式的访问范围。
@@ -41,19 +41,32 @@
 
 ## 下载与运行
 
-当前稳定版本：**v0.8.0**
+当前版本：**v0.9.0**
 
-- [下载教师工作台 v0.8.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0)
+- [下载教师工作台 v0.9.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.9.0)
 - [查看全部 GitHub Releases](https://github.com/kejixiaoliang/teacher-work-platform/releases)
 
-普通用户只需要下载 Release 页面中的 Windows x64 绿色便携 ZIP，不需要安装 Node.js、Rust，也不需要运行安装器。
+普通用户优先下载 Release 页面中的 Windows x64 安装版。安装版程序与用户数据分离，后续可通过应用内检查更新；不能安装或需要带走整个目录时，再下载 Windows x64 绿色便携 ZIP。两种版本都不需要安装 Node.js 或 Rust。
 
-### 正确启动方式
+### 便携版正确启动方式
 
 1. 完整下载 ZIP，不要只下载其中的 EXE。
 2. 将 ZIP 解压到桌面、文档目录或其他有写入权限的位置。
 3. 保持 EXE、`resources`、`data`、`backup` 和 `logs` 的相对位置不变。
 4. 双击“教师工作台.exe”。不要在压缩包内直接运行，也不要单独移动 EXE。
+
+### 安装版发布资产
+
+安装版构建需要通过环境变量提供 Tauri updater 公钥和更新源地址，生产密钥不写入仓库：
+
+```powershell
+$env:TAURI_UPDATER_PUBLIC_KEY = '<release-public-key>'
+$env:TEACHER_WORK_UPDATE_ENDPOINT = 'https://updates.example.com/teacher-work/stable/latest.json'
+$env:TAURI_SIGNING_PRIVATE_KEY_PATH = 'C:\Users\<your-user>\Documents\TeacherWork-Release\teacher-work-stable.key'
+npm run package:installed
+```
+
+构建脚本支持通过 `TAURI_SIGNING_PRIVATE_KEY_PATH` 从仓库外的本机文件读取私钥，也支持直接使用 `TAURI_SIGNING_PRIVATE_KEY` 环境变量。构建完成后，使用 `scripts/generate-update-manifest.mjs` 生成 `latest.json` 和 SHA-256 清单；生成器的 `--endpoint-root` 参数应填写 `latest.json` 所在目录。再运行 `scripts/qa-installed.ps1` 校验安装包、`.sig`、更新清单和签名资产。仓库内的 `tests/fixtures/update-source/` 仅用于本地模拟更新状态，不是生产地址。
 
 便携目录大致如下：
 
@@ -146,12 +159,12 @@
 
 ## 升级与数据安全
 
-当前便携版采用手动升级：
+安装版支持应用内检查更新；更新前应先完成完整备份，安装器只替换程序文件，不删除 `%LOCALAPPDATA%\\TeacherWork\\data`。便携版仍采用手动升级：
 
-1. 完全退出旧版应用，确认后台进程已经结束。
+1. 安装版按应用内提示完成更新；便携版先完全退出旧版应用，确认后台进程已经结束。
 2. 使用旧版的“完整备份（含附件）”保存一份 ZIP，并复制到应用目录之外。
-3. 下载并完整解压新版便携包到新目录。
-4. 将旧版 `data/` 复制到新版目录；如需保留诊断记录，再复制 `backup/` 和 `logs/`。
+3. 便携版下载并完整解压新版便携包到新目录；安装版不需要手动替换程序目录。
+4. 便携版将旧版 `data/` 复制到新版目录；如需保留诊断记录，再复制 `backup/` 和 `logs/`。安装版数据位于 `%LOCALAPPDATA%\\TeacherWork`，不随安装包覆盖。
 5. 启动新版，等待数据库迁移完成。
 6. 检查班级、学生、座位、成绩、考勤、文档和附件是否正常。
 
@@ -189,7 +202,8 @@ npm run dev
 | `npm run build` | 构建 Web Release 资源 |
 | `npm start` | 启动已构建的生产模式服务 |
 | `npm run tauri:dev` | 启动 Tauri 开发模式 |
-| `npm run tauri:build` | 构建 Windows Release EXE |
+| `npm run tauri:build:installed` | 构建 Windows NSIS 安装版 |
+| `npm run tauri:build:portable` | 构建 Windows 绿色便携 EXE |
 | `npm run package:portable` | 生成 Windows 绿色便携 ZIP |
 | `npm run qa:portable -- -ZipPath <ZIP路径>` | 验证便携包启动、数据目录和正常退出 |
 
@@ -213,9 +227,10 @@ Windows x64 应使用 `stable-x86_64-pc-windows-msvc`。`where.exe link` 的第�
 ```powershell
 npm test
 npm run build
-npm run tauri:build
+npm run tauri:build:installed
+npm run tauri:build:portable
 npm run package:portable
-npm run qa:portable -- -ZipPath 'release\教师工作台-v0.8.0-windows-x64-portable.zip'
+npm run qa:portable -- -ZipPath 'release\教师工作台-v0.9.0-windows-x64-portable.zip'
 ```
 
 发布前至少检查：中文路径、包含空格的路径、空数据目录首次启动、退出后数据持久化、移动整个应用目录、WebView2 依赖、Excel 保存、文件选择器、文档拖入和正常关闭后无残留 Node.js 进程。
@@ -242,13 +257,14 @@ teacher-work/
 - 应用需要 Microsoft Edge WebView2 Runtime，目标电脑应提前确认环境。
 - 数据默认保存在应用目录旁，应用必须放在当前用户有写入权限的位置。
 - EXE、`resources/` 和数据目录属于同一个便携应用，不支持只复制 EXE 使用。
-- 当前 v0.8.0 本地版默认不主动上传数据；未来云端或小程序版本需以对应版本的隐私说明为准。
+- 当前 v0.9.0 本地版默认不主动上传数据；自动更新只获取公开版本清单和程序更新包，不上传班级业务数据。
 
 ## 版本记录
 
 | 版本 | 状态 | 主要内容 |
 | --- | --- | --- |
-| [v0.8.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0) | 最新 | 座位窄屏显示与走道均分修复、值日按星期默认分组、学生预设字段显示自定义、科目模板持久化、文档预览反馈与便携包构建门禁 |
+| [v0.9.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.9.0) | 最新 | Windows 安装版基础、安装版与便携版数据隔离、NSIS/便携双构建链路和自动更新准备 |
+| [v0.8.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.8.0) | 历史 | 座位窄屏显示与走道均分修复、值日按星期默认分组、学生预设字段显示自定义、科目模板持久化、文档预览反馈与便携包构建门禁 |
 | [v0.7.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.7.0) | 历史 | 数据备份、恢复、更新导入、旧 JSON 兼容、统一导出、自定义保存路径、成绩持久化和 Excel 导入修复 |
 | [v0.6.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.6.0) | 历史 | 班级公开模式、教师工作台模式、教师密码保护、访问控制和自动锁定 |
 | [v0.5.0](https://github.com/kejixiaoliang/teacher-work-platform/releases/tag/v0.5.0) | 历史 | 班主任日常工作台、结构化跟进事项和首页工作流聚合 |
@@ -270,6 +286,9 @@ teacher-work/
 - [v0.8.0 用户反馈问题分类与修复范围](docs/current/2026-08-29-v0.8.0-用户反馈问题分类与修复范围.md)
 - [v0.8.0 座位与值日修复设计](docs/superpowers/specs/2026-08-29-v0.8.0-座位值日修复设计.md)
 - [v0.8.0 实施完成记录](docs/superpowers/plans/2026-08-29-v0.8.0实施完成记录.md)
+- [v0.9.0 Windows 安装版与自动更新实施计划](docs/superpowers/plans/2026-08-29-v0.9.0-Windows安装版与自动更新实施计划.md)
+- [v0.9.0 安装版闪退问题排查与修复总结](docs/current/2026-08-30-v0.9.0安装版闪退问题排查与修复总结.md)
+- [v0.9.0 自动更新部署方案对比与操作流程](docs/current/2026-08-30-v0.9.0自动更新部署方案对比与操作流程.md)
 
 ## 授权协议
 
@@ -284,7 +303,7 @@ teacher-work/
 
 ## 数据与隐私
 
-当前 v0.8.0 本地版默认在本机运行，不要求注册账号，也不会主动把班级数据上传到外部服务。请妥善保管便携目录、备份文件和导出的学生资料。未来云端或小程序版本的具体数据处理方式，以对应版本的隐私说明为准。
+当前 v0.9.0 本地版默认在本机运行，不要求注册账号，也不会主动把班级数据上传到外部服务。自动更新只获取公开版本清单和程序更新包，不上传班级业务数据。请妥善保管安装版数据目录、便携目录、备份文件和导出的学生资料。
 
 ## 给 AI 工具和代码代理的项目说明
 

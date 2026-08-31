@@ -1,6 +1,8 @@
 import { configureRuntime, getRuntimeConfig, toApiUrl } from './runtimeConfig.js';
+import { createUpdater } from '../desktop/updater.js';
 
 export const desktopApi = {
+  updater: createUpdater(),
   isTauri() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI_INTERNALS__);
   },
@@ -21,6 +23,11 @@ export const desktopApi = {
         filters,
       },
     });
+  },
+  async shutdownBackend() {
+    if (!this.isTauri()) return null;
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke('shutdown_backend');
   },
   toApiUrl,
 };

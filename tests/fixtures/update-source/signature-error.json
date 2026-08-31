@@ -1,0 +1,11 @@
+{
+  "version": "0.9.1",
+  "notes": "fixture: invalid signature",
+  "pub_date": "2026-08-29T00:00:00.000Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "not-a-valid-tauri-signature",
+      "url": "http://127.0.0.1:0/teacher-work_0.9.1_x64-setup.exe"
+    }
+  }
+}

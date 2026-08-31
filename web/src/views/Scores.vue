@@ -157,6 +157,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, Upload, Download } from '@element-plus/icons-vue';
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { desktopApi } from '../platform/desktopApi.js';
 import EChart from '../components/EChart.vue';
 import { useSeqLoad } from '../composables/useSeqLoad.js';
 import { exportExcel } from '../utils/exportExcel.js';
@@ -400,8 +401,10 @@ onBeforeRouteLeave(async () => {
 function beforeUnloadGuard(e) {
   if (scoreDirty.value) { e.preventDefault(); e.returnValue = ''; }
 }
-window.addEventListener('beforeunload', beforeUnloadGuard);
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+if (!desktopApi.isTauri()) {
+  window.addEventListener('beforeunload', beforeUnloadGuard);
+  onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard));
+}
 
 async function loadExams() {
   if (!store.currentClassId) { exams.value = []; currentExam.value = null; return; }

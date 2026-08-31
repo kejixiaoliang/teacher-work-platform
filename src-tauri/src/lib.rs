@@ -1,13 +1,16 @@
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
-    process::{Child, Command, Stdio},
+    process::{Command, Stdio},
     sync::Mutex,
     time::{Duration, Instant},
 };
 use tauri::{Manager, State, WindowEvent};
+
+mod process_guard;
+use process_guard::{cleanup_orphaned_sidecars, InstanceGuard, ManagedSidecar};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -18,13 +21,32 @@ struct DesktopBootstrap {
     api_base_url: String,
     api_token: String,
     data_dir: String,
+    runtime_profile: String,
     app_version: String,
     database_version: u32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RuntimeProfile {
+    Dev,
+    Portable,
+    Installed,
+}
+
+impl RuntimeProfile {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Dev => "dev",
+            Self::Portable => "portable",
+            Self::Installed => "installed",
+        }
+    }
+}
+
 struct DesktopState {
     bootstrap: DesktopBootstrap,
-    child: Mutex<Child>,
+    child: Mutex<Option<ManagedSidecar>>,
+    _instance_guard: InstanceGuard,
 }
 
 #[derive(Deserialize)]
@@ -49,7 +71,11 @@ fn desktop_bootstrap(state: State<'_, DesktopState>) -> DesktopBootstrap {
 fn save_file(request: SaveFileRequest) -> Result<Option<String>, String> {
     let mut dialog = rfd::FileDialog::new().set_file_name(&request.filename);
     for filter in request.filters {
-        let extensions = filter.extensions.iter().map(String::as_str).collect::<Vec<_>>();
+        let extensions = filter
+            .extensions
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
         dialog = dialog.add_filter(&filter.name, &extensions);
     }
     let Some(path) = dialog.save_file() else {
@@ -59,7 +85,23 @@ fn save_file(request: SaveFileRequest) -> Result<Option<String>, String> {
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
-fn portable_root() -> Result<PathBuf, String> {
+#[tauri::command]
+fn shutdown_backend(state: State<'_, DesktopState>) -> Result<(), String> {
+    shutdown_sidecar(&state.child);
+    Ok(())
+}
+
+fn runtime_profile() -> RuntimeProfile {
+    if cfg!(debug_assertions) {
+        RuntimeProfile::Dev
+    } else if cfg!(feature = "installed") {
+        RuntimeProfile::Installed
+    } else {
+        RuntimeProfile::Portable
+    }
+}
+
+fn runtime_root() -> Result<PathBuf, String> {
     if cfg!(debug_assertions) {
         return Ok(Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -73,15 +115,59 @@ fn portable_root() -> Result<PathBuf, String> {
         .ok_or_else(|| "无法定位便携目录".into())
 }
 
+fn resolve_data_dir(
+    profile: RuntimeProfile,
+    executable_root: &Path,
+    local_app_data: Option<&Path>,
+) -> Result<PathBuf, String> {
+    match profile {
+        RuntimeProfile::Dev | RuntimeProfile::Portable => Ok(executable_root.join("data")),
+        RuntimeProfile::Installed => local_app_data
+            .map(|root| root.join("TeacherWork").join("data"))
+            .ok_or_else(|| "无法定位 Windows 本地应用数据目录".into()),
+    }
+}
+
+fn windows_local_app_data() -> Result<PathBuf, String> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or_else(|| "缺少 LOCALAPPDATA 环境变量".into())
+}
+
+fn append_runtime_log(data_dir: &Path, message: &str) {
+    let log_dir = data_dir.join("logs");
+    if std::fs::create_dir_all(&log_dir).is_err() {
+        return;
+    }
+    let path = log_dir.join("desktop-runtime.log");
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(file, "{message}");
+    }
+}
+
 fn random_token() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
-    let root = portable_root()?;
-    let data_dir = root.join("data");
+fn start_backend() -> Result<(ManagedSidecar, DesktopBootstrap), String> {
+    let profile = runtime_profile();
+    let root = runtime_root()?;
+    let local_app_data = if profile == RuntimeProfile::Installed {
+        Some(windows_local_app_data()?)
+    } else {
+        None
+    };
+    let data_dir = resolve_data_dir(profile, &root, local_app_data.as_deref())?;
+    append_runtime_log(
+        &data_dir,
+        &format!("start profile={} root={}", profile.as_str(), root.display()),
+    );
     std::fs::create_dir_all(&data_dir).map_err(|e| format!("无法创建数据目录: {e}"))?;
     let probe = data_dir.join(".write-test");
     std::fs::write(&probe, b"ok").map_err(|e| format!("数据目录不可写: {e}"))?;
@@ -116,10 +202,9 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
     #[cfg(windows)]
     command.creation_flags(0x08000000);
 
-    let mut child = command
-        .spawn()
-        .map_err(|e| format!("无法启动本地服务: {e}"))?;
+    let mut child = ManagedSidecar::spawn(&mut command)?;
     let stdout = child
+        .child_mut()
         .stdout
         .take()
         .ok_or_else(|| "无法读取本地服务状态".to_string())?;
@@ -142,77 +227,178 @@ fn start_backend() -> Result<(Child, DesktopBootstrap), String> {
         }
     }
     let port = ready.ok_or_else(|| {
-        let _ = child.kill();
+        append_runtime_log(&data_dir, "backend timeout");
+        child.shutdown();
         "本地服务启动超时".to_string()
     })?;
+    append_runtime_log(&data_dir, &format!("backend ready port={port}"));
     let bootstrap = DesktopBootstrap {
         api_base_url: format!("http://127.0.0.1:{port}"),
         api_token: token,
         data_dir: data_dir.to_string_lossy().into_owned(),
+        runtime_profile: profile.as_str().into(),
         app_version: env!("CARGO_PKG_VERSION").into(),
-            database_version: 8,
+        database_version: 8,
     };
     Ok((child, bootstrap))
 }
 
+fn shutdown_sidecar(child: &Mutex<Option<ManagedSidecar>>) {
+    let child = child.lock().ok().and_then(|mut child| child.take());
+    if let Some(mut child) = child {
+        child.shutdown();
+    }
+}
+
 pub fn run() {
+    let profile = runtime_profile();
+    let root = runtime_root().unwrap_or_else(|error| panic!("{error}"));
+    let Some(instance_guard) =
+        InstanceGuard::acquire(profile.as_str(), &root).unwrap_or_else(|error| panic!("{error}"))
+    else {
+        return;
+    };
+    if profile == RuntimeProfile::Installed {
+        if let Err(error) = cleanup_orphaned_sidecars(&root) {
+            eprintln!("清理残留本地服务失败: {error}");
+        }
+    }
     let (child, bootstrap) = start_backend().unwrap_or_else(|error| panic!("{error}"));
+    let runtime_log_dir = PathBuf::from(&bootstrap.data_dir);
+    append_runtime_log(&runtime_log_dir, "tauri build begin");
+    let setup_log_dir = runtime_log_dir.clone();
     tauri::Builder::default()
+        .setup(move |app| {
+            append_runtime_log(&setup_log_dir, "tauri setup begin");
+            #[cfg(not(feature = "installed"))]
+            let _ = app;
+            #[cfg(feature = "installed")]
+            {
+                if let Err(error) = app.handle().plugin(tauri_plugin_process::init()) {
+                    append_runtime_log(&setup_log_dir, &format!("process plugin failed: {error}"));
+                    return Err(error.into());
+                }
+                append_runtime_log(&setup_log_dir, "process plugin complete");
+                if let Err(error) = app
+                    .handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())
+                {
+                    append_runtime_log(&setup_log_dir, &format!("updater plugin failed: {error}"));
+                    return Err(error.into());
+                }
+                append_runtime_log(&setup_log_dir, "updater plugin complete");
+            }
+            append_runtime_log(&setup_log_dir, "tauri setup complete");
+            Ok(())
+        })
         .manage(DesktopState {
             bootstrap,
-            child: Mutex::new(child),
+            child: Mutex::new(Some(child)),
+            _instance_guard: instance_guard,
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
-                if let Some(state) = window.app_handle().try_state::<DesktopState>() {
-                    if let Ok(mut child) = state.child.lock() {
-                        let _ = child.kill();
-                    }
-                }
                 window.app_handle().exit(0);
-                std::process::exit(0);
             }
         })
-        .invoke_handler(tauri::generate_handler![desktop_bootstrap, save_file])
+        .invoke_handler(tauri::generate_handler![
+            desktop_bootstrap,
+            save_file,
+            shutdown_backend
+        ])
         .build(tauri::generate_context!())
         .expect("failed to build application")
-        .run(|app, event| {
-            match event {
-                tauri::RunEvent::WindowEvent {
-                    event: WindowEvent::CloseRequested { .. },
-                    ..
-                } => {
-                    if let Some(state) = app.try_state::<DesktopState>() {
-                        if let Ok(mut child) = state.child.lock() {
-                            let _ = child.kill();
-                        }
-                    }
-                    app.exit(0);
-                    std::process::exit(0);
+        .run(move |app, event| match event {
+            tauri::RunEvent::WindowEvent {
+                label,
+                event: WindowEvent::CloseRequested { .. },
+                ..
+            } => {
+                append_runtime_log(
+                    &runtime_log_dir,
+                    &format!("window close requested label={label}"),
+                );
+                if let Some(window) = app.get_webview_window(&label) {
+                    let _ = window.destroy();
                 }
-                    tauri::RunEvent::Exit => {
-                        if let Some(state) = app.try_state::<DesktopState>() {
-                            if let Ok(mut child) = state.child.lock() {
-                                let _ = child.kill();
-                            }
-                        }
-                    }
-                    tauri::RunEvent::ExitRequested { .. } => {
-                        if let Some(state) = app.try_state::<DesktopState>() {
-                            if let Ok(mut child) = state.child.lock() {
-                                let _ = child.kill();
-                            }
-                        }
-                        std::process::exit(0);
-                    }
-                    _ => {}
+                app.exit(0);
             }
+            tauri::RunEvent::WindowEvent {
+                event: WindowEvent::Destroyed,
+                ..
+            } => {
+                append_runtime_log(&runtime_log_dir, "window destroyed");
+                app.exit(0);
+            }
+            tauri::RunEvent::Exit => {
+                append_runtime_log(&runtime_log_dir, "exit");
+                if let Some(state) = app.try_state::<DesktopState>() {
+                    shutdown_sidecar(&state.child);
+                }
+            }
+            tauri::RunEvent::ExitRequested { .. } => {
+                append_runtime_log(&runtime_log_dir, "exit requested");
+                if let Some(state) = app.try_state::<DesktopState>() {
+                    shutdown_sidecar(&state.child);
+                }
+            }
+            _ => {}
         });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shutdown_sidecar_terminates_and_consumes_child() {
+        let mut command = if cfg!(windows) {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "ping 127.0.0.1 -n 30 >NUL"]);
+            command
+        } else {
+            let mut command = Command::new("sh");
+            command.args(["-c", "sleep 30"]);
+            command
+        };
+        let child = Mutex::new(Some(ManagedSidecar::spawn(&mut command).unwrap()));
+
+        shutdown_sidecar(&child);
+
+        assert!(child.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn profile_data_directories_are_isolated() {
+        let executable_root = PathBuf::from(r"D:\老师 资料\教师工作台");
+        let local_app_data = PathBuf::from(r"C:\Users\老师\AppData\Local");
+
+        assert_eq!(
+            resolve_data_dir(RuntimeProfile::Dev, &executable_root, None).unwrap(),
+            executable_root.join("data")
+        );
+        assert_eq!(
+            resolve_data_dir(RuntimeProfile::Portable, &executable_root, None).unwrap(),
+            executable_root.join("data")
+        );
+        assert_eq!(
+            resolve_data_dir(
+                RuntimeProfile::Installed,
+                &executable_root,
+                Some(&local_app_data)
+            )
+            .unwrap(),
+            local_app_data.join("TeacherWork").join("data")
+        );
+    }
+
+    #[test]
+    fn installed_profile_requires_local_app_data() {
+        let root = PathBuf::from(r"C:\Program Files\TeacherWork");
+        let error = resolve_data_dir(RuntimeProfile::Installed, &root, None).unwrap_err();
+        assert!(error.contains("LOCALAPPDATA") || error.contains("应用数据"));
+    }
+
     #[test]
     fn release_paths_are_sibling_directories() {
         let root = PathBuf::from(r"D:\老师 资料\教师工作台");

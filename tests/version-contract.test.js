@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateVersionContract } from '../scripts/version-contract.mjs';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function fixture({ packageVersion = '0.4.0', tauriVersion = '0.4.0', cargoVersion = '0.4.0', changelogVersion = '0.4.0' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'teacher-work-version-'));
@@ -18,6 +21,10 @@ function fixture({ packageVersion = '0.4.0', tauriVersion = '0.4.0', cargoVersio
 
 test('matching product versions satisfy the build contract', () => {
   assert.deepEqual(validateVersionContract(fixture()), { version: '0.4.0' });
+});
+
+test('v0.9.0 release metadata is ready for the installer milestone', () => {
+  assert.deepEqual(validateVersionContract(projectRoot), { version: '0.9.0' });
 });
 
 test('Cargo product version mismatch identifies Cargo.toml', () => {
