@@ -62,10 +62,11 @@
 ```powershell
 $env:TAURI_UPDATER_PUBLIC_KEY = '<release-public-key>'
 $env:TEACHER_WORK_UPDATE_ENDPOINT = 'https://updates.example.com/teacher-work/stable/latest.json'
+$env:TAURI_SIGNING_PRIVATE_KEY_PATH = 'C:\Users\<your-user>\Documents\TeacherWork-Release\teacher-work-stable.key'
 npm run package:installed
 ```
 
-构建完成后，使用 `scripts/generate-update-manifest.mjs` 生成 `latest.json` 和 SHA-256 清单；生成器的 `--endpoint-root` 参数应填写 `latest.json` 所在目录。再运行 `scripts/qa-installed.ps1` 校验安装包、`.sig`、更新清单和签名资产。仓库内的 `tests/fixtures/update-source/` 仅用于本地模拟更新状态，不是生产地址。
+构建脚本支持通过 `TAURI_SIGNING_PRIVATE_KEY_PATH` 从仓库外的本机文件读取私钥，也支持直接使用 `TAURI_SIGNING_PRIVATE_KEY` 环境变量。构建完成后，使用 `scripts/generate-update-manifest.mjs` 生成 `latest.json` 和 SHA-256 清单；生成器的 `--endpoint-root` 参数应填写 `latest.json` 所在目录。再运行 `scripts/qa-installed.ps1` 校验安装包、`.sig`、更新清单和签名资产。仓库内的 `tests/fixtures/update-source/` 仅用于本地模拟更新状态，不是生产地址。
 
 便携目录大致如下：
 
