@@ -72,7 +72,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, shallowRef } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../api.js';
 import { desktopApi } from '../platform/desktopApi.js';
@@ -85,7 +85,7 @@ const databaseVersion = computed(() => runtime.value.databaseVersion || 8);
 const canUpdate = computed(() => runtime.value.runtimeProfile === 'installed');
 const runtimeLabel = computed(() => canUpdate.value ? '安装版 · stable' : '便携版 · stable');
 const updateState = ref('idle');
-const pendingUpdate = ref(null);
+const pendingUpdate = shallowRef(null);
 const updateMessage = ref('');
 const downloadBytes = ref(0);
 const contentLength = ref(0);

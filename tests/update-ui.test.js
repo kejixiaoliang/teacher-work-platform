@@ -22,6 +22,11 @@ test('update installation requires an explicit confirmation and a pre-update bac
   assert.match(changelog, /onProgress/);
 });
 
+test('release page keeps the native updater result out of Vue deep reactivity', () => {
+  assert.match(changelog, /import \{ computed, ref, shallowRef \} from 'vue';/);
+  assert.match(changelog, /const pendingUpdate = shallowRef\(null\);/);
+});
+
 test('pre-update snapshot is stored internally with attachments and a safe label', () => {
   assert.match(backupApi, /snapshot:/);
   assert.match(backupRoute, /router\.post\('\/snapshot'/);
